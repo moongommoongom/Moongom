@@ -1,0 +1,3181 @@
+diff -ruN a/README.md b/README.md
+--- a/README.md	2026-11-03 20:10:20.262155042 +0900
++++ b/README.md	2026-11-01 10:05:39.000000000 +0900
+@@ -44,7 +44,7 @@
+ * ST1010 (F1 Roc 2)
+ * BSX (Satellaview)
+ 
+-The Super Game Boy, ST011 (Hayazashi Nidan Morita Shougi), and ST018 (Hayazashi Nidan Morita Shougi 2) are not supported in the MiSTer core, and therefore are not supported here. Additionally, the homebrew MSU expansion chip is not currently supported.
++The Super Game Boy, ST011 (Hayazashi Nidan Morita Shougi), and ST018 (Hayazashi Nidan Morita Shougi 2) are not supported in the MiSTer core, and therefore are not supported here. MSU-1 support is experimental (see docs/MSU1.md).
+ 
+ #### BSX
+ 
+diff -ruN a/dist/Cores/agg23.SNES/audio.json b/dist/Cores/agg23.SNES/audio.json
+--- a/dist/Cores/agg23.SNES/audio.json	2026-11-03 20:10:20.262795920 +0900
++++ b/dist/Cores/agg23.SNES/audio.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,5 +0,0 @@
+-{
+-  "audio": {
+-    "magic": "APF_VER_1"
+-  }
+-}
+diff -ruN a/dist/Cores/agg23.SNES/core.json b/dist/Cores/agg23.SNES/core.json
+--- a/dist/Cores/agg23.SNES/core.json	2026-11-03 20:10:20.262816809 +0900
++++ b/dist/Cores/agg23.SNES/core.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,47 +0,0 @@
+-{
+-  "core": {
+-    "magic": "APF_VER_1",
+-    "metadata": {
+-      "platform_ids": [
+-        "snes"
+-      ],
+-      "shortname": "SNES",
+-      "description": "Super Nintendo and Super Famicom. Nintendo's second major home console",
+-      "author": "agg23",
+-      "url": "https://github.com/agg23/openfpga-snes",
+-      "version": "0.4.4",
+-      "date_release": "2024-09-16"
+-    },
+-    "framework": {
+-      "target_product": "Analogue Pocket",
+-      "version_required": "1.1",
+-      "sleep_supported": false,
+-      "dock": {
+-        "supported": true,
+-        "analog_output": false
+-      },
+-      "hardware": {
+-        "link_port": false,
+-        "cartridge_adapter": -1
+-      },
+-      "chip32_vm": "loader.bin"
+-    },
+-    "cores": [
+-      {
+-        "name": "main",
+-        "id": 0,
+-        "filename": "snes_main.rev"
+-      },
+-      {
+-        "name": "SPCSDD1",
+-        "id": 1,
+-        "filename": "snes_spc.rev"
+-      },
+-      {
+-        "name": "PAL",
+-        "id": 2,
+-        "filename": "snes_pal.rev"
+-      }
+-    ]
+-  }
+-}
+\ No newline at end of file
+diff -ruN a/dist/Cores/agg23.SNES/data.json b/dist/Cores/agg23.SNES/data.json
+--- a/dist/Cores/agg23.SNES/data.json	2026-11-03 20:10:20.262836905 +0900
++++ b/dist/Cores/agg23.SNES/data.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,25 +0,0 @@
+-{
+-  "data": {
+-    "magic": "APF_VER_1",
+-    "data_slots": [
+-      {
+-        "name": "Cartridge",
+-        "id": 0,
+-        "required": true,
+-        "parameters": "0x109",
+-        "extensions": ["smc", "sfc", "bs"],
+-        "address": "0x10000000"
+-      },
+-      {
+-        "name": "Save",
+-        "id": 10,
+-        "required": false,
+-        "parameters": "0x84",
+-        "nonvolatile": true,
+-        "extensions": ["sav", "srm"],
+-        "address": "0x20000000",
+-        "size_maximum": "0x20000"
+-      }
+-    ]
+-  }
+-}
+Binary files a/dist/Cores/agg23.SNES/icon.bin and b/dist/Cores/agg23.SNES/icon.bin differ
+diff -ruN a/dist/Cores/agg23.SNES/info.txt b/dist/Cores/agg23.SNES/info.txt
+--- a/dist/Cores/agg23.SNES/info.txt	2026-11-03 20:10:20.262888377 +0900
++++ b/dist/Cores/agg23.SNES/info.txt	1970-01-01 09:00:00.000000000 +0900
+@@ -1,5 +0,0 @@
+-Port by agg23. Core by srg320.
+-
+-Super Nintendo Entertainment System (SNES), referred to as the Super Famicom (SFC) in Japan was the second home console produced by Nintendo. A 16-bit console that remains hugely popular to this day due to its expansive library and impressive enhancement chips.
+-
+-Core supports 4 controllers (when connected to the Dock), and the SA-1, Super FX (GSU), DSP, CX4, S-DD1, SPC7110, and BSX expansion chips. Please report all issues to agg23, as most likely any issues experienced are issues with the port, not the core.
+\ No newline at end of file
+diff -ruN a/dist/Cores/agg23.SNES/input.json b/dist/Cores/agg23.SNES/input.json
+--- a/dist/Cores/agg23.SNES/input.json	2026-11-03 20:10:20.262908368 +0900
++++ b/dist/Cores/agg23.SNES/input.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,52 +0,0 @@
+-{
+-  "input": {
+-    "magic": "APF_VER_1",
+-    "controllers": [
+-      {
+-        "type": "default",
+-        "mappings": [
+-          {
+-            "id": 0,
+-            "name": "A Button",
+-            "key": "pad_btn_a"
+-          },
+-          {
+-            "id": 1,
+-            "name": "B Button",
+-            "key": "pad_btn_b"
+-          },
+-          {
+-            "id": 2,
+-            "name": "X Button",
+-            "key": "pad_btn_x"
+-          },
+-          {
+-            "id": 3,
+-            "name": "Y Button",
+-            "key": "pad_btn_y"
+-          },
+-          {
+-            "id": 10,
+-            "name": "Left Trigger",
+-            "key": "pad_trig_l"
+-          },
+-          {
+-            "id": 11,
+-            "name": "Right Trigger",
+-            "key": "pad_trig_r"
+-          },
+-          {
+-            "id": 20,
+-            "name": "Start",
+-            "key": "pad_btn_start"
+-          },
+-          {
+-            "id": 21,
+-            "name": "Select",
+-            "key": "pad_btn_select"
+-          }
+-        ]
+-      }
+-    ]
+-  }
+-}
+diff -ruN a/dist/Cores/agg23.SNES/interact.json b/dist/Cores/agg23.SNES/interact.json
+--- a/dist/Cores/agg23.SNES/interact.json	2026-11-03 20:10:20.262933394 +0900
++++ b/dist/Cores/agg23.SNES/interact.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,133 +0,0 @@
+-{
+-  "interact": {
+-    "magic": "APF_VER_1",
+-    "variables": [
+-      {
+-        "name": "Reset Core",
+-        "id": 10,
+-        "type": "action",
+-        "enabled": true,
+-        "address": "0x50",
+-        "value": 1
+-      },
+-      {
+-        "name": "CPU Turbo",
+-        "id": 15,
+-        "type": "check",
+-        "enabled": true,
+-        "address": "0x80",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 0,
+-        "value": 1
+-      },
+-      {
+-        "name": "SuperFX Turbo",
+-        "id": 16,
+-        "type": "check",
+-        "enabled": true,
+-        "address": "0x84",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 0,
+-        "value": 1
+-      },
+-      {
+-        "name": "Use Multitap",
+-        "id": 20,
+-        "type": "check",
+-        "enabled": true,
+-        "address": "0x100",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 0,
+-        "value": 1
+-      },
+-      {
+-        "name": "Controller Options",
+-        "id": 30,
+-        "type": "list",
+-        "enabled": true,
+-        "address": "0x104",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 0,
+-        "options": [
+-          {
+-            "name": "Gamepad",
+-            "value": 0
+-          },
+-          {
+-            "name": "Super Scope",
+-            "value": 1
+-          },
+-          {
+-            "name": "Justifier",
+-            "value": 3
+-          },
+-          {
+-            "name": "Mouse",
+-            "value": 4
+-          }
+-        ]
+-      },
+-      {
+-        "name": "D-Pad Aim Speed",
+-        "id": 34,
+-        "type": "slider_u32",
+-        "enabled": true,
+-        "address": "0x108",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 3,
+-        "graphical": {
+-          "signed": false,
+-          "min": 1,
+-          "max": 10,
+-          "adjust_small": 1,
+-          "adjust_large": 4
+-        }
+-      },
+-      {
+-        "name": "Joy Deadzone",
+-        "id": 35,
+-        "type": "slider_u32",
+-        "enabled": true,
+-        "address": "0x0000010C",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 0,
+-        "graphical": {
+-          "signed": false,
+-          "min": 0,
+-          "max": 64,
+-          "adjust_small": 1,
+-          "adjust_large": 10
+-        }
+-      },
+-      {
+-        "name": "Square Pixels",
+-        "id": 42,
+-        "type": "check",
+-        "enabled": true,
+-        "address": "0x200",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 0,
+-        "value": 1
+-      },
+-      {
+-        "name": "Pseudo Transparency",
+-        "id": 41,
+-        "type": "check",
+-        "enabled": true,
+-        "address": "0x204",
+-        "persist": true,
+-        "writeonly": true,
+-        "defaultval": 1,
+-        "value": 1
+-      }
+-    ],
+-    "messages": []
+-  }
+-}
+diff -ruN a/dist/Cores/agg23.SNES/variants.json b/dist/Cores/agg23.SNES/variants.json
+--- a/dist/Cores/agg23.SNES/variants.json	2026-11-03 20:10:20.263350853 +0900
++++ b/dist/Cores/agg23.SNES/variants.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,6 +0,0 @@
+-{
+-  "variants": {
+-    "magic": "APF_VER_1",
+-    "variant_list": []
+-  }
+-}
+diff -ruN a/dist/Cores/agg23.SNES/video.json b/dist/Cores/agg23.SNES/video.json
+--- a/dist/Cores/agg23.SNES/video.json	2026-11-03 20:10:20.263389518 +0900
++++ b/dist/Cores/agg23.SNES/video.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,59 +0,0 @@
+-{
+-  "video": {
+-    "magic": "APF_VER_1",
+-    "scaler_modes": [
+-      {
+-        "width": 512,
+-        "height": 224,
+-        "aspect_w": 64,
+-        "aspect_h": 49,
+-        "rotation": 0,
+-        "mirror": 0
+-      },
+-      {
+-        "width": 512,
+-        "height": 224,
+-        "aspect_w": 8,
+-        "aspect_h": 7,
+-        "rotation": 0,
+-        "mirror": 0
+-      },
+-      {
+-        "width": 512,
+-        "height": 240,
+-        "aspect_w": 128,
+-        "aspect_h": 105,
+-        "rotation": 0,
+-        "mirror": 0
+-      },
+-      {
+-        "width": 512,
+-        "height": 240,
+-        "aspect_w": 16,
+-        "aspect_h": 15,
+-        "rotation": 0,
+-        "mirror": 0
+-      }
+-    ],
+-    "display_modes": [
+-      {
+-        "id": "0x10"
+-      },
+-      {
+-         "id": "0x20"
+-      },
+-      {
+-         "id": "0x30"
+-      },
+-      {
+-         "id": "0x40"
+-      },
+-      {
+-         "id": "0xE0"
+-      },
+-      {
+-         "id": "0xE1"
+-      }
+-    ]
+-  }
+-}
+Binary files a/dist/Platforms/_images/snes.bin and b/dist/Platforms/_images/snes.bin differ
+diff -ruN a/dist/Platforms/snes.json b/dist/Platforms/snes.json
+--- a/dist/Platforms/snes.json	2026-11-03 20:10:20.263576474 +0900
++++ b/dist/Platforms/snes.json	1970-01-01 09:00:00.000000000 +0900
+@@ -1,8 +0,0 @@
+-{
+-  "platform": {
+-    "category": "Console",
+-    "name": "SNES",
+-    "manufacturer": "Nintendo",
+-    "year": 1990
+-  }
+-}
+diff -ruN a/docs/MSU1.md b/docs/MSU1.md
+--- a/docs/MSU1.md	1970-01-01 09:00:00.000000000 +0900
++++ b/docs/MSU1.md	2026-11-01 10:05:37.000000000 +0900
+@@ -0,0 +1,20 @@
++# MSU-1 support (experimental, untested)
++
++## 파일 배치
++ROM과 같은 폴더(예: /Assets/snes/common/)에 둡니다.
++    game.sfc / game.msu / game-1.pcm / game-2.pcm ...
++코어 메뉴에서 ROM을 로드하면 MSU 데이터/오디오 슬롯 경로가 ROM 경로에서 자동 유도됩니다.
++(1GB 미만 팩 대상. 트랙/데이터는 SD에서 APF 데이터슬롯 읽기로 스트리밍.)
++
++## 빌드
++    quartus_sh -t generate.tcl ntsc     # -> output_files/*.rbf
++    quartus_sh -t generate.tcl pal
++    python3 tools/rbf_to_rev.py ap_core_ntsc.rbf snes_main.rev
++    python3 tools/rbf_to_rev.py ap_core_pal.rbf  snes_pal.rev
++.rev 파일을 Cores/agg23.SNES/ 에 복사 (SPC/SDD1 variant 는 USE_MSU=0 유지).
++
++## 미검증 가정
++- 0x0192 후 데이터슬롯 크기 테이블 갱신 여부 (없으면 트랙 크기 0=없음 처리)
++- 0x0190 이 슬롯 0 에서 /Assets/... 전체 경로를 돌려주는지
++- 브릿지 바이트 순서, 타겟 커맨드 지연 vs 오디오 버퍼, FPGA 리소스/타이밍
++- Quartus 컴파일·시뮬레이션 하지 않음
+diff -ruN a/generate.tcl b/generate.tcl
+--- a/generate.tcl	2026-11-03 20:10:20.263626589 +0900
++++ b/generate.tcl	2026-11-01 17:13:39.000000000 +0900
+@@ -20,11 +20,11 @@
+   set_parameter -name USE_CX4 -entity MAIN_SNES '1
+   set_parameter -name USE_SDD1 -entity MAIN_SNES '0
+   set_parameter -name USE_GSU -entity MAIN_SNES '1
+-  set_parameter -name USE_SA1 -entity MAIN_SNES '1
++  set_parameter -name USE_SA1 -entity MAIN_SNES '0
+   set_parameter -name USE_DSPn -entity MAIN_SNES '1
+   set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
+   set_parameter -name USE_BSX -entity MAIN_SNES '0
+-  set_parameter -name USE_MSU -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
+ } elseif { [lindex $argv 0] == "pal" } {
+   puts "PAL"
+   set_parameter -name PAL_PLL -entity core_top '1
+@@ -32,11 +32,11 @@
+   set_parameter -name USE_CX4 -entity MAIN_SNES '1
+   set_parameter -name USE_SDD1 -entity MAIN_SNES '0
+   set_parameter -name USE_GSU -entity MAIN_SNES '1
+-  set_parameter -name USE_SA1 -entity MAIN_SNES '1
++  set_parameter -name USE_SA1 -entity MAIN_SNES '0
+   set_parameter -name USE_DSPn -entity MAIN_SNES '1
+   set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
+   set_parameter -name USE_BSX -entity MAIN_SNES '0
+-  set_parameter -name USE_MSU -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
+ } elseif { [lindex $argv 0] == "ntsc_spc" } {
+   puts "NTSC SPC"
+   set_parameter -name PAL_PLL -entity core_top '0
+@@ -48,7 +48,19 @@
+   set_parameter -name USE_DSPn -entity MAIN_SNES '0
+   set_parameter -name USE_SPC7110 -entity MAIN_SNES '1
+   set_parameter -name USE_BSX -entity MAIN_SNES '1
+-  set_parameter -name USE_MSU -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
++} elseif { [lindex $argv 0] == "ntsc_sa1" } {
++  puts "NTSC SA1 MSU"
++  set_parameter -name PAL_PLL -entity core_top '0
++
++  set_parameter -name USE_CX4 -entity MAIN_SNES '0
++  set_parameter -name USE_SDD1 -entity MAIN_SNES '0
++  set_parameter -name USE_GSU -entity MAIN_SNES '0
++  set_parameter -name USE_SA1 -entity MAIN_SNES '1
++  set_parameter -name USE_DSPn -entity MAIN_SNES '0
++  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
++  set_parameter -name USE_BSX -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
+ } elseif { [lindex $argv 0] == "none" } {
+   puts "NONE"
+   set_parameter -name PAL_PLL -entity core_top '0
+diff -ruN a/src/fpga/ap_core.qsf b/src/fpga/ap_core.qsf
+--- a/src/fpga/ap_core.qsf	2026-11-03 20:10:20.263814318 +0900
++++ b/src/fpga/ap_core.qsf	2026-11-01 10:03:59.000000000 +0900
+@@ -776,6 +776,7 @@
+ set_global_assignment -name QIP_FILE core/rtl/chip/chip.qip
+ set_global_assignment -name QIP_FILE apf/apf.qip
+ set_global_assignment -name VERILOG_FILE core/core_bridge_cmd.v
++set_global_assignment -name VERILOG_FILE core/msu_bridge.v
+ set_global_assignment -name SDC_FILE core/core_constraints.sdc
+ set_global_assignment -name SIGNALTAP_FILE core/stp1.stp
+ set_global_assignment -name QIP_FILE core/mf_pllbase.qip
+diff -ruN a/src/fpga/apf/build_id.mif b/src/fpga/apf/build_id.mif
+--- a/src/fpga/apf/build_id.mif	2026-11-03 20:10:20.263968047 +0900
++++ b/src/fpga/apf/build_id.mif	1970-01-01 09:00:00.000000000 +0900
+@@ -1,16 +0,0 @@
+--- Build ID Memory Initialization File
+---
+-
+-DEPTH = 256;
+-WIDTH = 32;
+-ADDRESS_RADIX = HEX;
+-DATA_RADIX = HEX;
+-
+-CONTENT
+-BEGIN
+-
+-   0E0 : 20221101;
+-   0E1 : 00113943;
+-   0E2 : dd8da6ac;
+-
+-END;
+diff -ruN a/src/fpga/apf/build_id_gen.tcl b/src/fpga/apf/build_id_gen.tcl
+--- a/src/fpga/apf/build_id_gen.tcl	2026-11-03 20:10:20.263991480 +0900
++++ b/src/fpga/apf/build_id_gen.tcl	1970-01-01 09:00:00.000000000 +0900
+@@ -1,171 +0,0 @@
+-# ================================================================================
+-# (c) 2011 Altera Corporation. All rights reserved.
+-# Altera products are protected under numerous U.S. and foreign patents, maskwork
+-# rights, copyrights and other intellectual property laws.
+-# 
+-# This reference design file, and your use thereof, is subject to and governed
+-# by the terms and conditions of the applicable Altera Reference Design License
+-# Agreement (either as signed by you, agreed by you upon download or as a
+-# "click-through" agreement upon installation andor found at www.altera.com).
+-# By using this reference design file, you indicate your acceptance of such terms
+-# and conditions between you and Altera Corporation.  In the event that you do
+-# not agree with such terms and conditions, you may not use the reference design
+-# file and please promptly destroy any copies you have made.
+-# 
+-# This reference design file is being provided on an "as-is" basis and as an
+-# accommodation and therefore all warranties, representations or guarantees of
+-# any kind (whether express, implied or statutory) including, without limitation,
+-# warranties of merchantability, non-infringement, or fitness for a particular
+-# purpose, are specifically disclaimed.  By making this reference design file
+-# available, Altera expressly does not recommend, suggest or require that this
+-# reference design file be used in combination with any other product not
+-# provided by Altera.
+-# ================================================================================
+-#
+-# Build ID Verilog Module Script
+-# Jeff Wiencrot - 8/1/2011
+-# 
+-# Generates a Verilog module that contains a timestamp, physical address, and host name
+-# from the current build. These values are available from the build_date, build_time,
+-# physical_address, and host_name output ports of the build_id module in the build_id.v
+-# Verilog source file.
+-# 
+-# The format for each value is as follows:
+-#    Date              - 32-bit decimal number of the format mmddyyyy
+-#    Time              - 32-bit decimal number of the format hhmmss
+-#    Phyiscal Address  - 48-bit hexadecimal number
+-#    Host name         - 120-bit hexadecimal number with pairs of digits equal to the
+-#                        hexadecimal code for the first 15 ASCII characters of the host
+-#                        name.  For added clarity, host names that have fewer than 30
+-#                        hexadecimal digits (15 characters) are padded on the left with
+-#                        zeros.
+-#
+-# Usage:
+-#
+-#    To manually execute this script, source this file using the following Tcl commands:
+-#       source build_id_verilog.tcl
+-# 
+-#    To have this script automatically execute each time your project is built, use the
+-#    following command (see: http://www.altera.com/support/examples/tcl/auto_processing.html):
+-#       set_global_assignment -name PRE_FLOW_SCRIPT_FILE quartus_sh:build_id_verilog.tcl
+-#
+-#    Comment out the last line to prevent the process from automatically executing when
+-#    the file is sourced. The process can then be executed with the following command:
+-#       generateBuildID_Verilog
+-#
+-#
+-# For more information, see "build_identification.pdf"
+-#
+-# ================================================================================
+-#
+-# 2021-01-21 Analogue
+-#
+-# Only care about generating build date/time, so the rest was removed.
+-# The original can be downloaded from the Intel resource page
+-#
+-
+-proc generateBuildID_Verilog {} {
+-	
+-	# Get the timestamp (see: http://www.altera.com/support/examples/tcl/tcl-date-time-stamp.html)
+-	set buildDate [ clock format [ clock seconds ] -format %Y%m%d ]
+-	set buildTime [ clock format [ clock seconds ] -format %H%M%S ]
+-		
+-	# Create a Verilog file for output
+-	set outputFileName "apf/build_id.v"
+-	set outputFile [open $outputFileName "w"]
+-	
+-	# Output the Verilog source
+-	puts $outputFile "// Build ID Verilog Module"
+-	puts $outputFile "//"
+-	puts $outputFile "// Note - these are stored as binary coded decimal"
+-	puts $outputFile "// Date:             $buildDate"
+-	puts $outputFile "// Time:             $buildTime"
+-	puts $outputFile ""
+-	puts $outputFile "module build_id"
+-	puts $outputFile "("
+-	puts $outputFile "   output \[31:0\]  build_date,"
+-	puts $outputFile "   output \[31:0\]  build_time"
+-	puts $outputFile ");"
+-	puts $outputFile ""
+-	puts $outputFile "   assign build_date     =  32'h$buildDate;"
+-	puts $outputFile "   assign build_time     =  32'h$buildTime;"
+-	puts $outputFile ""
+-	puts $outputFile "endmodule"
+-	close $outputFile
+-	
+-	
+-	
+-	# Send confirmation message to the Messages window
+-	#post_message "APF core build date/time generated: [pwd]/$outputFileName"
+-	#post_message "Date:             $buildDate"
+-	#post_message "Time:             $buildTime"
+-}
+-
+-
+-proc generateBuildID_MIF {} {
+-	
+-	# Get the timestamp (see: http://www.altera.com/support/examples/tcl/tcl-date-time-stamp.html)
+-	set buildDate [ clock format [ clock seconds ] -format %Y%m%d ]
+-	set buildTime [ clock format [ clock seconds ] -format %H%M%S ]
+-	set buildUnique [expr {int(rand()*(4294967295))}]
+-	
+-	set buildDateNoLeadingZeros [string trimleft $buildDate "0"]
+-	set buildTimeNoLeadingZeros [string trimleft $buildTime "0"]
+-	set buildDate4Byte          [format "%08d" $buildDateNoLeadingZeros]
+-	set buildTime4Byte          [format "%08d" $buildTimeNoLeadingZeros]
+-	set buildUnique4Byte        [format "%08x" $buildUnique]
+-	
+-	#set buildDate4Byte          \
+-		[concat [string range $buildDate 0 1] \
+-				[string range $buildDate 2 3]  \
+-				[string range $buildDate 4 5]  \
+-				[string range $buildDate 6 7] ]
+-	
+-	
+-	set buildDateNumBytes       4
+-	set buildTimeNumBytes       4
+-	
+-	# Calculate depth of the memory (8-bit) words
+-	set memoryDepth [expr $buildDateNumBytes + $buildTimeNumBytes]
+-	
+-	# Create a Memory Initialization File for output
+-	set outputFileName "apf/build_id.mif"
+-	set outputFile [open $outputFileName "w"]
+-	
+-	# Output the MIF header (see: http://quartushelp.altera.com/current/mergedProjects/reference/glossary/def_mif.htm)
+-	puts $outputFile "-- Build ID Memory Initialization File"
+-	puts $outputFile "--"
+-	puts $outputFile ""
+-	puts $outputFile "DEPTH = 256;"
+-	puts $outputFile "WIDTH = 32;"
+-	puts $outputFile "ADDRESS_RADIX = HEX;"
+-	puts $outputFile "DATA_RADIX = HEX;"
+-	puts $outputFile ""
+-	puts $outputFile "CONTENT"
+-	puts $outputFile "BEGIN"
+-	puts $outputFile ""
+-	puts $outputFile "   0E0 : $buildDate4Byte;"
+-	puts $outputFile "   0E1 : $buildTime4Byte;"
+-	puts $outputFile "   0E2 : $buildUnique4Byte;"
+-	puts $outputFile ""
+-	puts $outputFile "END;"
+-	
+-	# Close file to complete write
+-	close $outputFile
+-	
+-	# Send confirmation message to the Messages window
+-	post_message "APF core build date/time generated: [pwd]/$outputFileName"
+-}
+-
+-generateBuildID_MIF
+-
+-# 2021-01-21 Analogue
+-#
+-# There are some circumstances where you want all parts of a FPGA flow to be deterministic, especially 
+-# when trying to hash out timing issues. 
+-# You should comment this line out and temporarily bypass buildid generation so that synthesis/par 
+-# have consistent working input. MIF bram contents like above won't affect the random seed or trigger
+-# recompilation.
+-# Don't forget to re-enable before you release.
+-#
+-# generateBuildID_Verilog
+diff -ruN a/src/fpga/core/core_bridge_cmd.v b/src/fpga/core/core_bridge_cmd.v
+--- a/src/fpga/core/core_bridge_cmd.v	2026-11-03 20:10:20.264285143 +0900
++++ b/src/fpga/core/core_bridge_cmd.v	2026-11-01 10:02:13.000000000 +0900
+@@ -71,7 +71,18 @@
+ input   wire    [9:0]   datatable_addr,
+ input   wire            datatable_wren,
+ input   wire    [31:0]  datatable_data,
+-output  wire    [31:0]  datatable_q
++output  wire    [31:0]  datatable_q,
++
++// user target command channel (used by msu_bridge)
++// tc_req stays high until tc_done; tc_done stays high until tc_req is released
++input   wire            tc_req,
++input   wire    [15:0]  tc_code,
++input   wire    [31:0]  tc_p0,
++input   wire    [31:0]  tc_p1,
++input   wire    [31:0]  tc_p2,
++input   wire    [31:0]  tc_p3,
++output  reg             tc_done,
++output  reg     [15:0]  tc_result
+ 
+ );
+ 
+@@ -155,6 +166,7 @@
+ localparam  [3:0]   TARG_ST_SLOTRELOAD  = 'd4;
+ localparam  [3:0]   TARG_ST_SLOTWRITE   = 'd5;
+ localparam  [3:0]   TARG_ST_SLOTFLUSH   = 'd6;
++localparam  [3:0]   TARG_ST_WAITUSER    = 'd7;
+ localparam  [3:0]   TARG_ST_WAITRESULT  = 'd15;
+     reg     [3:0]   tstate;
+     
+@@ -171,6 +183,8 @@
+     savestate_load <= 0;
+     osnotify_inmenu <= 0;
+     status_setup_done_queue <= 0;
++    tc_done <= 0;
++    tc_result <= 0;
+ end
+     
+ always @(posedge clk) begin
+@@ -410,15 +424,32 @@
+     
+     
+     
++    if(!tc_req) tc_done <= 0;
++
+     // target > host command executer
+     case(tstate)
+     TARG_ST_IDLE: begin
+         if(status_setup_done_queue) begin
+             status_setup_done_queue <= 0;
+             tstate <= TARG_ST_READYTORUN;
++        end else if(tc_req && !tc_done) begin
++            // user command: parameters first, then the command word
++            target_20 <= tc_p0;
++            target_24 <= tc_p1;
++            target_28 <= tc_p2;
++            target_2C <= tc_p3;
++            target_0  <= {16'h636D, tc_code};
++            tstate <= TARG_ST_WAITUSER;
+         end
+     
+     end
++    TARG_ST_WAITUSER: begin
++        if(target_0[31:16] == 16'h6F6B) begin
++            tc_result <= target_0[15:0];
++            tc_done <= 1;
++            tstate <= TARG_ST_IDLE;
++        end
++    end
+     TARG_ST_READYTORUN: begin
+         target_0 <= 32'h636D_0140;
+         tstate <= TARG_ST_WAITRESULT;
+diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
+--- a/src/fpga/core/core_top.sv	2026-11-03 20:10:20.264352372 +0900
++++ b/src/fpga/core/core_top.sv	2026-11-03 09:12:18.000000000 +0900
+@@ -326,6 +326,10 @@
+     if (bridge_addr[31:28] == 4'h2) begin
+       bridge_rd_data <= sd_read_data;
+     end
++
++    if (bridge_addr[31:28] == 4'h5) begin
++      bridge_rd_data <= pb_a_q;
++    end
+   end
+ 
+   always @(posedge clk_74a) begin
+@@ -354,7 +358,7 @@
+           reset_delay <= 32'h100000;
+         end
+         32'h80: begin
+-          cpu_turbo_enabled <= bridge_wr_data[0];
++          cpu_turbo_enabled <= bridge_wr_data[1:0];
+         end
+         32'h84: begin
+           gsu_turbo_enabled <= bridge_wr_data[0];
+@@ -434,6 +438,13 @@
+   // synchronous to clk_74a
+ 
+ 
++  // user target command channel (msu_bridge -> core_bridge_cmd)
++  wire        tc_req;
++  wire [15:0] tc_code;
++  wire [31:0] tc_p0, tc_p1, tc_p2, tc_p3;
++  wire        tc_done;
++  wire [15:0] tc_result;
++
+   // bridge data slot access
+ 
+   reg [9:0] datatable_addr;
+@@ -494,7 +505,16 @@
+       .datatable_addr(datatable_addr),
+       .datatable_wren(datatable_wren),
+       .datatable_data(datatable_data),
+-      .datatable_q   (datatable_q)
++      .datatable_q   (datatable_q),
++
++      .tc_req   (tc_req),
++      .tc_code  (tc_code),
++      .tc_p0    (tc_p0),
++      .tc_p1    (tc_p1),
++      .tc_p2    (tc_p2),
++      .tc_p3    (tc_p3),
++      .tc_done  (tc_done),
++      .tc_result(tc_result)
+   );
+ 
+   reg ioctl_download = 0;
+@@ -599,18 +619,211 @@
+       .read_data(sd_buff_din)
+   );
+ 
++  ///////////////////////////////////////////////
++  // MSU-1
++  ///////////////////////////////////////////////
++
++  // Path buffer: 512 bytes at bridge address 0x5xxxxxxx. Pocket writes the ROM
++  // path here (cmd 0190) and reads the derived file path from here (cmd 0192).
++  // Port A = bridge (clk_74a), port B = msu_bridge. Byte lane k <-> bits [31-8k -: 8].
++  wire        pb_a_wr   = bridge_wr && (bridge_addr[31:28] == 4'h5);
++  // APF samples read data late: latch the address at the read strobe (as data_unloader does)
++  reg  [6:0] pb_rd_addr = 7'd0;
++  reg        pb_prev_rd = 1'b0;
++  always @(posedge clk_74a) begin
++    pb_prev_rd <= bridge_rd;
++    if (bridge_rd && !pb_prev_rd && bridge_addr[31:28] == 4'h5) pb_rd_addr <= bridge_addr[8:2];
++  end
++  wire  [6:0] pb_a_addr = pb_a_wr ? bridge_addr[8:2] : pb_rd_addr;
++  wire [31:0] pb_a_q;
++  reg  [31:0] pb_rd_q1, pb_rd_q2;
++
++  wire  [6:0] pb_b_addr;
++  wire  [3:0] pb_b_we;
++  wire  [7:0] pb_b_din;
++  wire [31:0] pb_b_q;
++
++  always @(posedge clk_74a) begin
++    pb_rd_q1 <= pb_a_q;
++    pb_rd_q2 <= pb_rd_q1;
++  end
++
++  genvar gi;
++  generate
++    for (gi = 0; gi < 4; gi = gi + 1) begin : g_pathbuf
++      bram_block_dp #(
++          .DATA(8),
++          .ADDR(7)
++      ) lane (
++          .a_clk (clk_74a),
++          .a_wr  (pb_a_wr),
++          .a_addr(pb_a_addr),
++          .a_din (bridge_wr_data[31-8*gi-:8]),
++          .a_dout(pb_a_q[31-8*gi-:8]),
++
++          .b_clk (clk_74a),
++          .b_wr  (pb_b_we[gi]),
++          .b_addr(pb_b_addr),
++          .b_din (pb_b_din),
++          .b_dout(pb_b_q[31-8*gi-:8])
++      );
++    end
++  endgenerate
++
++  // PCM track data (bridge address 0x3xxxxxxx) -> msu_audio
++  wire        pcm_wr;
++  wire [15:0] pcm_waddr;
++  wire [15:0] pcm_data;
++
++  data_loader #(
++      .ADDRESS_MASK_UPPER_4(4'h3),
++      .ADDRESS_SIZE(15),
++      .WRITE_MEM_CLOCK_DELAY(7),
++      .OUTPUT_WORD_SIZE(2)
++  ) pcm_loader (
++      .clk_74a(clk_74a),
++      .clk_memory(clk_sys_21_48),
++
++      .bridge_wr(bridge_wr),
++      .bridge_endian_little(bridge_endian_little),
++      .bridge_addr(bridge_addr),
++      .bridge_wr_data(bridge_wr_data),
++
++      .write_en  (pcm_wr),
++      .write_addr(pcm_waddr),
++      .write_data(pcm_data)
++  );
++
++  // MSU data file blocks (bridge address 0x4xxxxxxx, 16KB window) -> msu_data_store
++  wire        dw_wr;
++  wire [13:0] dw_addr;
++  wire [15:0] dw_data;
++
++  data_loader #(
++      .ADDRESS_MASK_UPPER_4(4'h4),
++      .ADDRESS_SIZE(13),
++      .WRITE_MEM_CLOCK_DELAY(7),
++      .OUTPUT_WORD_SIZE(2)
++  ) msu_data_loader (
++      .clk_74a(clk_74a),
++      .clk_memory(clk_sys_21_48),
++
++      .bridge_wr(bridge_wr),
++      .bridge_endian_little(bridge_endian_little),
++      .bridge_addr(bridge_addr),
++      .bridge_wr_data(bridge_wr_data),
++
++      .write_en  (dw_wr),
++      .write_addr(dw_addr),
++      .write_data(dw_data)
++  );
++
++  reg         dt_phase = 0;
++  reg         dt_valid = 0;
++  wire  [7:0] msu_dt_addr;
++
++  wire        msu_enable;
++  wire        msu_track_mounting;
++  wire        msu_track_missing;
++  wire [31:0] msu_audio_size;
++  wire [31:0] msu_data_size;
++  wire        msu_init_hold;
++  wire  [3:0] msu_diag;
++  wire [15:0] msu_track_num;
++  wire        msu_track_request;
++
++  wire        a_fetch_tgl;
++  wire [31:0] a_fetch_off;
++  wire [15:0] a_fetch_len;
++  wire        a_done_tgl;
++  wire        a_err;
++
++  wire        d_fill_tgl;
++  wire [31:0] d_fill_off;
++  wire [15:0] d_fill_len;
++  wire  [1:0] d_fill_slot;
++  wire        d_done_tgl;
++  wire        d_err;
++
++  msu_bridge #(
++      .SLOT_ROM(16'd0),
++      .SLOT_MSU(16'd20),  // data.json: "MSU Data"
++      .SLOT_PCM(16'd21),  // data.json: "MSU Audio"
++      .IDX_MSU(8'd2),  // position inside data_slots[]
++      .IDX_PCM(8'd3)
++  ) msu_bridge (
++      .clk(clk_74a),
++      .clk_sys(clk_sys_21_48),
++      .reset_n(reset_n),
++
++      .tc_req(tc_req),
++      .tc_code(tc_code),
++      .tc_p0(tc_p0),
++      .tc_p1(tc_p1),
++      .tc_p2(tc_p2),
++      .tc_p3(tc_p3),
++      .tc_done(tc_done),
++      .tc_result(tc_result),
++
++      .dt_addr(msu_dt_addr),
++      .dt_q(datatable_q),
++      .dt_valid(dt_valid),
++
++      .pb_addr(pb_b_addr),
++      .pb_we(pb_b_we),
++      .pb_din(pb_b_din),
++      .pb_q(pb_b_q),
++
++      .track_request(msu_track_request),
++      .track_num(msu_track_num),
++      .msu_enable(msu_enable),
++      .track_mounting(msu_track_mounting),
++      .track_missing(msu_track_missing),
++      .audio_size(msu_audio_size),
++      .data_size(msu_data_size),
++      .init_hold(msu_init_hold),
++      .diag_sys(msu_diag),
++
++      .a_fetch_tgl(a_fetch_tgl),
++      .a_fetch_off(a_fetch_off),
++      .a_fetch_len(a_fetch_len),
++      .a_done_tgl(a_done_tgl),
++      .a_err(a_err),
++
++      .d_fill_tgl(d_fill_tgl),
++      .d_fill_off(d_fill_off),
++      .d_fill_len(d_fill_len),
++      .d_fill_slot(d_fill_slot),
++      .d_done_tgl(d_done_tgl),
++      .d_err(d_err)
++  );
++
++  wire msu_hold = msu_init_hold;
++
++  // Port A alternates: even cycles write the save RAM size (data slot index 1),
++  // odd cycles present the address msu_bridge wants to read. dt_valid marks the
++  // cycle in which datatable_q holds the data of that read address.
+   always @(posedge clk_74a or negedge pll_core_locked) begin
+     if (~pll_core_locked) begin
+       datatable_addr <= 0;
+       datatable_data <= 0;
+       datatable_wren <= 0;
++      dt_phase <= 0;
++      dt_valid <= 0;
+     end else begin
+-      // Write sram size half of the time
+-      datatable_wren <= 1;
+-      // sram_size is the size of the config value in the ROM. Convert to actual size
+-      datatable_data <= sram_size ? 32'd1024 << sram_size : 32'h0;
+-      // Data slot index 1, not id 1
+-      datatable_addr <= 1 * 2 + 1;
++      dt_phase <= ~dt_phase;
++      // the address presented in the previous cycle was a read -> q is valid now
++      dt_valid <= ~datatable_wren & dt_phase;
++      if (dt_phase) begin
++        datatable_wren <= 1;
++        // sram_size is the size of the config value in the ROM. Convert to actual size
++        datatable_data <= sram_size ? 32'd1024 << sram_size : 32'h0;
++        // Data slot index 1, not id 1
++        datatable_addr <= 1 * 2 + 1;
++      end else begin
++        datatable_wren <= 0;
++        datatable_addr <= {2'b00, msu_dt_addr};
++      end
+     end
+   end
+ 
+@@ -677,7 +890,7 @@
+   reg [31:0] reset_delay = 0;
+   wire reset_button = reset_delay > 0;
+ 
+-  reg cpu_turbo_enabled = 0;
++  reg [1:0] cpu_turbo_enabled = 0;
+   reg gsu_turbo_enabled = 0;
+ 
+   reg multitap_enabled = 0;
+@@ -693,7 +906,7 @@
+   // Settings sync
+   wire reset_button_s;
+ 
+-  wire cpu_turbo_enabled_s;
++  wire [1:0] cpu_turbo_enabled_s;
+   wire gsu_turbo_enabled_s;
+ 
+   wire multitap_enabled_s;
+@@ -707,7 +920,7 @@
+   wire blend_enabled_s;
+ 
+   synch_3 #(
+-      .WIDTH(25)
++      .WIDTH(26)
+   ) settings_s (
+       {
+         reset_button,
+@@ -764,7 +977,7 @@
+       .clk_mem_85_9 (clk_mem_85_9),
+       .clk_sys_21_48(clk_sys_21_48),
+ 
+-      .core_reset(~pll_core_locked || reset_button_s),
++      .core_reset(~pll_core_locked || reset_button_s || msu_hold),
+ 
+       .rtc(rtc),
+ 
+@@ -905,6 +1118,34 @@
+       .video_b(video_rgb_snes[7:0]),
+ 
+       // Audio
++      // MSU-1
++      .msu_enable(msu_enable),
++      .msu_diag(msu_diag),
++      .msu_track_mounting(msu_track_mounting),
++      .msu_track_missing(msu_track_missing),
++      .msu_audio_size(msu_audio_size),
++      .msu_data_size(msu_data_size),
++      .msu_track_num(msu_track_num),
++      .msu_track_request(msu_track_request),
++
++      .pcm_wr(pcm_wr),
++      .pcm_data(pcm_data),
++      .a_fetch_tgl(a_fetch_tgl),
++      .a_fetch_off(a_fetch_off),
++      .a_fetch_len(a_fetch_len),
++      .a_done_tgl(a_done_tgl),
++      .a_err(a_err),
++
++      .dw_wr(dw_wr),
++      .dw_addr(dw_addr),
++      .dw_data(dw_data),
++      .d_fill_tgl(d_fill_tgl),
++      .d_fill_off(d_fill_off),
++      .d_fill_len(d_fill_len),
++      .d_fill_slot(d_fill_slot),
++      .d_done_tgl(d_done_tgl),
++      .d_err(d_err),
++
+       .audio_l(audio_l),
+       .audio_r(audio_r)
+   );
+diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
+--- a/src/fpga/core/msu_bridge.v	1970-01-01 09:00:00.000000000 +0900
++++ b/src/fpga/core/msu_bridge.v	2026-11-02 23:46:36.000000000 +0900
+@@ -0,0 +1,701 @@
++//
++// msu_bridge.v -- MSU-1 <-> Analogue APF glue (runs on clk_74a)
++//
++// Replaces MiSTer's hps_ext.v.  Responsibilities:
++//  * After Pocket releases reset, find the ROM's path (target cmd 0190), derive
++//    "<rom>.msu" from it (replace the extension) and open it into the MSU data slot
++//    (target cmd 0192).  If the file exists, MSU-1 is enabled.  The SNES core is held
++//    in reset (init_hold) until this is done, so games can detect MSU-1 at boot.
++//  * Track requests ($2004/5): open "<rom>-<track>.pcm" into the PCM slot, report
++//    missing / size, and drive track_mounting.
++//  * Audio chunk reads and data-cache block reads -> target cmd 0180 (data slot read).
++//    The host writes the bytes to bridge addresses 0x3xxxxxxx (PCM) and
++//    0x4xxxxxxx (data cache); data_loader instances in core_top pick them up.
++//
++// The path string lives in a 512 byte buffer (pathbuf in core_top, bridge address
++// 0x50000000) so that Pocket can write the ROM path into it and read the derived
++// path out of it.  Byte 0 of the string is bits [31:24] of word 0 (big-endian bridge).
++//
++module msu_bridge #(
++	parameter [15:0] SLOT_ROM = 16'd0,
++	parameter [15:0] SLOT_MSU = 16'd20,
++	parameter [15:0] SLOT_PCM = 16'd21,
++	parameter  [7:0] IDX_MSU  = 8'd2,      // position of the slot in data.json
++	parameter  [7:0] IDX_PCM  = 8'd3
++) (
++	input  wire        clk,                // clk_74a
++	input  wire        clk_sys,
++	input  wire        reset_n,            // Pocket released the core from reset
++
++	// target command channel (core_bridge_cmd)
++	output reg         tc_req,
++	output reg  [15:0] tc_code,
++	output reg  [31:0] tc_p0,
++	output reg  [31:0] tc_p1,
++	output reg  [31:0] tc_p2,
++	output reg  [31:0] tc_p3,
++	input  wire        tc_done,
++	input  wire [15:0] tc_result,
++
++	// data slot size table (read through core_top's datatable port A mux)
++	output reg   [7:0] dt_addr,
++	input  wire [31:0] dt_q,
++	input  wire        dt_valid,
++
++	// path buffer, port B (byte lanes: lane0 = bits [31:24])
++	output reg   [6:0] pb_addr,
++	output reg   [3:0] pb_we,
++	output reg   [7:0] pb_din,
++	input  wire [31:0] pb_q,
++
++	// ---- clk_sys side ----
++	input  wire        track_request,
++	input  wire [15:0] track_num,
++	output wire        msu_enable,
++	output wire        track_mounting,
++	output wire        track_missing,
++	output wire [31:0] audio_size,
++	output wire [31:0] data_size,
++	output wire        init_hold,
++	output wire  [3:0] diag_sys,      // debug: init result as beep count
++
++	input  wire        a_fetch_tgl,
++	input  wire [31:0] a_fetch_off,
++	input  wire [15:0] a_fetch_len,
++	output wire        a_done_tgl,
++	output wire        a_err,
++
++	input  wire        d_fill_tgl,
++	input  wire [31:0] d_fill_off,
++	input  wire [15:0] d_fill_len,
++	input  wire  [1:0] d_fill_slot,
++	output wire        d_done_tgl,
++	output wire        d_err
++);
++
++localparam [31:0] PB_BASE  = 32'h5000_0000;
++localparam [31:0] PCM_BASE = 32'h3000_0000;
++localparam [31:0] DAT_BASE = 32'h4000_0000;
++
++// ---------------------------------------------------------------------------
++// Status registers (clk domain) and their clk_sys views
++// ---------------------------------------------------------------------------
++reg        enable_r = 0;
++reg        mounting_r = 0;
++reg        missing_r = 0;
++reg [31:0] asize_r = 0;
++reg [31:0] dsize_r = 0;
++reg        hold_r = 0;
++reg  [3:0] diag_r = 0;
++synch_3 s_dg0 (.i(diag_r[0]), .o(diag_sys[0]), .clk(clk_sys), .rise(), .fall());
++synch_3 s_dg1 (.i(diag_r[1]), .o(diag_sys[1]), .clk(clk_sys), .rise(), .fall());
++synch_3 s_dg2 (.i(diag_r[2]), .o(diag_sys[2]), .clk(clk_sys), .rise(), .fall());
++synch_3 s_dg3 (.i(diag_r[3]), .o(diag_sys[3]), .clk(clk_sys), .rise(), .fall());
++reg        a_done_r = 0, a_err_r = 0;
++reg        d_done_r = 0, d_err_r = 0;
++
++synch_3 s_en   (.i(enable_r),   .o(msu_enable),     .clk(clk_sys), .rise(), .fall());
++synch_3 s_mnt  (.i(mounting_r), .o(track_mounting), .clk(clk_sys), .rise(), .fall());
++synch_3 s_mis  (.i(missing_r),  .o(track_missing),  .clk(clk_sys), .rise(), .fall());
++synch_3 s_hold (.i(hold_r),     .o(init_hold),      .clk(clk_sys), .rise(), .fall());
++synch_3 s_adn  (.i(a_done_r),   .o(a_done_tgl),     .clk(clk_sys), .rise(), .fall());
++synch_3 s_ddn  (.i(d_done_r),   .o(d_done_tgl),     .clk(clk_sys), .rise(), .fall());
++
++assign audio_size = asize_r;
++assign data_size  = dsize_r;
++assign a_err      = a_err_r;
++assign d_err      = d_err_r;
++
++wire req_s, a_s, d_s;
++synch_3 s_req (.i(track_request), .o(req_s), .clk(clk), .rise(), .fall());
++synch_3 s_atg (.i(a_fetch_tgl),   .o(a_s),   .clk(clk), .rise(), .fall());
++synch_3 s_dtg (.i(d_fill_tgl),    .o(d_s),   .clk(clk), .rise(), .fall());
++
++// ---------------------------------------------------------------------------
++// Suffix generator ("-123.pcm" / ".msu")
++// ---------------------------------------------------------------------------
++// digits are produced by a registered pipeline (see sfx_pipe below), so no
++// divider ends up in the clk_74a critical path.
++function [7:0] sfx_char(input mode, input [3:0] nd, input [19:0] dg, input [3:0] j);
++	reg [3:0] k;
++	reg [3:0] e;
++	begin
++		sfx_char = 8'h00;
++		if (mode) begin
++			case (j)
++				4'd0: sfx_char = ".";
++				4'd1: sfx_char = "m";
++				4'd2: sfx_char = "s";
++				4'd3: sfx_char = "u";
++				default: sfx_char = 8'h00;
++			endcase
++		end
++		else if (j == 4'd0) begin
++			sfx_char = "-";
++		end
++		else if (j <= nd) begin
++			e = nd - j;                                  // j=1 -> most significant digit
++			sfx_char = 8'h30 + {4'd0, dg[{e[2:0], 2'b00} +: 4]};
++		end
++		else begin
++			k = j - nd;
++			case (k)
++				4'd1: sfx_char = ".";
++				4'd2: sfx_char = "p";
++				4'd3: sfx_char = "c";
++				4'd4: sfx_char = "m";
++				default: sfx_char = 8'h00;
++			endcase
++		end
++	end
++endfunction
++
++// ---------------------------------------------------------------------------
++// FSM
++// ---------------------------------------------------------------------------
++localparam [5:0]
++	ST_IDLE     = 6'd0,
++	ST_CMD_GO   = 6'd1,
++	ST_CMD_WAIT = 6'd2,
++	ST_CMD_REL  = 6'd3,
++	ST_DTW      = 6'd4,
++	// init
++	ST_I_NAME   = 6'd8,
++	ST_SC_ADDR  = 6'd9,
++	ST_SC_W     = 6'd10,
++	ST_SC_EVAL  = 6'd11,
++	ST_FL0      = 6'd12,
++	ST_FL1      = 6'd13,
++	ST_FL2      = 6'd14,
++	ST_I_OPEN   = 6'd15,
++	ST_I_SZ     = 6'd16,
++	ST_I_SZ2    = 6'd17,
++	ST_I_END    = 6'd18,
++	// suffix writer
++	ST_WR_START = 6'd20,
++	ST_WR_CH    = 6'd21,
++	ST_WR_COMMIT= 6'd22,
++	// track
++	ST_T_OPEN   = 6'd24,
++	ST_T_SZ     = 6'd25,
++	ST_T_SZ2    = 6'd26,
++	ST_T_FIN    = 6'd27,
++	// transfers
++	ST_A_FIN    = 6'd28,
++	ST_D_FIN    = 6'd29,
++	// probe: open the unmodified ROM path first (diagnostics)
++	ST_P_OPEN   = 6'd30,
++	ST_P_RES    = 6'd31,
++	// literal-path fallback probe
++	ST_L_CH     = 6'd32,
++	ST_L_COMMIT = 6'd33,
++	ST_L_OPEN   = 6'd34,
++	ST_L_RES    = 6'd35,
++	// data slot table scan by slot id (as the reference core does)
++	ST_SCN_S    = 6'd36,
++	ST_SCN_C    = 6'd37,
++	ST_SCN_D    = 6'd38;
++
++initial begin
++	tc_req = 0; tc_code = 0; tc_p0 = 0; tc_p1 = 0; tc_p2 = 0; tc_p3 = 0;
++	dt_addr = 0; pb_addr = 0; pb_we = 0; pb_din = 0;
++end
++
++reg  [5:0] state = ST_IDLE;
++reg  [5:0] ret_cmd = ST_IDLE;     // state after a command completes
++reg  [5:0] ret_wr  = ST_IDLE;     // state after the suffix was written
++reg  [5:0] ret_dt  = ST_IDLE;     // state after a size-table read
++reg [15:0] res = 0;
++
++reg        rn_d = 0;
++reg        init_done = 0;
++reg        path_ok = 0;
++reg [27:0] init_to = 0;
++reg        req_seen = 0;
++reg        a_ack = 0, d_ack = 0;
++
++reg  [7:0] scan_i = 0;
++reg  [7:0] dot_pos = 0;
++reg        dot_valid = 0;
++reg  [7:0] dpos = 0;              // index where the suffix starts
++
++reg        sfx_mode = 0;          // 0: track pcm, 1: data msu
++reg [15:0] sfx_track = 0;
++reg  [3:0] wr_j = 0;
++reg  [3:0] sfx_nd = 4'd1;
++reg [19:0] sfx_dg = 20'd0;
++// 16-cycle shift-add-3 (double dabble) binary->BCD, restarted whenever sfx_track
++// changes. Keeps the clk_74a critical path short (no divider).
++function [19:0] dd_adj(input [19:0] b);
++	integer i;
++	begin
++		for (i = 0; i < 5; i = i + 1)
++			dd_adj[i*4 +: 4] = (b[i*4 +: 4] >= 4'd5) ? (b[i*4 +: 4] + 4'd3) : b[i*4 +: 4];
++	end
++endfunction
++reg [15:0] dd_last = 16'hFFFF;
++reg [15:0] dd_bin  = 0;
++reg [19:0] dd_bcd  = 0;
++reg  [4:0] dd_cnt  = 0;
++reg        dd_run  = 0;
++wire [19:0] dd_a   = dd_adj(dd_bcd);
++wire [19:0] dd_nxt = {dd_a[18:0], dd_bin[15]};
++always @(posedge clk) begin
++	if (dd_last != sfx_track) begin
++		dd_last <= sfx_track;
++		dd_bin  <= sfx_track;
++		dd_bcd  <= 20'd0;
++		dd_cnt  <= 5'd0;
++		dd_run  <= 1'b1;
++	end
++	else if (dd_run) begin
++		dd_bcd <= dd_nxt;
++		dd_bin <= {dd_bin[14:0], 1'b0};
++		dd_cnt <= dd_cnt + 1'd1;
++		if (dd_cnt == 5'd15) begin
++			dd_run <= 1'b0;
++			sfx_dg <= dd_nxt;
++		end
++	end
++	sfx_nd <= (sfx_track >= 16'd10000) ? 4'd5 :
++	          (sfx_track >= 16'd1000)  ? 4'd4 :
++	          (sfx_track >= 16'd100)   ? 4'd3 :
++	          (sfx_track >= 16'd10)    ? 4'd2 : 4'd1;
++end
++reg  [4:0] wr_wait = 0;
++reg        wr_wait_run = 0;
++wire [3:0] wr_jend = sfx_mode ? 4'd4 : (sfx_nd + 4'd5);
++wire [8:0] wr_idx  = {1'b0, dpos} + {5'b0, wr_j};
++
++reg  [7:0] wcnt = 0;
++reg [31:0] dt_sz = 0;
++reg [15:0] scan_id = 0;
++reg  [5:0] scan_next = 0;
++reg [31:0] scan_sz = 0;
++
++reg [15:0] r2 = 16'hFFFF;
++reg [15:0] r3 = 16'hFFFF;
++reg [15:0] res_fin = 16'hFFFF;
++reg  [5:0] lj = 0;
++localparam [8*44-1:0] LIT = "/Assets/snes/common/FF6/FF6_Enhanced(ko).msu";
++wire [7:0] lit_ch = (lj < 6'd44) ? LIT[8*(43-lj) +: 8] : 8'h00;
++reg        retried = 0;
++reg        ord_r = 0;      // 1: first path byte arrives in bits [7:0] (little endian)
++wire       first_big = (pb_q[31:24] == 8'h2F);
++wire       first_lit = (pb_q[7:0]   == 8'h2F);
++wire       ord_eff   = (scan_i == 8'd0) ? (!first_big && first_lit) : ord_r;
++reg  [7:0] ch;
++always @(*) begin
++	case (scan_i[1:0] ^ {2{ord_eff}})
++		2'd0: ch = pb_q[31:24];
++		2'd1: ch = pb_q[23:16];
++		2'd2: ch = pb_q[15:8];
++		default: ch = pb_q[7:0];
++	endcase
++end
++
++always @(posedge clk) begin
++	rn_d <= reset_n;
++	if (dt_valid) dt_sz <= dt_q;
++
++	if (hold_r) init_to <= init_to + 1'd1;
++	else        init_to <= 0;
++
++	if (!(req_s)) req_seen <= 0;
++
++	if (!reset_n) begin
++		// Pocket holds the core in reset: forget everything
++		state      <= ST_IDLE;
++		tc_req     <= 0;
++		pb_we      <= 0;
++		init_done  <= 0;
++		path_ok    <= 0;
++		hold_r     <= 0;
++		enable_r   <= 0;
++		diag_r     <= 0;
++		retried    <= 0;
++		mounting_r <= 0;
++		missing_r  <= 0;
++		asize_r    <= 0;
++		dsize_r    <= 0;
++		a_ack      <= a_s;
++		d_ack      <= d_s;
++	end
++	else if (!rn_d) begin
++		// reset just released: start initialisation and hold the SNES in reset
++		hold_r    <= 1;
++		init_done <= 0;
++		state     <= ST_IDLE;
++	end
++	else if (hold_r && init_to == 28'h8F0_0000) begin
++		// Pocket never answered: give up, run without MSU-1
++		diag_r    <= 4'd7;
++		hold_r    <= 0;
++		init_done <= 1;
++		enable_r  <= 0;
++		tc_req    <= 0;
++		pb_we     <= 0;
++		state     <= ST_IDLE;
++	end
++	else begin
++		case (state)
++			ST_IDLE:
++				begin
++					if (!init_done) begin
++						// 0190: get filename of the ROM slot
++						tc_code <= 16'h0190;
++						tc_p0   <= {16'b0, SLOT_ROM};
++						tc_p1   <= PB_BASE;
++						ret_cmd <= ST_I_NAME;
++						state   <= ST_CMD_GO;
++					end
++					else if (req_s && !req_seen) begin
++						req_seen   <= 1;
++						mounting_r <= 1;
++						missing_r  <= 0;
++						asize_r    <= 0;
++						wcnt       <= 0;
++						if (!path_ok || !enable_r) begin
++							missing_r <= 1;
++							state     <= ST_T_FIN;
++						end
++						else begin
++							diag_r    <= 4'd0;             // silent while mounting
++							sfx_mode  <= 0;
++							sfx_track <= track_num;
++							ret_wr    <= ST_T_OPEN;
++							state     <= ST_WR_START;
++						end
++					end
++					else if (a_s != a_ack) begin
++						a_ack   <= a_s;
++						tc_code <= 16'h0180;
++						tc_p0   <= {16'b0, SLOT_PCM};
++						tc_p1   <= a_fetch_off;
++						tc_p2   <= PCM_BASE;
++						tc_p3   <= {16'b0, a_fetch_len};
++						ret_cmd <= ST_A_FIN;
++						state   <= ST_CMD_GO;
++					end
++					else if (d_s != d_ack) begin
++						d_ack   <= d_s;
++						tc_code <= 16'h0180;
++						tc_p0   <= {16'b0, SLOT_MSU};
++						tc_p1   <= d_fill_off;
++						tc_p2   <= DAT_BASE | {18'b0, d_fill_slot, 12'b0};
++						tc_p3   <= {16'b0, d_fill_len};
++						ret_cmd <= ST_D_FIN;
++						state   <= ST_CMD_GO;
++					end
++				end
++
++			// ---- generic target command ----
++			ST_CMD_GO:
++				begin
++					tc_req <= 1;
++					state  <= ST_CMD_WAIT;
++				end
++			ST_CMD_WAIT:
++				if (tc_done) begin
++					res    <= tc_result;
++					tc_req <= 0;
++					state  <= ST_CMD_REL;
++				end
++			ST_CMD_REL:
++				if (!tc_done) state <= ret_cmd;
++
++			// ---- slot size table read: wait for the core_top mux to cycle ----
++			ST_DTW:
++				begin
++					wcnt <= wcnt + 1'd1;
++					if (wcnt == 8'd63) state <= ret_dt;
++				end
++
++			// ---- find the opened slot in the data slot table: [id, size] pairs ----
++			ST_SCN_S:
++				begin
++					dt_addr <= 8'd0;
++					wcnt    <= 0;
++					scan_sz <= 32'd0;
++					ret_dt  <= ST_SCN_C;
++					state   <= ST_DTW;
++				end
++			ST_SCN_C:
++				begin
++					if (dt_sz[15:0] == scan_id) begin
++						dt_addr <= dt_addr + 8'd1;   // size word follows the id
++						wcnt    <= 0;
++						ret_dt  <= ST_SCN_D;
++						state   <= ST_DTW;
++					end
++					else if (dt_addr >= 8'd62) begin
++						state <= scan_next;           // not found: size stays 0 (unknown)
++					end
++					else begin
++						dt_addr <= dt_addr + 8'd2;
++						wcnt    <= 0;
++						ret_dt  <= ST_SCN_C;
++						state   <= ST_DTW;
++					end
++				end
++			ST_SCN_D:
++				begin
++					scan_sz <= dt_sz;
++					state   <= scan_next;
++				end
++
++			// ---- init: ROM path received ----
++			ST_I_NAME:
++				begin
++					if (res != 16'd0) begin
++						diag_r <= 4'd1;
++						state <= ST_I_END;           // no ROM path: MSU-1 stays off
++					end
++					else begin
++						scan_i    <= 0;
++						dot_valid <= 0;
++						path_ok   <= 0;
++						state     <= ST_SC_ADDR;
++					end
++				end
++
++			ST_SC_ADDR:
++				begin
++					pb_addr <= scan_i[7:2];
++					state   <= ST_SC_W;
++				end
++			ST_SC_W: state <= ST_SC_EVAL;
++			ST_SC_EVAL:
++				begin
++					if (scan_i == 8'd0) ord_r <= ord_eff;
++					if (ch == 8'h00) begin
++						dpos  <= dot_valid ? dot_pos : scan_i;
++						state <= ST_FL0;
++						if ((dot_valid ? dot_pos : scan_i) > 8'd235) begin diag_r <= 4'd2; state <= ST_I_END; end  // path too long
++					end
++					else if (scan_i == 8'hFF) begin
++						diag_r <= 4'd2;
++						state <= ST_I_END;           // unterminated string
++					end
++					else begin
++						if (ch == "/")      dot_valid <= 0;
++						else if (ch == ".") begin dot_pos <= scan_i; dot_valid <= 1; end
++						scan_i <= scan_i + 1'd1;
++						state  <= ST_SC_ADDR;
++					end
++				end
++
++			// zero the "operation flags" (0x100) and "size" (0x104) words of the struct
++			ST_FL0:
++				begin
++					pb_addr <= 7'd64;
++					pb_din  <= 8'h00;
++					pb_we   <= 4'hF;
++					state   <= ST_FL1;
++				end
++			ST_FL1:
++				begin
++					pb_addr <= 7'd65;
++					state   <= ST_FL2;
++				end
++			ST_FL2:
++				begin
++					pb_we     <= 4'h0;
++					path_ok   <= 1;
++					sfx_mode  <= 1;                  // ".msu"
++					sfx_track <= 16'd0;
++					state     <= ST_P_OPEN;
++				end
++
++			ST_P_OPEN:
++				begin
++					tc_code <= 16'h0192;
++					tc_p0   <= {16'b0, SLOT_MSU};
++					tc_p1   <= PB_BASE;
++					ret_cmd <= ST_P_RES;
++					state   <= ST_CMD_GO;
++				end
++			ST_P_RES:
++				begin
++					r2     <= res;
++					ret_wr <= ST_I_OPEN;
++					state  <= ST_WR_START;
++				end
++
++			ST_I_OPEN:
++				begin
++					tc_code <= 16'h0192;
++					tc_p0   <= {16'b0, SLOT_MSU};
++					tc_p1   <= PB_BASE;
++					ret_cmd <= ST_I_SZ;
++					state   <= ST_CMD_GO;
++				end
++			ST_I_SZ:
++				begin
++					if (res == 16'd4 && !retried) begin
++						// malformed path: retry once with the opposite byte lane order
++						retried <= 1'b1;
++						ord_r   <= ~ord_r;
++						ret_wr  <= ST_I_OPEN;
++						state   <= ST_WR_START;
++					end
++					else if (res > 16'd1) begin
++						// derived path rejected: remember why, then probe a literal path
++						res_fin <= res;
++						lj      <= 6'd0;
++						state   <= ST_L_CH;
++					end
++					else begin
++						diag_r   <= 4'd0;                 // init OK: silent
++						enable_r <= 1'b1;            // file opened: MSU-1 present
++						scan_id   <= SLOT_MSU;
++						scan_next <= ST_I_SZ2;
++						state     <= ST_SCN_S;
++					end
++				end
++			ST_L_CH:
++				begin
++					pb_addr <= {1'b0, lj[5:2]};
++					pb_din  <= lit_ch;
++					pb_we   <= 4'b0001 << lj[1:0];
++					state   <= ST_L_COMMIT;
++				end
++			ST_L_COMMIT:
++				begin
++					pb_we <= 4'h0;
++					if (lj == 6'd44) state <= ST_L_OPEN;
++					else begin
++						lj    <= lj + 1'd1;
++						state <= ST_L_CH;
++					end
++				end
++			ST_L_OPEN:
++				begin
++					tc_code <= 16'h0192;
++					tc_p0   <= {16'b0, SLOT_MSU};
++					tc_p1   <= PB_BASE;
++					ret_cmd <= ST_L_RES;
++					state   <= ST_CMD_GO;
++				end
++			ST_L_RES:
++				begin
++					r3 <= res;
++					if (res <= 16'd1) begin
++						// literal path works: use it (MSU-1 for this ROM)
++						diag_r   <= 4'd0;
++						enable_r <= 1'b1;
++						dpos     <= 8'd40;
++						scan_id   <= SLOT_MSU;
++						scan_next <= ST_I_SZ2;
++						state     <= ST_SCN_S;
++					end
++					else begin
++						diag_r <= (res == 16'd4) ? 4'd14 : (res == 16'd3) ? 4'd13 : 4'd15;
++						state  <= ST_I_END;
++					end
++				end
++			ST_I_SZ2:
++				begin
++					// size table may not be refreshed by the open: fall back to "large"
++					dsize_r  <= (scan_sz != 32'd0) ? scan_sz : 32'h0FFF_FFFF;
++					state    <= ST_I_END;
++				end
++			ST_I_END:
++				begin
++					init_done <= 1;
++					hold_r    <= 0;
++					state     <= ST_IDLE;
++				end
++
++			// ---- write the suffix for the current mode at dpos ----
++			ST_WR_START:
++				begin
++					// let the digit pipeline settle (5 stages) before writing
++					if (!wr_wait_run) begin
++						wr_wait_run <= 1;
++						wr_wait     <= 5'd24;
++					end
++					else if (wr_wait != 0) wr_wait <= wr_wait - 1'd1;
++					else begin
++						wr_wait_run <= 0;
++						wr_j  <= 0;
++						state <= ST_WR_CH;
++					end
++				end
++			ST_WR_CH:
++				begin
++					pb_addr <= wr_idx[8:2];
++					pb_din  <= sfx_char(sfx_mode, sfx_nd, sfx_dg, wr_j);
++					pb_we   <= 4'b0001 << (wr_idx[1:0] ^ {2{ord_r}});
++					state   <= ST_WR_COMMIT;
++				end
++			ST_WR_COMMIT:
++				begin
++					pb_we <= 4'h0;
++					if (wr_j == wr_jend) state <= ret_wr;
++					else begin
++						wr_j  <= wr_j + 1'd1;
++						state <= ST_WR_CH;
++					end
++				end
++
++			// ---- track mount ----
++			ST_T_OPEN:
++				begin
++					tc_code <= 16'h0192;
++					tc_p0   <= {16'b0, SLOT_PCM};
++					tc_p1   <= PB_BASE;
++					ret_cmd <= ST_T_SZ;
++					state   <= ST_CMD_GO;
++				end
++			ST_T_SZ:
++				begin
++					if (res > 16'd1) begin
++						diag_r    <= (res == 16'd3) ? 4'd5 : (res == 16'd4) ? 4'd8 : 4'd9;
++						missing_r <= 1;
++						wcnt      <= 0;
++						state     <= ST_T_FIN;
++					end
++					else begin
++						scan_id   <= SLOT_PCM;
++						scan_next <= ST_T_SZ2;
++						state     <= ST_SCN_S;
++					end
++				end
++			ST_T_SZ2:
++				begin
++					asize_r <= (scan_sz != 32'd0) ? scan_sz : 32'h0FFF_FFFF;
++					wcnt  <= 0;
++					state <= ST_T_FIN;
++				end
++			ST_T_FIN:
++				begin
++					// keep "mounting" up long enough for clk_sys to see it
++					wcnt <= wcnt + 1'd1;
++					if (wcnt == 8'd255) begin
++						mounting_r <= 0;
++						state      <= ST_IDLE;
++					end
++				end
++
++			// ---- transfer completions ----
++			ST_A_FIN:
++				begin
++					diag_r   <= (res != 16'd0) ? 4'd4 : 4'd3;   // PCM data fetch result
++					a_err_r  <= (res != 16'd0);
++					a_done_r <= ~a_done_r;
++					state    <= ST_IDLE;
++				end
++			ST_D_FIN:
++				begin
++					d_err_r  <= (res != 16'd0);
++					d_done_r <= ~d_done_r;
++					state    <= ST_IDLE;
++				end
++
++			default: state <= ST_IDLE;
++		endcase
++	end
++end
++
++endmodule
+diff -ruN a/src/fpga/core/rtl/CPU.vhd b/src/fpga/core/rtl/CPU.vhd
+--- a/src/fpga/core/rtl/CPU.vhd	2026-11-03 20:10:20.266136353 +0900
++++ b/src/fpga/core/rtl/CPU.vhd	2026-11-03 09:12:23.000000000 +0900
+@@ -41,7 +41,7 @@
+ 		JOY1_CLK			: out std_logic;
+ 		JOY2_CLK			: out std_logic;
+ 
+-		TURBO				: in std_logic;
++		TURBO				: in std_logic_vector(1 downto 0);
+ 		
+ 		DBG_CPU_EN		: in std_logic
+ 	);
+@@ -246,8 +246,13 @@
+ 	process( SPEED, MEMSEL, REFRESHED, CPU_ACTIVEr, TURBO, P65_CLK_CNT, P65_ACCESSED_PERIPHERAL_CNT)	
+ 	begin		
+ 		-- Turbo should only occur when the cpu is ONLY accessing ram/rom, in otherwords during the main game loop	
+-		if TURBO = '1' and P65_ACCESSED_PERIPHERAL_CNT = x"0" then	
+-			CPU_LAST_CLOCK <= x"4";	
++		if TURBO /= "00" and P65_ACCESSED_PERIPHERAL_CNT = x"0" then	
++			-- TURBO = "01": normal turbo (FastROM speed), "10"/"11": max turbo (original, 5 master clocks)
++			if TURBO(1) = '1' then
++				CPU_LAST_CLOCK <= x"4";
++			else
++				CPU_LAST_CLOCK <= x"5";
++			end if;	
+ 		elsif REFRESHED = '1' and CPU_ACTIVEr = '1' then	
+ 			CPU_LAST_CLOCK <= x"7";	
+ 		elsif SPEED = FAST or (SPEED = SLOWFAST and MEMSEL = '1') then	
+diff -ruN a/src/fpga/core/rtl/SNES.vhd b/src/fpga/core/rtl/SNES.vhd
+--- a/src/fpga/core/rtl/SNES.vhd	2026-11-03 20:10:20.266276384 +0900
++++ b/src/fpga/core/rtl/SNES.vhd	2026-11-03 09:12:23.000000000 +0900
+@@ -95,7 +95,7 @@
+ 		IO_DAT  		: in std_logic_vector(15 downto 0);
+ 		IO_WR 		: in std_logic;
+ 		
+-		TURBO			: in std_logic;
++		TURBO			: in std_logic_vector(1 downto 0);
+ 		
+ 		DBG_BG_EN	: in std_logic_vector(4 downto 0);
+ 		DBG_CPU_EN	: in std_logic;
+diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU.sv
+--- a/src/fpga/core/rtl/chip/MSU1/MSU.sv	2026-11-03 20:10:20.267517888 +0900
++++ b/src/fpga/core/rtl/chip/MSU1/MSU.sv	2026-11-02 22:43:48.000000000 +0900
+@@ -25,6 +25,9 @@
+ 	output reg        status_audio_repeat,
+ 	output reg        status_audio_playing,
+ 	input             audio_stop,
++	output reg        audio_resume,
++	input      [21:0] audio_sector,
++	output reg [21:0] resume_sector,
+ 
+ 	// Data track read
+ 	output reg [31:0] data_addr,
+@@ -38,7 +41,7 @@
+ // Read 'registers'
+ // MSU_STATUS - $2000
+ // Status bits
+-localparam [2:0] status_revision = 3'b001;
++localparam [2:0] status_revision = 3'b010;
+ wire [7:0] MSU_STATUS = {
+ 	status_data_busy,
+ 	status_audio_busy,
+@@ -48,44 +51,51 @@
+ 	status_revision
+ };
+ 
+-// Write registers
+-reg [31:0] MSU_SEEK;   // $2000 - $2003
+-reg [15:0] MSU_TRACK;  // $2004 - $2005
++// Write register buffers excl MSB
++reg [23:0] MSU_SEEK;   // $2000 - $2003
++reg [ 7:0] MSU_TRACK;  // $2004 - $2005
+ 
+ // banks 00-3F and 80-BF, address 2000-2007
+ assign MSU_SEL = ENABLE && !ADDR[22] && (ADDR[15:4] == 'h200) && !ADDR[3];
+ 
+-wire status_audio_busy = track_request;
+-
+-reg data_ack_1 = 1'b0;
+-reg status_data_busy = 1'b0;
+-reg track_mounting_old = 0;
++wire       status_audio_busy = track_request;
++reg [15:0] resume_track_num;
++reg        resume_valid;
++
++reg status_data_busy;
++reg data_ack_old;
++reg track_mounting_old;
+ 
+ reg  data_rd_old;
+ wire data_rd = MSU_SEL && !RD_N && ADDR[2:0] == 1 && !status_data_busy;
+ 
+ always @(posedge CLK) begin
+ 	if (~RST_N) begin
+-		MSU_SEEK <= 0;
+ 		data_addr <= 0;
+-		MSU_TRACK <= 0;
+ 		track_num <= 0;
+ 		track_request <= 0;
+ 		volume <= 0;
+ 		status_audio_playing <= 0;
++		audio_resume <= 0;
+ 		status_audio_repeat <= 0;
+ 		status_data_busy <= 0;
+ 		track_mounting_old <= 0;
++		data_ack_old <= 0;
++		data_rd_old <= 0;
++		resume_valid <= 0;
+ 		data_req <= 0;
+ 		data_seek <= 0;
+ 	end
+ 	else begin
+-		// Reset our request trigger for pulsing
++
++		// Set/reset pulsed signals
+ 		data_req <= 0;
++		audio_resume <= 0;
++		if (audio_stop) status_audio_playing <= 0;
+ 
+-		// Falling edge of data busy
+-		data_ack_1 <= data_ack;
+-		if (!data_ack_1 && data_ack) begin
++		// Rising edge of data busy
++		data_ack_old <= data_ack;
++		if (!data_ack_old && data_ack) begin
+ 			status_data_busy <= 0;
+ 			data_seek <= 0;
+ 		end
+@@ -94,35 +104,38 @@
+ 		track_mounting_old <= track_mounting;
+ 		if (track_mounting_old && !track_mounting) track_request <= 0;
+ 
+-		if (audio_stop) status_audio_playing <= 0;
+-
+ 		// Register writes
+ 		if (MSU_SEL & SYSCLKF_CE & ~WR_N) begin
+ 			case (ADDR[2:0])
+-				0: MSU_SEEK[7:0]   <= DIN; // Data seek address. MSU_SEEK, LSB byte
+-				1: MSU_SEEK[15:8]  <= DIN; // Data seek address. MSU_SEEK.
+-				2: MSU_SEEK[23:16] <= DIN; // Data seek address. MSU_SEEK.
++				0: MSU_SEEK[7:0]   <= DIN;
++				1: MSU_SEEK[15:8]  <= DIN;
++				2: MSU_SEEK[23:16] <= DIN;
+ 				3: begin 
+-						MSU_SEEK[31:24] <= DIN; // Data seek address. MSU_SEEK, MSB byte
+-						data_addr <= {DIN, MSU_SEEK[23:0]};
+-						data_seek <= 1;
+-						status_data_busy <= 1;
+-					end
+-
+-				4: MSU_TRACK[7:0] <= DIN; // MSU_Track LSB
++					data_addr <= {DIN, MSU_SEEK};
++					data_seek <= 1;
++					status_data_busy <= 1;
++				end
++				4: MSU_TRACK <= DIN;
+ 				5: begin
+-						MSU_TRACK[15:8] <= DIN; // MSU_Track MSB
+-						track_num <= {DIN, MSU_TRACK[7:0]};
+-						track_request <= 1;
++					track_num <= {DIN, MSU_TRACK};
++					track_request <= 1;
++					status_audio_playing <= 0;
++					status_audio_repeat <= 0;
++					if (resume_valid && resume_track_num == {DIN, MSU_TRACK}) begin
++						audio_resume <= 1;
++						resume_valid <= 0;
+ 					end
+-
+-				6: volume <= DIN; // MSU Audio Volume
+-
+-				// MSU Audio state control
+-				7: begin
+-						status_audio_repeat <= DIN[1];
+-						status_audio_playing <= DIN[0];
++				end
++				6: volume <= DIN;
++				7: if (!status_audio_busy && !status_track_missing) begin
++					status_audio_repeat <= DIN[1];
++					status_audio_playing <= DIN[0];
++					if (DIN[2] && !DIN[0]) begin
++						resume_track_num <= track_num;
++						resume_sector <= audio_sector;
++						resume_valid <= 1;
+ 					end
++				end
+ 			endcase
+ 		end
+ 
+@@ -132,7 +145,7 @@
+ 			data_addr <= data_addr + 1;
+ 			data_req <= 1'b1;
+ 		end
+-		
++
+ 		case (ADDR[2:0])
+ 			0: DOUT <= MSU_STATUS;
+ 			1: DOUT <= data;
+diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU1/msu_audio.v
+--- a/src/fpga/core/rtl/chip/MSU1/msu_audio.v	2026-11-03 20:10:20.267537264 +0900
++++ b/src/fpga/core/rtl/chip/MSU1/msu_audio.v	2026-11-03 00:21:33.000000000 +0900
+@@ -1,5 +1,15 @@
+-// This module is responsible for handling sectors, including loop point and partial end sector.
+-// Pausing/resuming also handled here
++// MSU-1 audio player for the Analogue Pocket (openFPGA) port.
++//
++// Derived from the MiSTer SNES core msu_audio.v (GPL). Differences:
++//  * No HPS pushing sectors. This module asks msu_bridge for chunks of the
++//    track file with a toggle handshake (fetch_tgl / fetch_done_tgl); msu_bridge
++//    executes an APF "[0180 Data slot read]" and the bytes arrive as little-endian
++//    16-bit words on pcm_wr/pcm_data (through data_loader).
++//  * Every track starts with an 8 byte header fetch ("MSU1" + loop point) which
++//    is parsed but not played, then the audio data is fetched in CHUNK_BYTES chunks.
++//  * audio_sector (1KB units) reports the current fetch position for MSU resume.
++//
++// PCM file: "MSU1", u32 loop point (in stereo frames), then 16-bit LE stereo samples.
+ 
+ module msu_audio
+ (
+@@ -11,177 +21,239 @@
+ 	input      [7:0]  ctl_volume,
+ 	input             ctl_repeat,
+ 	input             ctl_play,
++	input             ctl_resume,
+ 	output reg        ctl_stop,
+ 
+-	input      [31:0] track_size,
++	input      [31:0] track_size,        // bytes, 0 = unknown/missing
+ 	input             track_processing,
+ 
+-	input             audio_download,
+-	input             audio_data_wr,
+-	input      [15:0] audio_data,
+-
+-	output reg        audio_req,
+-	output reg        audio_seek,
+-	output reg [21:0] audio_sector,
+-	input             audio_ack,
+- 
+-	output     [15:0] audio_l,	 
+-	output     [15:0] audio_r
++	// PCM words from the bridge (clk domain)
++	input             pcm_wr,
++	input      [15:0] pcm_data,
++
++	// Chunk fetch handshake with msu_bridge
++	output reg        fetch_tgl,
++	output reg [31:0] fetch_off,
++	output reg [15:0] fetch_len,
++	input             fetch_done_tgl,    // synchronised to clk
++	input             fetch_err,
++
++	output     [21:0] audio_sector,
++	input      [21:0] resume_sector,
++
++	output     [15:0] audio_l,
++	output     [15:0] audio_r,
++
++	output reg  [4:0] dbg_code,          // beeper code (10..16), see below
++	output reg  [2:0] dbg_lat,           // worst fetch latency class 0..4
++	output reg  [3:0] dbg_reqs           // track requests since boot (saturating at 9)
+ );
+ 
+-localparam WAITING_FOR_PLAY_STATE = 0;
+-localparam WAITING_ACK_STATE      = 1;
+-localparam PLAYING_STATE          = 2;
+-localparam PLAYING_CHECKS_STATE   = 3;
+-localparam END_SECTOR_STATE       = 5;
++localparam [15:0] CHUNK_BYTES = 16'd8192;           // 2048 stereo frames
++localparam [11:0] REFILL_LEVEL = 12'd2048;          // fetch when FIFO holds <= this many frames
++
++localparam [3:0] S_IDLE   = 4'd0;
++localparam [3:0] S_HDR    = 4'd1;
++localparam [3:0] S_WAIT   = 4'd2;
++localparam [3:0] S_SETTLE = 4'd3;
++localparam [3:0] S_SPACE  = 4'd4;
++localparam [3:0] S_DATA   = 4'd5;
++localparam [3:0] S_END    = 4'd6;
++localparam [3:0] S_DRAIN  = 4'd7;
++
++wire        fifo_full;
++wire [11:0] fifo_usedw;
++wire        fifo_empty;
++
++reg  [3:0]  state = S_IDLE;
++reg [31:0]  pos = 0;               // byte offset of the next data chunk (always 1KB aligned)
++reg   [9:0] skip_cnt = 0;          // dwords to discard at the start of the next chunk
++reg   [9:0] skip_cur = 0;          // ... latched for the transfer in flight
++reg         first_cur = 0;         // transfer in flight starts at byte 0 (has the file header)
++reg   [1:0] retries = 0;
++reg [31:0]  loop_index = 0;        // loop point as frame index incl. 2 header dwords
++reg         resuming = 0;
++reg         hdr = 0;               // current fetch is the header
++reg  [15:0] cur_len = 0;
++reg         done_prev = 0;
++reg   [7:0] settle = 0;
++reg         last_err = 0;
++reg   [3:0] hold = 0;
++
++initial begin
++	fetch_tgl = 0;
++	fetch_off = 0;
++	fetch_len = 0;
++	ctl_stop  = 0;
++end
++
++assign audio_sector = pos[31:10];
++
++wire done_changed = (fetch_done_tgl != done_prev);
++
++wire [31:0] remaining  = track_size - pos;
++wire        pos_valid  = (pos < track_size);
++wire [31:0] loop_pos   = {loop_index[29:0], 2'b00};
++wire        loop_valid = (loop_pos >= 32'd8) && (loop_pos < track_size);
+ 
+ always @(posedge clk) begin
+-	reg [31:0] loop_index = 0;
+-	reg  [7:0] state = WAITING_FOR_PLAY_STATE;
+-	reg        partial_sector_state = 0;
+-	reg        looping;
++	ctl_stop  <= 0;
++	done_prev <= fetch_done_tgl;
+ 
+-	ctl_stop <= 0;
++	if (hold != 0) hold <= hold - 1'd1;
++	if (ctl_resume) resuming <= 1;
+ 
+ 	if (reset) begin
+-		state <= WAITING_FOR_PLAY_STATE;
+-		audio_sector <= 0;
+-		audio_seek <= 0;
+-		fifo_wren <= 0;
+-		audio_req <= 0;
++		state    <= S_IDLE;
++		resuming <= 0;
++		hold     <= 0;
+ 	end
+ 	else begin
+-
+-		// Loop sector handling - also need to take into account the 8 bytes for file header (msu1 and loop index = 8 bytes)
+-		if (audio_sector == 0 && data_cnt == 1 && data_wr && audio_ack) loop_index <= data + 2;
+-
+ 		case (state)
+-			WAITING_FOR_PLAY_STATE:
++			S_IDLE:
+ 				begin
+-					audio_sector <= 0;
+-					audio_seek <= 0;
+-					partial_sector_state <= 0;
+-					fifo_wren <= 0;
+-					looping <= 0;
+-					audio_req <= 0;
+-					if (~track_processing & ctl_play) begin
+-						audio_seek <= 1;
+-						state <= WAITING_ACK_STATE;
++					if (~track_processing & ctl_play & (hold == 0) & (|track_size)) begin
++						if (resuming && resume_sector != 0) begin
++							pos      <= {resume_sector, 10'b0};
++							skip_cnt <= 10'd0;
++						end
++						else begin
++							pos      <= 32'd0;
++							skip_cnt <= 10'd2;           // the 8 header bytes
++						end
++						resuming <= 0;
++						last_err <= 0;
++						retries  <= 0;
++						state    <= S_SPACE;
+ 					end
+ 				end
+ 
+-			WAITING_ACK_STATE:
+-				if (audio_ack) begin
+-					audio_req <= 0;
+-					audio_seek <= 0;
+-					state <= PLAYING_STATE;
+-				end
+-
+-			PLAYING_STATE:
+-				if (partial_sector_state) begin
+-					// Handling the last sector here
+-					if (data_cnt >= track_size[9:2]) begin
+-						fifo_wren <= 0;
+-						state <= END_SECTOR_STATE;
+-					end
+-				end
+-				else begin
+-					// Keep collecting samples until we hit the buffer limit and while audio_ack is still high
+-					if (looping) begin
+-						// We may need to deal with some remainder samples after the loop sector boundary
+-						if (data_cnt < loop_index[7:0]) begin
+-							// Disable writing to the fifo, skipping to the correct sample in the loop sector
+-							fifo_wren <= 0;
++			// Header: bytes 0..7
++			S_HDR:
++				begin
++					hdr       <= 1;
++					cur_len   <= 16'd8;
++					fetch_off <= 32'd0;
++					fetch_len <= 16'd8;
++					fetch_tgl <= ~fetch_tgl;
++					state     <= S_WAIT;
++				end
++
++			S_WAIT:
++				if (done_changed) begin
++					last_err <= fetch_err;
++					settle   <= 0;
++					state    <= S_SETTLE;
++				end
++
++			// Let the tail of the transfer trickle through data_loader
++			S_SETTLE:
++				begin
++					settle <= settle + 1'd1;
++					if (settle == 8'd255) begin
++						if (!last_err) begin
++							pos      <= pos + {16'b0, cur_len};
++							skip_cnt <= 10'd0;
++							retries  <= 0;
++							state    <= S_SPACE;
++						end
++						else if (retries != 2'd3) begin
++							retries  <= retries + 1'd1;   // transient error: read the same chunk again
++							last_err <= 0;
++							state    <= S_DATA;
+ 						end
+ 						else begin
+-							looping <= 0;
+-							fifo_wren <= 1;
++							state    <= S_END;
+ 						end
+ 					end
+-					else begin
+-						fifo_wren <= (audio_sector || data_cnt[7:1]);
++				end
++
++			S_SPACE:
++				if (!pos_valid) state <= S_END;
++				else if (fifo_usedw <= REFILL_LEVEL) state <= S_DATA;
++
++			S_DATA:
++				begin
++					// Whole dwords only, at most one chunk
++					cur_len   <= (remaining >= {16'b0, CHUNK_BYTES}) ? CHUNK_BYTES : {remaining[15:2], 2'b00};
++					skip_cur  <= skip_cnt;
++					first_cur <= (pos == 32'd0);
++					fetch_off <= pos;
++					fetch_len <= (remaining >= {16'b0, CHUNK_BYTES}) ? CHUNK_BYTES : {remaining[15:2], 2'b00};
++					if (remaining < 32'd4) begin
++						state <= S_END;
+ 					end
+-					 
+-					if (!audio_ack && fifo_usedw < 768) begin
+-						// We've received a full sector
+-						// Only add new sectors if we haven't filled the buffer
+-						// 1024 dwords in the fifo - sector size of 256 dwords
+-						state <= PLAYING_CHECKS_STATE;
++					else begin
++						fetch_tgl <= ~fetch_tgl;
++						state     <= S_WAIT;
+ 					end
+ 				end
+ 
+-			PLAYING_CHECKS_STATE:
+-				// Check if we've reached end_sector yet
+-				if (audio_sector < track_size[31:10]-1'd1) begin
+-					// Nope, Fetch another sector, keeping track of where we are
+-					audio_sector <= audio_sector + 1'd1;
+-					audio_req <= 1;
+-					state <= WAITING_ACK_STATE;
+-				end
+-				else begin
+-					state <= END_SECTOR_STATE;
+-				end
+-
+-			END_SECTOR_STATE:
+-				// Depending on the last sector and looping, we need to handle things differently
+-				if (!track_size[9:2] || partial_sector_state) begin
+-					partial_sector_state <= 0;
+-					// Handle a full last sector
+-					if (!ctl_repeat) begin
+-						// Stop, no loop
+-						ctl_stop <= 1;
+-						state <= WAITING_FOR_PLAY_STATE;
++			S_END:
++				begin
++					last_err <= 0;
++					if (ctl_repeat && loop_valid) begin
++						pos      <= {loop_pos[31:10], 10'b0};
++						skip_cnt <= loop_pos[9:2];
++						retries  <= 0;
++						state    <= S_SPACE;
+ 					end
+ 					else begin
+-						// Loop, jump back to the loop sector
+-						audio_sector <= loop_index[29:8];
+-						audio_seek <= 1;
+-						state <= WAITING_ACK_STATE;
+-						looping <= 1;
++						state <= S_DRAIN;
+ 					end
+ 				end
+-				else begin
+-					// Handle partial end sector - The last sector of the PCM file does NOT end on an exact
+-					// Sector boundary. We need to keep reading until we reach the end sample.
+-					// Move to the partial sector
+-					partial_sector_state <= 1;
+-					audio_sector <= audio_sector + 1'd1;
+-					audio_req <= 1;
+-					state <= WAITING_ACK_STATE;
++
++			S_DRAIN:
++				if (fifo_empty) begin
++					ctl_stop <= 1;
++					hold     <= 4'd15;
++					state    <= S_IDLE;
+ 				end
++
++			default: state <= S_IDLE;
+ 		endcase
+-		
+-		if(track_processing) state <= WAITING_FOR_PLAY_STATE;
++
++		// New track requested: abandon everything, except while a transfer is
++		// still landing (its data is discarded by the FIFO clear).
++		if (track_processing && state != S_WAIT && state != S_SETTLE) state <= S_IDLE;
+ 	end
+ end
+ 
+-reg        data_wr;
+-reg [31:0] data;
+-reg  [7:0] data_cnt;
++// ---------------------------------------------------------------------------
++// Incoming 16-bit words -> 32-bit stereo frames -> FIFO
++// ---------------------------------------------------------------------------
++reg  [15:0] lo_word;
++reg         wcnt = 0;
++reg  [11:0] dcnt = 0;
++reg         fifo_wr = 0;
++reg  [31:0] fifo_din;
+ 
+ always @(posedge clk) begin
+-	reg [8:0] cnt;
+-
+-	data_wr <= 0;
++	fifo_wr <= 0;
+ 
+-	if(~audio_download) begin
+-		data_cnt <= 0;
+-		cnt <= 0;
+-	end
+-	else if(audio_data_wr)  begin
+-		cnt <= cnt + 1'd1;
+-		if(cnt[0]) begin
+-			data[31:16] <= audio_data;
+-			data_wr <= 1;
++	if (state != S_WAIT && state != S_SETTLE) begin
++		wcnt <= 0;
++		dcnt <= 0;
++	end
++	else if (pcm_wr) begin
++		if (!wcnt) begin
++			lo_word <= pcm_data;
++			wcnt    <= 1;
+ 		end
+ 		else begin
+-			data[15:0] <= audio_data;
+-			data_cnt <= cnt[8:1];
++			wcnt     <= 0;
++			fifo_din <= {pcm_data, lo_word};
++			if (first_cur && dcnt == 12'd1) loop_index <= {pcm_data, lo_word} + 32'd2;
++			if (dcnt >= {2'b00, skip_cur}) fifo_wr <= 1;
++			dcnt <= dcnt + 1'd1;
+ 		end
+ 	end
+ end
+ 
+-reg sample_ce;
++// ---------------------------------------------------------------------------
++// 44.1kHz sample clock, FIFO, volume
++// ---------------------------------------------------------------------------
++wire sample_ce;
+ CEGen sample_clock
+ (
+ 	.CLK(clk),
+@@ -192,31 +264,87 @@
+ );
+ 
+ wire        playing = ctl_play & ~track_processing & ~fifo_empty;
+-wire        fifo_full;
+-wire  [9:0] fifo_usedw;
+-wire        fifo_empty;
+-reg         fifo_wren;
+ wire [15:0] sample_l;
+ wire [15:0] sample_r;
+ 
+-msu_fifo #(32,10) audio_fifo
++msu_fifo #(32,12) audio_fifo
+ (
+ 	.aclr(track_processing),
+ 
+ 	.wrclk(clk),
+-	.wrreq(data_wr & ~fifo_full & fifo_wren),
+-	.data(data),
++	.wrreq(fifo_wr & ~fifo_full),
++	.data(fifo_din),
+ 	.wrfull(fifo_full),
+ 	.wrusedw(fifo_usedw),
+ 
+ 	.rdclk(clk),
+ 	.q({sample_r,sample_l}),
+ 	.rdreq(sample_ce & playing),
+-	.rdempty(fifo_empty)
++	.rdempty(fifo_empty),
++	.rdusedw()
+ );
+ 
+-wire [23:0] vol_mix_l = $signed(sample_l) * ctl_volume;
+-wire [23:0] vol_mix_r = $signed(sample_r) * ctl_volume;
++wire [23:0] vol_mix_l = $signed(sample_l) * $signed({1'b0, ctl_volume});
++wire [23:0] vol_mix_r = $signed(sample_r) * $signed({1'b0, ctl_volume});
++// ---- diagnostics (beeper) ----
++reg        d_words = 0, d_fifo = 0, d_play = 0, d_nz = 0, d_raw = 0, d_started = 0, d_under = 0;
++reg        d_end = 0, d_err = 0, d_pdrop = 0, d_rst = 0, tp_d = 0;
++reg [16:0] d_frames = 0;           // frames consumed (saturates)
++reg [22:0] lat_cnt = 0;
++reg        lat_run = 0;
++reg  [2:0] lat_max = 0;
++wire [2:0] lat_now = (lat_cnt < 23'd262144) ? 3'd1 : (lat_cnt < 23'd524288) ? 3'd2 : (lat_cnt < 23'd2097152) ? 3'd3 : 3'd4;
++wire       fetching = (state == S_HDR) || (state == S_WAIT) || (state == S_SETTLE) || (state == S_SPACE) || (state == S_DATA);
++
++always @(posedge clk) begin
++	// fetch latency of data chunks (toggle -> done)
++	if (done_changed) begin
++		lat_run <= 0;
++		if (lat_now > lat_max) lat_max <= lat_now;
++	end
++	else if (state == S_DATA) begin
++		lat_run <= 1;
++		lat_cnt <= 0;
++	end
++	else if (lat_run && lat_cnt != 23'h7FFFFF) lat_cnt <= lat_cnt + 1'd1;
++
++	if (track_processing) begin
++		d_words <= 0; d_fifo <= 0; d_play <= 0; d_nz <= 0; d_raw <= 0; d_started <= 0; d_under <= 0; d_frames <= 0;
++		lat_max <= 0;
++		d_end <= 0; d_err <= 0; d_pdrop <= 0; d_rst <= 0;
++	end
++	else begin
++		if (reset) d_rst <= 1;
++		if (state == S_END) d_end <= 1;
++		if (last_err) d_err <= 1;
++		if (d_started && !ctl_play) d_pdrop <= 1;
++		if (pcm_wr) d_words <= 1;
++		if (fifo_wr) d_fifo <= 1;
++		if (playing && sample_ce) begin
++			d_play <= 1; d_started <= 1;
++			if (d_frames != 17'h1FFFF) d_frames <= d_frames + 1'd1;
++		end
++		if (playing && (|audio_l || |audio_r)) d_nz <= 1;
++			if (playing && (|sample_l || |sample_r)) d_raw <= 1;
++		if (d_started && fifo_empty && ctl_play && fetching) d_under <= 1;
++	end
++
++	// 10 no pcm words, 11 words but no fifo fill, 12 fifo filled but never played,
++	// 13 played but output always 0, 14 output ok but < 1 s played, 15 output ok with underruns,
++	// 16 output ok, >= 1 s played, no underrun
++	tp_d <= track_processing;
++	if (track_processing && !tp_d && dbg_reqs != 4'd9) dbg_reqs <= dbg_reqs + 1'd1;
++
++	// 17 core reset hit, 18 fetch error ended it, 19 reached end of track early,
++	// 20 game stopped playing (ctl_play dropped)
++	dbg_code <= !d_words ? 5'd10 : !d_fifo ? 5'd11 : !d_play ? 5'd12 : !d_nz ? (d_raw ? 5'd21 : 5'd13) :
++	            d_under ? 5'd15 :
++	            (d_frames >= 17'd44100) ? 5'd16 :
++	            d_rst ? 5'd17 : d_err ? 5'd18 : d_end ? 5'd19 : d_pdrop ? 5'd20 : 5'd14;
++	dbg_lat  <= lat_max;
++end
++initial begin dbg_code = 0; dbg_lat = 0; dbg_reqs = 0; end
++
+ assign      audio_l = playing ? vol_mix_l[23:8] : 16'h0000;
+ assign      audio_r = playing ? vol_mix_r[23:8] : 16'h0000;
+ 
+diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv b/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv
+--- a/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv	2026-11-03 20:10:20.267552383 +0900
++++ b/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv	2026-11-01 10:00:17.000000000 +0900
+@@ -1,110 +1,158 @@
+ //
+-// msu_data_store.v
+-// Copyright (c) 2022 Alexey Melnikov
++// msu_data_store.sv  --  Analogue Pocket (openFPGA) version
+ //
++// Original MiSTer module (c) 2022 Alexey Melnikov (GPL-3.0-or-later) read the .msu
++// file from DDRAM.  The Pocket has no HPS/DDRAM, so the data file stays on the SD
++// card and is paged into a 16KB block cache (4 x 4KB, direct mapped by block number).
++// msu_bridge fetches blocks with APF "[0180 Data slot read]"; the bytes arrive as
++// little-endian 16-bit words through data_loader (dw_wr / dw_addr / dw_data, byte
++// address inside the cache).
++//
++// The block containing the read pointer and the two following blocks are kept
++// resident, so sequential streaming never waits for the SD card.  A seek only
++// completes (rd_seek_done rises) when the target block is resident.
+ //
+-// This source file is free software: you can redistribute it and/or modify
+-// it under the terms of the GNU General Public License as published
+-// by the Free Software Foundation, either version 3 of the License, or
+-// (at your option) any later version. 
+-//
+-// This source file is distributed in the hope that it will be useful,
+-// but WITHOUT ANY WARRANTY; without even the implied warranty of 
+-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the 
+-// GNU General Public License for more details.
+-//
+-// You should have received a copy of the GNU General Public License 
+-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-//
+-//
+-
+ module msu_data_store
+ (
+-	input         DDRAM_CLK,
++	input             clk_sys,
++	input             reset,
++
++	input             enable,
++	input      [31:0] data_size,       // bytes, 0 = unknown
+ 
+-	input         DDRAM_BUSY,
+-	output  [7:0] DDRAM_BURSTCNT,
+-	output [28:0] DDRAM_ADDR,
+-	input  [63:0] DDRAM_DOUT,
+-	input         DDRAM_DOUT_READY,
+-	output        DDRAM_RD,
+-	output [63:0] DDRAM_DIN,
+-	output  [7:0] DDRAM_BE,
+-	output        DDRAM_WE,
+-	
+-	input         clk_sys,
+-	input  [31:0] base_addr,
+-
+-	input         rd_next,
+-	input         rd_seek,
+-	output reg    rd_seek_done,
+-	input  [31:0] rd_addr,
+-	output  [7:0] rd_dout
++	input             rd_next,         // unused: look-ahead is automatic
++	input             rd_seek,
++	output reg        rd_seek_done,
++	input      [31:0] rd_addr,
++	output      [7:0] rd_dout,
++
++	// cache write port (data_loader output, clk_sys domain)
++	input             dw_wr,
++	input      [13:0] dw_addr,         // byte address inside the 16KB cache
++	input      [15:0] dw_data,
++
++	// block fill request to msu_bridge (toggle handshake)
++	output reg        fill_tgl,
++	output reg [31:0] fill_off,
++	output reg [15:0] fill_len,
++	output reg  [1:0] fill_slot,
++	input             fill_done_tgl,   // synchronised to clk_sys
++	input             fill_err
+ );
+ 
+-assign DDRAM_BURSTCNT = ram_burst;
+-assign DDRAM_BE       = 8'hFF;
+-assign DDRAM_ADDR     = ram_address;
+-assign DDRAM_RD       = ram_read;
+-assign DDRAM_DIN      = 0;
+-assign DDRAM_WE       = 0;
+-
+-wire [28:0] ph_addr      = base_addr[31:3] + rd_addr[31:3];
+-wire [28:0] ph_addr_curr = ph_addr + ((ph_addr >= 'h4400000) ? 29'h100000 : 29'h0);
+-wire [28:0] ph_addr_next = ph_addr + ((ph_addr >= 'h43FFFFF) ? 29'h100001 : 29'h1);
+-
+-assign rd_dout = ram_q[{rd_addr[2:0], 3'b000} +:8];
+-
+-reg  [7:0] ram_burst;
+-reg [63:0] ram_q, next_q;
+-reg [63:0] ram_data;
+-reg [28:0] ram_address, cache_addr;
+-reg        ram_read = 0;
+-
+-reg  [1:0] state  = 0;
+-
+-always @(posedge DDRAM_CLK) begin
+-	reg old_seek;
+-	reg old_rd;
+-
+-	if(~rd_seek) old_seek <= 0;
+-
+-	if(!DDRAM_BUSY) begin
+-
+-		ram_read <= 0;
+-		old_rd   <= rd_next;
+-
+-		case(state)
+-			0: if(~old_seek & rd_seek) begin
+-					old_seek    <= 1;
+-					rd_seek_done<= 0;
+-					ram_address <= ph_addr_curr;
+-					cache_addr  <= ph_addr_next; // seek to 'h21FFFFF8 will return wrong second dword
+-					ram_read 	<= 1;
+-					ram_burst   <= 2;
+-					state       <= 1;
+-				end
+-				else if(~old_rd & rd_next) begin
+-					if(cache_addr == ph_addr_curr) begin
+-						ram_q       <= next_q;
+-						ram_address <= ph_addr_next;
+-						cache_addr  <= ph_addr_next;
+-						ram_read    <= 1;
+-						ram_burst   <= 1;
+-						state       <= 2;
+-					end
++// ---------------------------------------------------------------------------
++// Cache RAM: 8192 x 16
++// ---------------------------------------------------------------------------
++reg [15:0] cache [0:8191];
++reg [15:0] cache_q;
++reg        rd_odd;
++
++always @(posedge clk_sys) begin
++	if (dw_wr) cache[dw_addr[13:1]] <= dw_data;
++	cache_q <= cache[rd_addr[13:1]];
++	rd_odd  <= rd_addr[0];
++end
++
++assign rd_dout = rd_odd ? cache_q[15:8] : cache_q[7:0];
++
++// ---------------------------------------------------------------------------
++// Block bookkeeping
++// ---------------------------------------------------------------------------
++reg [19:0] tag   [0:3];
++reg  [3:0] valid = 4'b0000;
++
++wire [19:0] b0 = rd_addr[31:12];
++wire [19:0] b1 = b0 + 20'd1;
++wire [19:0] b2 = b0 + 20'd2;
++
++wire v0 = valid[b0[1:0]] && (tag[b0[1:0]] == b0);
++wire v1 = valid[b1[1:0]] && (tag[b1[1:0]] == b1);
++wire v2 = valid[b2[1:0]] && (tag[b2[1:0]] == b2);
++
++wire in0 = (data_size == 0) || ({b0, 12'b0} < data_size);
++wire in1 = (data_size == 0) || ({b1, 12'b0} < data_size);
++wire in2 = (data_size == 0) || ({b2, 12'b0} < data_size);
++
++wire need0 = in0 && !v0;
++wire need1 = in1 && !v1;
++wire need2 = in2 && !v2;
++
++wire cur_ok = v0 || !in0;
++
++localparam [1:0] S_IDLE = 2'd0, S_WAIT = 2'd1, S_SETTLE = 2'd2;
++
++reg  [1:0] state = S_IDLE;
++reg        seek_old = 0;
++reg        pending = 0;
++reg        done_prev = 0;
++reg  [7:0] settle = 0;
++reg  [1:0] cur_slot;
++
++// block selected for the next fill (priority: current, +1, +2)
++wire [19:0] sel_blk  = need0 ? b0 : (need1 ? b1 : b2);
++wire  [1:0] sel_slot = sel_blk[1:0];
++wire [31:0] sel_off  = {sel_blk, 12'b0};
++wire [31:0] sel_left = data_size - sel_off;
++
++initial begin
++	rd_seek_done = 1;
++	fill_tgl     = 0;
++	fill_off     = 0;
++	fill_len     = 0;
++	fill_slot    = 0;
++end
++
++always @(posedge clk_sys) begin
++	done_prev <= fill_done_tgl;
++	seek_old  <= rd_seek;
++
++	if (reset | ~enable) begin
++		valid        <= 4'b0000;
++		state        <= S_IDLE;
++		pending      <= 0;
++		rd_seek_done <= 1;
++	end
++	else begin
++		// A new seek drops rd_seek_done; it comes back once the block is resident
++		if (rd_seek && !seek_old) begin
++			pending      <= 1;
++			rd_seek_done <= 0;
++		end
++		else if (pending && cur_ok) begin
++			pending      <= 0;
++			rd_seek_done <= 1;
++		end
++
++		case (state)
++			S_IDLE:
++				if (need0 || need1 || need2) begin
++					tag[sel_slot]   <= sel_blk;
++					valid[sel_slot] <= 1'b0;
++					cur_slot        <= sel_slot;
++
++					fill_slot <= sel_slot;
++					fill_off  <= sel_off;
++					fill_len  <= (data_size == 0 || sel_left >= 32'd4096) ? 16'd4096 : sel_left[15:0];
++					fill_tgl  <= ~fill_tgl;
++					state     <= S_WAIT;
+ 				end
+ 
+-			1: if(DDRAM_DOUT_READY) begin
+-					ram_q <= DDRAM_DOUT;
+-					state <= 2;
++			S_WAIT:
++				if (fill_done_tgl != done_prev) begin
++					settle <= 0;
++					state  <= S_SETTLE;
+ 				end
+ 
+-			2: if(DDRAM_DOUT_READY) begin
+-					next_q <= DDRAM_DOUT;
+-					state  <= 0;
+-					rd_seek_done <= 1;
++			S_SETTLE:
++				begin
++					settle <= settle + 1'd1;
++					if (settle == 8'd255) begin
++						valid[cur_slot] <= 1'b1;
++						state           <= S_IDLE;
++					end
+ 				end
++
++			default: state <= S_IDLE;
+ 		endcase
+ 	end
+ end
+diff -ruN a/src/fpga/core/rtl/main.v b/src/fpga/core/rtl/main.v
+--- a/src/fpga/core/rtl/main.v	2026-11-03 20:10:20.268099242 +0900
++++ b/src/fpga/core/rtl/main.v	2026-11-03 09:12:18.000000000 +0900
+@@ -98,7 +98,7 @@
+     input [4:0] DBG_BG_EN,
+     input       DBG_CPU_EN,
+ 
+-    input  TURBO,
++    input  [1:0] TURBO,
+     output TURBO_ALLOW,
+ 
+     output [15:0] MSU_TRACK_NUM,
+@@ -109,6 +109,9 @@
+     input         MSU_AUDIO_STOP,
+     output        MSU_AUDIO_REPEAT,
+     output        MSU_AUDIO_PLAYING,
++    output        MSU_AUDIO_RESUME,
++    input  [21:0] MSU_AUDIO_SECTOR,
++    output [21:0] MSU_RESUME_SECTOR,
+     output [31:0] MSU_DATA_ADDR,
+     input  [ 7:0] MSU_DATA,
+     input         MSU_DATA_ACK,
+@@ -265,6 +268,9 @@
+           .status_audio_repeat(MSU_AUDIO_REPEAT),
+           .status_audio_playing(MSU_AUDIO_PLAYING),
+           .audio_stop(MSU_AUDIO_STOP),
++          .audio_resume(MSU_AUDIO_RESUME),
++          .audio_sector(MSU_AUDIO_SECTOR),
++          .resume_sector(MSU_RESUME_SECTOR),
+ 
+           .volume(MSU_VOLUME)
+       );
+@@ -276,6 +282,11 @@
+       assign MSU_VOLUME = 0;
+       assign MSU_AUDIO_REPEAT = 0;
+       assign MSU_AUDIO_PLAYING = 0;
++      assign MSU_AUDIO_RESUME = 0;
++      assign MSU_RESUME_SECTOR = 0;
++      assign MSU_DATA_ADDR = 0;
++      assign MSU_DATA_SEEK = 0;
++      assign MSU_DATA_REQ = 0;
+     end
+   endgenerate
+ 
+diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/SNES.sv
+--- a/src/fpga/core/rtl/mister_top/SNES.sv	2026-11-03 20:10:20.268152486 +0900
++++ b/src/fpga/core/rtl/mister_top/SNES.sv	2026-11-03 09:12:18.000000000 +0900
+@@ -7,7 +7,7 @@
+     input [64:0] rtc,
+ 
+     // Settings
+-    input wire cpu_turbo_enabled,
++    input wire [1:0] cpu_turbo_enabled,
+     input wire gsu_turbo_enabled,
+ 
+     input wire multitap_enabled,
+@@ -143,6 +143,34 @@
+     output wire [7:0] video_g,
+     output wire [7:0] video_b,
+ 
++    // MSU-1 (clk_sys domain, bridge side is in msu_bridge)
++    input  wire        msu_enable,
++    input  wire  [3:0] msu_diag,
++    input  wire        msu_track_mounting,
++    input  wire        msu_track_missing,
++    input  wire [31:0] msu_audio_size,
++    input  wire [31:0] msu_data_size,
++    output wire [15:0] msu_track_num,
++    output wire        msu_track_request,
++
++    input  wire        pcm_wr,          // PCM words (data_loader, 0x3xxxxxxx)
++    input  wire [15:0] pcm_data,
++    output wire        a_fetch_tgl,
++    output wire [31:0] a_fetch_off,
++    output wire [15:0] a_fetch_len,
++    input  wire        a_done_tgl,
++    input  wire        a_err,
++
++    input  wire        dw_wr,           // data cache words (data_loader, 0x4xxxxxxx)
++    input  wire [13:0] dw_addr,
++    input  wire [15:0] dw_data,
++    output wire        d_fill_tgl,
++    output wire [31:0] d_fill_off,
++    output wire [15:0] d_fill_len,
++    output wire  [1:0] d_fill_slot,
++    input  wire        d_done_tgl,
++    input  wire        d_err,
++
+     // Audio
+     output wire [15:0] audio_l,
+     output wire [15:0] audio_r
+@@ -299,8 +327,27 @@
+ 
+   wire turbo_allow;
+ 
+-  reg [15:0] main_audio_l;
+-  reg [15:0] main_audio_r;
++  wire [15:0] main_audio_l;
++  wire [15:0] main_audio_r;
++
++  // MSU-1 wires (declared before use by main)
++  wire  [7:0] msu_volume;
++  wire        msu_audio_repeat;
++  wire        msu_audio_playing;
++  wire        msu_audio_stop;
++  wire        msu_audio_resume;
++  wire [21:0] msu_audio_sector;
++  wire [21:0] msu_resume_sector;
++  wire [31:0] msu_data_addr;
++  wire  [7:0] msu_data;
++  wire        msu_data_ack;
++  wire        msu_data_seek;
++  wire        msu_data_req;
++  wire [15:0] msu_l;
++  wire [15:0] msu_r;
++  wire  [4:0] msu_dbg_code;
++  wire  [2:0] msu_dbg_lat;
++  wire  [3:0] msu_dbg_reqs;
+ 
+   wire vblank_n;
+   wire hblank_n;
+@@ -411,7 +458,7 @@
+       .IO_DAT (ioctl_dout),
+       .IO_WR  (spc_download & ioctl_wr),
+ 
+-      .TURBO(cpu_turbo_enabled & turbo_allow),
++      .TURBO(cpu_turbo_enabled & {2{turbo_allow}}),
+       .TURBO_ALLOW(turbo_allow),
+ 
+ `ifdef DEBUG_BUILD
+@@ -423,23 +470,26 @@
+ `endif
+ 
+       // MSU register handling
+-      // .MSU_TRACK_NUM(msu_track_num),
+-      // .MSU_TRACK_REQUEST(msu_track_request),
+-      // .MSU_TRACK_MOUNTING(msu_track_mounting),
+-      // .MSU_TRACK_MISSING(msu_track_missing),
+-      // .MSU_VOLUME(msu_volume),
+-      // .MSU_AUDIO_REPEAT(msu_audio_repeat),
+-      // .MSU_AUDIO_STOP(msu_audio_stop),
+-      // .MSU_AUDIO_PLAYING(msu_audio_playing),
+-      // .MSU_DATA_ADDR(msu_data_addr),
+-      // .MSU_DATA(msu_data),
+-      // .MSU_DATA_ACK(msu_data_ack),
+-      // .MSU_DATA_SEEK(msu_data_seek),
+-      // .MSU_DATA_REQ(msu_data_req),
+-      .MSU_ENABLE(0),  // TODO
++      .MSU_TRACK_NUM(msu_track_num),
++      .MSU_TRACK_REQUEST(msu_track_request),
++      .MSU_TRACK_MOUNTING(msu_track_mounting),
++      .MSU_TRACK_MISSING(msu_track_missing),
++      .MSU_VOLUME(msu_volume),
++      .MSU_AUDIO_REPEAT(msu_audio_repeat),
++      .MSU_AUDIO_RESUME(msu_audio_resume),
++      .MSU_AUDIO_STOP(msu_audio_stop),
++      .MSU_AUDIO_PLAYING(msu_audio_playing),
++      .MSU_AUDIO_SECTOR(msu_audio_sector),
++      .MSU_RESUME_SECTOR(msu_resume_sector),
++      .MSU_DATA_ADDR(msu_data_addr),
++      .MSU_DATA(msu_data),
++      .MSU_DATA_ACK(msu_data_ack),
++      .MSU_DATA_SEEK(msu_data_seek),
++      .MSU_DATA_REQ(msu_data_req),
++      .MSU_ENABLE(msu_enable),
+ 
+-      .AUDIO_L(audio_l),
+-      .AUDIO_R(audio_r)
++      .AUDIO_L(main_audio_l),
++      .AUDIO_R(main_audio_r)
+   );
+ 
+   wire reset = core_reset | cart_download | spc_download | bk_loading | clearing_ram | msu_data_download | parser_delay != 0;
+@@ -970,113 +1020,159 @@
+ 
+   ///////////////////////////  MSU1  ///////////////////////////////////
+ 
+-  // wire msu_enable;
+-  // wire msu_audio_download = ioctl_download & ioctl_index[5:0] == 6'h02;
+-  // wire msu_data_download  = ioctl_download & ioctl_index[5:0] == 6'h03;
+   wire msu_data_download = 0;
+ 
+-  // // EXT bus is used to communicate with the HPS for MSU functionality
+-  // wire [35:0] EXT_BUS;
+-  // hps_ext hps_ext
+-  // (
+-  // 	.reset(reset),
+-  // 	.clk_sys(clk_sys),
+-  // 	.EXT_BUS(EXT_BUS),
+-
+-  // 	.msu_enable(msu_enable),
+-
+-  // 	.msu_track_mounting(msu_track_mounting),
+-  // 	.msu_track_missing(msu_track_missing),
+-  // 	.msu_track_num(msu_track_num),
+-  // 	.msu_track_request(msu_track_request),
+-
+-  // 	.msu_audio_size(msu_audio_size),
+-  // 	.msu_audio_ack(msu_audio_ack),
+-  // 	.msu_audio_req(msu_audio_req),
+-  // 	.msu_audio_seek(msu_audio_seek),
+-  // 	.msu_audio_sector(msu_audio_sector),
+-  // 	.msu_audio_download(msu_audio_download),
+-
+-  // 	.msu_data_base(msu_data_base)
+-  // );
+-
+-  // wire        msu_track_mounting;
+-  // wire        msu_track_missing;
+-  // wire [15:0] msu_track_num;
+-  // wire        msu_track_request;
+-  // wire [31:0] msu_audio_size;
+-
+-  // wire  [7:0] msu_volume;
+-  // wire        msu_audio_repeat;
+-  // wire        msu_audio_playing;
+-  // wire        msu_audio_stop;
+-
+-  // wire        msu_audio_ack;
+-  // wire        msu_audio_req;
+-  // wire        msu_audio_seek;
+-  // wire [21:0] msu_audio_sector;
+-
+-  // wire [15:0] msu_l;
+-  // wire [15:0] msu_r;
+-
+-  // msu_audio msu_audio
+-  // (
+-  // 	.reset(reset),
+-
+-  // 	.clk(clk_sys),
+-  // 	.clk_rate(PAL ? 21281370 : 21477270),
+-
+-  // 	.ctl_volume(msu_volume),
+-  // 	.ctl_stop(msu_audio_stop),
+-  // 	.ctl_play(msu_audio_playing),
+-  // 	.ctl_repeat(msu_audio_repeat),
+-
+-  // 	.track_size(msu_audio_size),
+-  // 	.track_processing(msu_track_missing | msu_track_mounting | msu_track_request),
+-
+-  // 	.audio_download(msu_audio_download),
+-  // 	.audio_data(ioctl_dout),
+-  // 	.audio_data_wr(ioctl_wr),
+-
+-  // 	.audio_ack(msu_audio_ack),
+-  // 	.audio_sector(msu_audio_sector),
+-  // 	.audio_req(msu_audio_req),
+-  // 	.audio_seek(msu_audio_seek),
+-
+-  // 	.audio_l(msu_l),
+-  // 	.audio_r(msu_r)
+-  // );
++  generate
++    if (USE_MSU == 1'b1) begin : g_msu
++      msu_audio msu_audio (
++          .reset(reset),
++
++          .clk(clk_sys),
++          .clk_rate(PAL ? 32'd21281370 : 32'd21477270),
++
++          .ctl_volume(msu_volume),
++          .ctl_stop(msu_audio_stop),
++          .ctl_play(msu_audio_playing),
++          .ctl_resume(msu_audio_resume),
++          .ctl_repeat(msu_audio_repeat),
++
++          .track_size(msu_audio_size),
++          .track_processing(msu_track_missing | msu_track_mounting | msu_track_request),
++
++          .pcm_wr(pcm_wr),
++          .pcm_data(pcm_data),
++
++          .fetch_tgl(a_fetch_tgl),
++          .fetch_off(a_fetch_off),
++          .fetch_len(a_fetch_len),
++          .fetch_done_tgl(a_done_tgl),
++          .fetch_err(a_err),
++
++          .audio_sector(msu_audio_sector),
++          .resume_sector(msu_resume_sector),
++
++          .audio_l(msu_l),
++          .audio_r(msu_r),
++          .dbg_code(msu_dbg_code),
++          .dbg_lat(msu_dbg_lat),
++          .dbg_reqs(msu_dbg_reqs)
++      );
++
++      msu_data_store msu_data_store (
++          .clk_sys(clk_sys),
++          .reset(reset),
++
++          .enable(msu_enable),
++          .data_size(msu_data_size),
++
++          .rd_next(msu_data_req),
++          .rd_seek(msu_data_seek),
++          .rd_seek_done(msu_data_ack),
++          .rd_addr(msu_data_addr),
++          .rd_dout(msu_data),
++
++          .dw_wr(dw_wr),
++          .dw_addr(dw_addr),
++          .dw_data(dw_data),
++
++          .fill_tgl(d_fill_tgl),
++          .fill_off(d_fill_off),
++          .fill_len(d_fill_len),
++          .fill_slot(d_fill_slot),
++          .fill_done_tgl(d_done_tgl),
++          .fill_err(d_err)
++      );
++    end else begin : g_nomsu
++      assign msu_l = 16'd0;
++      assign msu_r = 16'd0;
++      assign msu_dbg_code = 5'd0;
++      assign msu_dbg_lat = 3'd0;
++      assign msu_dbg_reqs = 4'd0;
++      assign msu_audio_stop = 1'b0;
++      assign msu_audio_sector = 22'd0;
++      assign msu_data = 8'd0;
++      assign msu_data_ack = 1'b1;
++      assign a_fetch_tgl = 1'b0;
++      assign a_fetch_off = 32'd0;
++      assign a_fetch_len = 16'd0;
++      assign d_fill_tgl = 1'b0;
++      assign d_fill_off = 32'd0;
++      assign d_fill_len = 16'd0;
++      assign d_fill_slot = 2'd0;
++    end
++  endgenerate
+ 
+-  // reg [15:0] audio_l, audio_r;
++  // ---- debug beeper: reports the MSU-1 init result as N beeps (3 repeats) ----
++  //  1: ROM path query failed   2: bad path        3: open -> slot undefined
++  //  4: .msu not found          5: other open error 6: .msu opened OK
++  //  7: Pocket did not answer in time
++  reg [21:0] bp_tick = 0;
++  reg  [7:0] bp_slot = 0;
++  reg  [1:0] bp_rep  = 0;
++  reg [14:0] bp_sq   = 0;
++  reg [11:0] bp_diag_d = 0;
++  // Beeper. Silent while everything works.
++  //  low tone  (init / track open problems): 1 ROM path query failed, 2 bad path, 3 open: slot undefined,
++  //            4 .msu or track fetch error, 5 file not found, 7 Pocket did not answer, 8 malformed path, 9 other
++  //  high tone (a track is playing but something is wrong; reported after 1.5 s):
++  //            1 no pcm words, 2 no fifo fill, 3 never played, 4 output always 0, 5 stopped < 1 s (unknown),
++  //            6 underruns, 8 core reset, 9 fetch error, 10 end of track reached early, 11 game stopped play
++  wire       bp_aud   = (msu_diag == 4'd3);
++  wire [4:0] bp_raw   = bp_aud ? ((msu_dbg_code == 5'd16) ? 5'd0 : (msu_dbg_code == 5'd21) ? 5'd7 : (msu_dbg_code - 5'd9)) : {1'b0, msu_diag};
++  reg  [4:0] bp_prev  = 0;
++  reg [25:0] bp_stab  = 0;
++  always @(posedge clk_sys) begin
++    if (bp_raw != bp_prev) begin
++      bp_prev <= bp_raw;
++      bp_stab <= 0;
++    end else if (!bp_stab[25]) bp_stab <= bp_stab + 1'd1;
++  end
++  localparam BEEP_ENABLE = 1'b0;   // debug beeper off in release builds
++  wire [4:0] bp_code = (BEEP_ENABLE && (bp_aud ? bp_stab[25] : bp_stab[22])) ? bp_prev : 5'd0;
++  wire [2:0] bp_c2   = 3'd0;
++  wire [3:0] bp_c3   = 4'd0;
++  wire       bp_run  = (bp_code != 5'd0);
++  wire [7:0] bp_e1   = {bp_code, 1'b0};
++  wire [7:0] bp_g2   = bp_e1 + 8'd4;
++  wire [7:0] bp_e2   = bp_g2 + {bp_c2, 1'b0};
++  wire [7:0] bp_g3   = bp_e2 + 8'd4;
++  wire [7:0] bp_e3   = bp_g3 + {bp_c3, 1'b0};
++  wire [7:0] bp_len  = bp_e1 + 8'd9;
++  wire       bp_on   = bp_run && (bp_rep != 2'd3) && !bp_slot[0] && (bp_slot < bp_e1);
++  always @(posedge clk_sys) begin
++    bp_sq <= bp_sq + 1'd1;
++    bp_diag_d <= {bp_c3, bp_c2, bp_code};
++    if (!bp_run || ({bp_c3, bp_c2, bp_code} != bp_diag_d)) begin
++      bp_tick <= 0;
++      bp_slot <= 0;
++      bp_rep  <= 0;
++    end else begin
++      bp_tick <= bp_tick + 1'd1;
++      if (bp_tick == 22'd3_221_000) begin
++        bp_tick <= 0;
++        if (bp_slot == bp_len - 1'd1) begin
++          bp_slot <= 0;
++          if (bp_rep != 2'd3) bp_rep <= bp_rep + 1'd1;
++        end else bp_slot <= bp_slot + 1'd1;
++      end
++    end
++  end
++  wire       bp_wave = bp_aud ? bp_sq[12] : bp_sq[14];
++  wire signed [17:0] bp_s = bp_on ? (bp_wave ? 18'sd3000 : -18'sd3000) : 18'sd0;
+ 
+-  // always @(posedge clk_sys) begin
+-  // 	reg [16:0] mix_l, mix_r;
++  // Mix SNES audio with MSU-1 audio and beeper (saturating)
++  reg [15:0] mixed_l = 0, mixed_r = 0;
++  reg signed [17:0] mix_l, mix_r;
+ 
+-  // 	mix_l = $signed({main_audio_l[15], main_audio_l}) + $signed({msu_l[15], msu_l});
+-  // 	mix_r = $signed({main_audio_r[15], main_audio_r}) + $signed({msu_r[15], msu_r});
++  always @(posedge clk_sys) begin
++    mix_l = $signed({{2{main_audio_l[15]}}, main_audio_l}) + $signed({{2{msu_l[15]}}, msu_l}) + bp_s;
++    mix_r = $signed({{2{main_audio_r[15]}}, main_audio_r}) + $signed({{2{msu_r[15]}}, msu_r}) + bp_s;
+ 
+-  // 	audio_l <= (^mix_l[16:15]) ? {mix_l[16], {15{mix_l[15]}}} : mix_l[15:0];
+-  // 	audio_r <= (^mix_r[16:15]) ? {mix_r[16], {15{mix_r[15]}}} : mix_r[15:0];
+-  // end
++    mixed_l <= (mix_l > 18'sd32767) ? 16'h7FFF : (mix_l < -18'sd32768) ? 16'h8000 : mix_l[15:0];
++    mixed_r <= (mix_r > 18'sd32767) ? 16'h7FFF : (mix_r < -18'sd32768) ? 16'h8000 : mix_r[15:0];
++  end
+ 
+-  // wire [31:0] msu_data_addr;
+-  // wire  [7:0] msu_data;
+-  // wire        msu_data_ack;
+-  // wire        msu_data_seek;
+-  // wire        msu_data_req;
+-  // wire [31:0] msu_data_base;
+-
+-  // assign DDRAM_CLK = clk_mem;
+-
+-  // msu_data_store msu_data_store
+-  // (
+-  // 	.*,
+-  // 	.rd_next(msu_data_req),
+-  // 	.rd_seek(msu_data_seek),
+-  // 	.rd_seek_done(msu_data_ack),
+-  // 	.rd_addr(msu_data_addr),
+-  // 	.rd_dout(msu_data),
+-  // 	.base_addr(msu_data_base)
+-  // );
++  assign audio_l = mixed_l;
++  assign audio_r = mixed_r;
+ 
+ endmodule
+diff -ruN a/tools/rbf_to_rev.py b/tools/rbf_to_rev.py
+--- a/tools/rbf_to_rev.py	1970-01-01 09:00:00.000000000 +0900
++++ b/tools/rbf_to_rev.py	2026-11-01 10:05:37.000000000 +0900
+@@ -0,0 +1,7 @@
++#!/usr/bin/env python3
++"""Quartus .rbf -> Analogue Pocket .rev (reverse the bit order of every byte)."""
++import sys
++if len(sys.argv) != 3:
++    sys.exit("usage: rbf_to_rev.py in.rbf out.rev")
++tbl = bytes(int(f"{i:08b}"[::-1], 2) for i in range(256))
++open(sys.argv[2], "wb").write(open(sys.argv[1], "rb").read().translate(tbl))
