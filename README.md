@@ -1,9 +1,24 @@
 # SNES (MSU-1) for Analogue Pocket — unofficial modified build
 
-An **unofficial, experimental** modification of agg23's openFPGA SNES core (openfpga-snes 0.4.4) that adds
-**MSU-1** support (CD-quality audio tracks and streamed data), a 3-level CPU Turbo setting, and
-beep-free operation. It is **not** made, endorsed or supported by agg23, srg320 or the MiSTer project.
-Please do **not** report problems with this build to them.
+An **unofficial, experimental, personal fork** of agg23's openFPGA SNES core (openfpga-snes 0.4.4).
+It is **not** made, endorsed or supported by agg23, srg320 or the MiSTer project, and it is **not** a
+pull request or proposal to upstream. Please do **not** report problems with this build to them;
+open an issue here instead.
+
+## AI disclosure
+This fork was developed with heavy help from an AI assistant (Claude, by Anthropic), directed and
+tested by the repository owner. Expect rough edges. It has not been reviewed by the upstream authors.
+
+## What this fork changes (vs upstream 0.4.4)
+Upstream already contains the MSU-1 HDL (`MSU.sv`, `msu_audio.v`, `msu_data_store.sv`, `msu_fifo.v`,
+ported from MiSTer) but ships it disabled (`USE_MSU=0`) and without Pocket data/audio streaming.
+This fork:
+- enables MSU-1 and connects it to the Pocket (APF data slots / bridge: `msu_bridge.v`, `core_bridge_cmd.v`, `core_top.sv`),
+- modifies the MSU audio/data path (buffering, aligned reads, retries) to stream tracks from the SD card,
+- adds a 3-level CPU Turbo setting (Off / On / Max),
+- removes debug beeps,
+- provides different chip combinations per bitstream to fit the FPGA.
+See `patches/` for the exact diff against upstream 0.4.4 (about +1,600 / −900 lines).
 
 ## What's included
 | Core folder | Chips in the main/PAL bitstreams | Use for |
@@ -47,3 +62,6 @@ See `CREDITS.md` for attribution.
 
 ## Repository
 https://github.com/moongommoongom/Moongom (upstream: https://github.com/agg23/openfpga-snes)
+
+## Contributing / upstream
+This is a separate fork. Do not send this work to upstream repositories unless the maintainers ask for it.

@@ -1,4 +1,4 @@
-# MSU-1 support (experimental, untested)
+# MSU-1 support (experimental)
 
 ## 파일 배치
 ROM과 같은 폴더(예: /Assets/snes/common/)에 둡니다.
