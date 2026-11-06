@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -38,6 +39,51 @@ const (
 )
 
 var maxN = maxTrack
+
+// progress prints a live percentage / speed / ETA line while the tracks are copied.
+type progress struct {
+	total, done uint64
+	tracks, cur int
+	start, last time.Time
+}
+
+func (p *progress) show(force bool) {
+	now := time.Now()
+	if !force && now.Sub(p.last) < 300*time.Millisecond {
+		return
+	}
+	p.last = now
+	pct := 0.0
+	if p.total > 0 {
+		pct = 100 * float64(p.done) / float64(p.total)
+	}
+	el := now.Sub(p.start).Seconds()
+	speed, eta := 0.0, ""
+	if el > 0.5 {
+		speed = float64(p.done) / el
+		if speed > 0 && p.total > p.done {
+			s := int(float64(p.total-p.done) / speed)
+			eta = fmt.Sprintf("  ETA %d:%02d", s/60, s%60)
+		}
+	}
+	const w = 30
+	n := int(pct / 100 * w)
+	bar := strings.Repeat("#", n) + strings.Repeat(".", w-n)
+	fmt.Printf("\r  [%s] %5.1f%%  %.2f/%.2f GB  track %d/%d  %.0f MB/s%s   ", bar, pct,
+		float64(p.done)/1e9, float64(p.total)/1e9, p.cur, p.tracks, speed/1e6, eta)
+}
+
+type progWriter struct {
+	w io.Writer
+	p *progress
+}
+
+func (pw progWriter) Write(b []byte) (int, error) {
+	n, err := pw.w.Write(b)
+	pw.p.done += uint64(n)
+	pw.p.show(false)
+	return n, err
+}
 
 type trk struct {
 	n    int
@@ -56,7 +102,11 @@ func build(msuPath string) error {
 	voiceStarted := false
 	var skipped []int
 	var total uint64
+	fmt.Println("  scanning tracks (a big folder can take a while) ...")
 	for n := 1; n <= maxN; n++ {
+		if n%50 == 0 || n == maxN {
+			fmt.Printf("\r  scanning %d / %d  (%d tracks found)   ", n, maxN, len(tr))
+		}
 		p := filepath.Join(dir, fmt.Sprintf("%s-%d.pcm", name, n))
 		st, err := os.Stat(p)
 		if err != nil || st.IsDir() {
@@ -103,6 +153,7 @@ func build(msuPath string) error {
 		pos += sz
 		pos = (pos + align - 1) &^ (align - 1)
 	}
+	fmt.Println()
 	if len(tr) == 0 {
 		return fmt.Errorf("no %s-<N>.pcm files found", name)
 	}
@@ -114,6 +165,8 @@ func build(msuPath string) error {
 		binary.LittleEndian.PutUint32(idx[t.n*8+4:], uint32(t.size)|uint32(t.part)<<30)
 	}
 	var total2 uint64
+	prog := &progress{total: total, tracks: len(tr), start: time.Now()}
+	fmt.Printf("  writing %d tracks, %.2f GB ...\n", len(tr), float64(total)/1e9)
 	nparts := tr[len(tr)-1].part + 1
 	for pi := 0; pi < nparts; pi++ {
 		out := base + ".msp"
@@ -144,16 +197,15 @@ func build(msuPath string) error {
 				f.Close()
 				return err
 			}
-			nw, err := io.Copy(w, src)
+			prog.cur = i + 1
+			prog.show(true)
+			nw, err := io.Copy(progWriter{w, prog}, src)
 			src.Close()
 			if err != nil {
 				f.Close()
 				return err
 			}
 			cur += uint64(nw)
-			if i%100 == 99 {
-				fmt.Printf("  %d / %d tracks\n", i+1, len(tr))
-			}
 		}
 		if err := w.Flush(); err != nil {
 			f.Close()
@@ -161,7 +213,8 @@ func build(msuPath string) error {
 		}
 		f.Close()
 		total2 += cur
-		fmt.Printf("  wrote %s  (%.2f GB)\n", filepath.Base(out), float64(cur)/1e9)
+		prog.show(true)
+		fmt.Printf("\n  wrote %s  (%.2f GB)\n", filepath.Base(out), float64(cur)/1e9)
 	}
 	fmt.Printf("  %d tracks, %d file(s), %.2f GB in total\n", len(tr), nparts, float64(total2)/1e9)
 	var nm, nv int

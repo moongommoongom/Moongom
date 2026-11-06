@@ -11,7 +11,7 @@ one file instead of searching a huge folder. The pack is optional: plain `.pcm` 
 1. Copy `MSUPackMaker.exe` into the folder that holds your `game.msu` and `game-1.pcm`, `game-2.pcm`, …
    (`.msu` 와 `-N.pcm` 이 있는 폴더에 exe 를 복사)
 2. Double-click it (or run `MSUPackMaker.exe <folder-or-.msu file>` from a terminal).
-3. Wait for `Done`, press Enter.
+3. Wait for `Done`, press Enter. A progress bar shows percent, GB written, current track, speed and ETA (first a scan of the folder, which can be slow in a folder with thousands of files).
 4. Put the generated files next to the ROM on the SD card (same folder, same base name).
    The core uses the pack automatically; you may delete the `.pcm` files afterwards (keep a backup).
 
