@@ -19,7 +19,7 @@ This fork:
 - removes debug beeps,
 - provides different chip combinations per bitstream to fit the FPGA, all selected automatically from ONE core folder (the chip32 loader reads the ROM header),
 - adds an optional MSU-1 pack format (`.msp` / `.ms1`…) and the MSUPackMaker tool (see `docs/MSUPackMaker.md`).
-See `patches/` for the exact diff against upstream 0.4.4 (about +1,600 / −900 lines).
+See `patches/` for the exact diff against upstream 0.4.4 (about +3,600 lines).
 
 ## What's included
 One core folder, `Cores/Moongom.SNES_MSU`, holds several bitstreams. At load time the loader reads the ROM header and
@@ -33,8 +33,8 @@ picks one (all chips do not fit the FPGA together, ~96% ALM full):
 
 NTSC and PAL variants are chosen from the ROM region. The automatic selection (`loader.bin`) is not yet verified on all games.
 
-## Install
-Copy the `Cores/Moongom.SNES_MSU` folder (and remove any older `Moongom.SNES_MSU*` folders) to the `Cores/` folder of your Pocket SD card. You may remove the
+## Download / Install
+Download `Moongom_SNES_MSU1_core_r1.zip` from the [Releases](https://github.com/moongommoongom/Moongom/releases) page (the repository holds source only, no `.rev` bitstreams). Copy the `Cores/Moongom.SNES_MSU` folder (and remove any older `Moongom.SNES_MSU*` folders) to the `Cores/` folder of your Pocket SD card. You may remove the
 original `agg23.SNES` core or keep it side by side.
 
 See also: [한국어 README](README.ko.md).
@@ -43,6 +43,8 @@ See also: [한국어 README](README.ko.md).
 You must supply your own game files. Put them next to the ROM, with matching names:
 
     game.sfc   game.msu (may be empty)   game-1.pcm   game-2.pcm ...
+
+or, packed with MSUPackMaker:  `game.sfc   game.msp   game.ms1 ...`
 
 ### Pack files (optional)
 For games with thousands of `.pcm` files use [MSUPackMaker](docs/MSUPackMaker.md) to build `game.msp` (music) and `game.ms1`… (voice). No 4 GiB limit; music and voice play in parallel.
@@ -63,11 +65,14 @@ for SA-1 and S-DD1 games. Some games may freeze with turbo enabled; leave it Off
 
 ## License and source
 This work is a modification of GPLv3 software and is distributed under the **GNU GPL v3** (see `LICENSE`).
-The complete corresponding source is in `source/`:
-- `openfpga-snes-msu1-source.tar.gz` — full modified source tree (Quartus project)
-- `msu1-vs-openfpga-snes-0.4.4.patch` — changes against upstream openfpga-snes 0.4.4
+The complete corresponding source is this repository:
+- `src/` — modified Quartus project (HDL, chip32 loader `src/support/loader.asm`)
+- `patches/msu1-vs-openfpga-snes-0.4.4.patch` — all changes against upstream openfpga-snes 0.4.4
+- `tools/` — `rbf_to_rev.py` (bitstream converter), `MSUPackMaker.exe` + source `tools/msupack/` (usage: `docs/MSUPackMaker.md`)
+- `docs/` — notes and dev log (`DEVLOG.md`, Korean)
 
-Build: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>`, then `python3 tools/rbf_to_rev.py ap_core.rbf out.rev`.
+Build: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>` (variants: `ntsc`, `pal` = CX4/DSP-n; `ntsc_sa1gsu`, `pal_sa1gsu` = SA-1/GSU/S-DD1; `ntsc_spc` = SPC7110/BSX), then `python3 tools/rbf_to_rev.py ap_core.rbf out.rev`.
+The loader is assembled with bass + bass-chip32 (`src/support/loader.asm`).
 
 See `CREDITS.md` for attribution.
 

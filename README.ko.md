@@ -17,8 +17,8 @@ agg23의 openFPGA SNES 코어(openfpga-snes 0.4.4)에 **MSU-1**(CD 음질 음악
 
 NTSC/PAL은 ROM 지역으로 정해집니다. 자동 선택(`loader.bin`)은 모든 게임에서 검증되지는 않았습니다.
 
-## 설치
-`Cores/Moongom.SNES_MSU` 폴더를 Pocket SD카드의 `Cores/` 폴더에 복사합니다(예전 `Moongom.SNES_MSU*` 폴더는 지우세요).
+## 다운로드 / 설치
+[Releases](https://github.com/moongommoongom/Moongom/releases)에서 `Moongom_SNES_MSU1_core_r1.zip`을 받습니다(저장소에는 소스만 있고 `.rev` 비트스트림은 없습니다). `Cores/Moongom.SNES_MSU` 폴더를 Pocket SD카드의 `Cores/` 폴더에 복사합니다(예전 `Moongom.SNES_MSU*` 폴더는 지우세요).
 
 ## MSU-1 사용
 게임 파일은 직접 준비해야 합니다. ROM과 같은 폴더에 이름을 맞춰 둡니다.
@@ -45,5 +45,5 @@ Off / On(마스터 클럭 6, FastROM 속도). 예전의 Max 단계는 없앴습�
 
 ## 라이선스와 소스
 이 작업은 GPLv3 소프트웨어의 수정판이며 **GNU GPL v3**로 배포됩니다(`LICENSE` 참고). 소스 전체는 이 저장소에 있고
-`source/`에 업스트림 대비 패치가 있습니다. 빌드: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>`,
+`patches/`에 업스트림 대비 패치, `tools/`에 변환 도구(`rbf_to_rev.py`, `MSUPackMaker.exe`와 소스), `docs/`에 문서와 개발 일지가 있습니다. 빌드: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>`(`ntsc`/`pal` = CX4·DSP-n, `ntsc_sa1gsu`/`pal_sa1gsu` = SA-1·GSU·S-DD1, `ntsc_spc` = SPC7110·BSX),
 이어서 `python3 tools/rbf_to_rev.py ap_core.rbf out.rev`. 출처 표기는 `CREDITS.md`를 보세요.
