@@ -153,6 +153,21 @@ module MAIN_SNES (
     output wire [15:0] msu_track_num,
     output wire        msu_track_request,
 
+    // MSU-1 boot preload (from core_top)
+    input  wire        msu_pre_req,
+    input  wire [15:0] msu_pre_num,
+    input  wire        msu_pre_flush,
+    input  wire        msu_pre_active,
+    output wire        msu_pre_done,
+
+    // external SRAM (MSU-1 track-head cache)
+    output wire [16:0] sram_a,
+    output wire [15:0] sram_do,
+    output wire        sram_oe,
+    input  wire [15:0] sram_di,
+    output wire        sram_we_n,
+    output wire        sram_oe_n,
+
     input  wire        pcm_wr,          // PCM words (data_loader, 0x3xxxxxxx)
     input  wire [15:0] pcm_data,
     output wire        a_fetch_tgl,
@@ -160,6 +175,21 @@ module MAIN_SNES (
     output wire [15:0] a_fetch_len,
     input  wire        a_done_tgl,
     input  wire        a_err,
+
+    // MSU-1 voice stream (tracks >= 1000), second player fed from the pack file
+    input  wire        v_en,
+    input  wire        v_mounting,
+    input  wire        v_missing,
+    input  wire [31:0] v_size,
+    input  wire        v_pcm_wr,
+    input  wire [15:0] v_pcm_data,
+    output wire        v_fetch_tgl,
+    output wire [31:0] v_fetch_off,
+    output wire [15:0] v_fetch_len,
+    input  wire        v_done_tgl,
+    input  wire        v_err,
+    output wire        v_track_request,
+    output wire [15:0] v_track_num,
 
     input  wire        dw_wr,           // data cache words (data_loader, 0x4xxxxxxx)
     input  wire [13:0] dw_addr,
@@ -335,6 +365,8 @@ module MAIN_SNES (
   wire        msu_audio_repeat;
   wire        msu_audio_playing;
   wire        msu_audio_stop;
+  wire        msu_audio_ready;
+  wire        msu_head_hit;
   wire        msu_audio_resume;
   wire [21:0] msu_audio_sector;
   wire [21:0] msu_resume_sector;
@@ -345,6 +377,11 @@ module MAIN_SNES (
   wire        msu_data_req;
   wire [15:0] msu_l;
   wire [15:0] msu_r;
+  wire [15:0] msu_vl;
+  wire [15:0] msu_vr;
+  wire        msu_v_play;
+  wire        msu_v_stop;
+  wire        msu_v_ready;
   wire  [4:0] msu_dbg_code;
   wire  [2:0] msu_dbg_lat;
   wire  [3:0] msu_dbg_reqs;
@@ -477,7 +514,17 @@ module MAIN_SNES (
       .MSU_VOLUME(msu_volume),
       .MSU_AUDIO_REPEAT(msu_audio_repeat),
       .MSU_AUDIO_RESUME(msu_audio_resume),
+      .MSU_V_EN(v_en),
+      .MSU_V_NUM(v_track_num),
+      .MSU_V_REQUEST(v_track_request),
+      .MSU_V_MOUNTING(v_mounting),
+      .MSU_V_NOT_READY(~msu_v_ready),
+      .MSU_V_MISSING(v_missing),
+      .MSU_V_PLAY(msu_v_play),
+      .MSU_V_STOP(msu_v_stop),
       .MSU_AUDIO_STOP(msu_audio_stop),
+      .MSU_AUDIO_READY(msu_audio_ready),
+      .MSU_HEAD_HIT(msu_head_hit),
       .MSU_AUDIO_PLAYING(msu_audio_playing),
       .MSU_AUDIO_SECTOR(msu_audio_sector),
       .MSU_RESUME_SECTOR(msu_resume_sector),
@@ -614,6 +661,14 @@ module MAIN_SNES (
       .read_en (clearing_ram ? 1'b0 : ~WRAM_CE_N & ~WRAM_OE_N),
       .data_out(wram_data_out),
 
+      .m_req_tgl(1'b0),
+      .m_we(1'b0),
+      .m_bank(1'b0),
+      .m_addr(22'd0),
+      .m_wdata(16'd0),
+      .m_ack_tgl(),
+      .m_rdata(),
+
       // Actual PSRAM interface
       .cram_a(cram0_a),
       .cram_dq(cram0_dq),
@@ -667,6 +722,11 @@ module MAIN_SNES (
 
   wire [15:0] aram_16_out;
 
+  // MSU-1 track-head cache port into the ARAM PSRAM chip (clk_sys -> clk_mem handshake)
+  wire        msu_pr_req, msu_pr_we, msu_pr_bank, msu_pr_ack;
+  wire [21:0] msu_pr_addr;
+  wire [15:0] msu_pr_wd, msu_pr_rd;
+
   assign ARAM_Q = psram_aram_addr[0] ? aram_16_out[15:8] : aram_16_out[7:0];
 
   wire [15:0] psram_aram_addr = clearing_ram ? mem_fill_addr[15:0] : ARAM_ADDR;
@@ -690,6 +750,14 @@ module MAIN_SNES (
 
       .read_en (~ARAM_CE_N & ~ARAM_OE_N),
       .data_out(aram_16_out),
+
+      .m_req_tgl(msu_pr_req),
+      .m_we(msu_pr_we),
+      .m_bank(msu_pr_bank),
+      .m_addr(msu_pr_addr),
+      .m_wdata(msu_pr_wd),
+      .m_ack_tgl(msu_pr_ack),
+      .m_rdata(msu_pr_rd),
 
       // Actual PSRAM interface
       .cram_a(cram1_a),
@@ -1024,14 +1092,31 @@ module MAIN_SNES (
 
   generate
     if (USE_MSU == 1'b1) begin : g_msu
-      msu_audio msu_audio (
-          .reset(reset),
+      wire msu_fill_ok;
+      assign msu_pre_done = msu_fill_ok | msu_head_hit;
+      msu_audio #(.FIFO_AW(USE_CX4 ? 12 : 14)) msu_audio (
+          .reset(reset & ~msu_pre_active),
 
           .clk(clk_sys),
           .clk_rate(PAL ? 32'd21281370 : 32'd21477270),
 
           .ctl_volume(msu_volume),
           .ctl_stop(msu_audio_stop),
+          .audio_ready(msu_audio_ready),
+          .track_num(msu_pre_req ? msu_pre_num : msu_track_num),
+          .track_req(msu_track_request | msu_pre_req),
+          .cache_flush(1'b0),   // head cache / boot preload removed (the .msp pack file replaces it)
+          .pre_mode(1'b0),
+          .pr_req_tgl(msu_pr_req), .pr_we(msu_pr_we), .pr_bank(msu_pr_bank), .pr_addr(msu_pr_addr), .pr_wdata(msu_pr_wd),
+          .pr_ack_tgl(msu_pr_ack), .pr_rdata(msu_pr_rd),
+          .fill_ok(msu_fill_ok),
+          .head_hit(msu_head_hit),
+          .sram_a(sram_a),
+          .sram_do(sram_do),
+          .sram_oe(sram_oe),
+          .sram_di(sram_di),
+          .sram_we_n(sram_we_n),
+          .sram_oe_n(sram_oe_n),
           .ctl_play(msu_audio_playing),
           .ctl_resume(msu_audio_resume),
           .ctl_repeat(msu_audio_repeat),
@@ -1056,6 +1141,48 @@ module MAIN_SNES (
           .dbg_code(msu_dbg_code),
           .dbg_lat(msu_dbg_lat),
           .dbg_reqs(msu_dbg_reqs)
+      );
+
+      msu_audio #(.FIFO_AW(12)) msu_voice (
+          .reset(reset),
+          .clk(clk_sys),
+          .clk_rate(PAL ? 32'd21281370 : 32'd21477270),
+          .ctl_volume(msu_volume),
+          .ctl_stop(msu_v_stop),
+          .audio_ready(msu_v_ready),
+          .track_num(v_track_num),
+          .track_req(v_track_request),
+          .cache_flush(1'b0),
+          .pre_mode(1'b0),
+          .pr_req_tgl(), .pr_we(), .pr_bank(), .pr_addr(), .pr_wdata(),
+          .pr_ack_tgl(1'b0), .pr_rdata(16'd0),
+          .fill_ok(),
+          .head_hit(),
+          .sram_a(),
+          .sram_do(),
+          .sram_oe(),
+          .sram_di(16'd0),
+          .sram_we_n(),
+          .sram_oe_n(),
+          .ctl_play(msu_v_play),
+          .ctl_resume(1'b0),
+          .ctl_repeat(1'b0),
+          .track_size(v_size),
+          .track_processing(v_missing | v_mounting | v_track_request),
+          .pcm_wr(v_pcm_wr),
+          .pcm_data(v_pcm_data),
+          .fetch_tgl(v_fetch_tgl),
+          .fetch_off(v_fetch_off),
+          .fetch_len(v_fetch_len),
+          .fetch_done_tgl(v_done_tgl),
+          .fetch_err(v_err),
+          .audio_sector(),
+          .resume_sector(22'd0),
+          .audio_l(msu_vl),
+          .audio_r(msu_vr),
+          .dbg_code(),
+          .dbg_lat(),
+          .dbg_reqs()
       );
 
       msu_data_store msu_data_store (
@@ -1085,10 +1212,30 @@ module MAIN_SNES (
     end else begin : g_nomsu
       assign msu_l = 16'd0;
       assign msu_r = 16'd0;
+      assign msu_vl = 16'd0;
+      assign msu_vr = 16'd0;
+      assign msu_v_ready = 1'b1;
+      assign v_fetch_tgl = 1'b0;
+      assign v_fetch_off = 32'd0;
+      assign v_fetch_len = 16'd0;
       assign msu_dbg_code = 5'd0;
       assign msu_dbg_lat = 3'd0;
       assign msu_dbg_reqs = 4'd0;
       assign msu_audio_stop = 1'b0;
+      assign msu_v_stop = 1'b0;
+      assign msu_audio_ready = 1'b1;
+      assign msu_head_hit = 1'b0;
+      assign msu_pre_done = 1'b1;
+      assign msu_pr_req = 1'b0;
+      assign msu_pr_we = 1'b0;
+      assign msu_pr_bank = 1'b0;
+      assign msu_pr_addr = 22'd0;
+      assign msu_pr_wd = 16'd0;
+      assign sram_a = 17'd0;
+      assign sram_do = 16'd0;
+      assign sram_oe = 1'b0;
+      assign sram_we_n = 1'b1;
+      assign sram_oe_n = 1'b1;
       assign msu_audio_sector = 22'd0;
       assign msu_data = 8'd0;
       assign msu_data_ack = 1'b1;
@@ -1165,8 +1312,8 @@ module MAIN_SNES (
   reg signed [17:0] mix_l, mix_r;
 
   always @(posedge clk_sys) begin
-    mix_l = $signed({{2{main_audio_l[15]}}, main_audio_l}) + $signed({{2{msu_l[15]}}, msu_l}) + bp_s;
-    mix_r = $signed({{2{main_audio_r[15]}}, main_audio_r}) + $signed({{2{msu_r[15]}}, msu_r}) + bp_s;
+    mix_l = $signed({{2{main_audio_l[15]}}, main_audio_l}) + $signed({{2{msu_l[15]}}, msu_l}) + $signed({{2{msu_vl[15]}}, msu_vl}) + bp_s;
+    mix_r = $signed({{2{main_audio_r[15]}}, main_audio_r}) + $signed({{2{msu_r[15]}}, msu_r}) + $signed({{2{msu_vr[15]}}, msu_vr}) + bp_s;
 
     mixed_l <= (mix_l > 18'sd32767) ? 16'h7FFF : (mix_l < -18'sd32768) ? 16'h8000 : mix_l[15:0];
     mixed_r <= (mix_r > 18'sd32767) ? 16'h7FFF : (mix_r < -18'sd32768) ? 16'h8000 : mix_r[15:0];

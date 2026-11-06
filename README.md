@@ -15,40 +15,51 @@ ported from MiSTer) but ships it disabled (`USE_MSU=0`) and without Pocket data/
 This fork:
 - enables MSU-1 and connects it to the Pocket (APF data slots / bridge: `msu_bridge.v`, `core_bridge_cmd.v`, `core_top.sv`),
 - modifies the MSU audio/data path (buffering, aligned reads, retries) to stream tracks from the SD card,
-- adds a 3-level CPU Turbo setting (Off / On / Max),
+- adds a CPU Turbo setting (Off / On),
 - removes debug beeps,
-- provides different chip combinations per bitstream to fit the FPGA.
+- provides different chip combinations per bitstream to fit the FPGA, all selected automatically from ONE core folder (the chip32 loader reads the ROM header),
+- adds an optional MSU-1 pack format (`.msp` / `.ms1`…) and the MSUPackMaker tool (see `docs/MSUPackMaker.md`).
 See `patches/` for the exact diff against upstream 0.4.4 (about +1,600 / −900 lines).
 
 ## What's included
-| Core folder | Chips in the main/PAL bitstreams | Use for |
-|---|---|---|
-| `Cores/Moongom.SNES_MSU` | SA-1, Super FX (GSU), S-DD1, MSU-1 | most games, SA-1 games (Super Mario RPG, Kirby Super Star, …) |
-| `Cores/Moongom.SNES_MSU_CX4DSP` | CX4, DSP-n, Super FX (GSU), S-DD1, MSU-1 | Mega Man X2/X3, Super Mario Kart, Pilotwings, … |
+One core folder, `Cores/Moongom.SNES_MSU`, holds several bitstreams. At load time the loader reads the ROM header and
+picks one (all chips do not fit the FPGA together, ~96% ALM full):
 
-Both cores have NTSC (main), PAL (PAL) and SPC7110/BSX (SPCSDD1) bitstreams.
+| Bitstream | Chips | Selected for |
+|---|---|---|
+| `snes_main.rev` / `snes_pal.rev` | SA-1, Super FX (GSU), S-DD1, MSU-1 | most games, SA-1 / GSU / S-DD1 games |
+| `snes_spc.rev` | SPC7110, BSX, S-DD1, MSU-1 | SPC7110, BSX |
+| `snes_cx4dsp.rev` / `snes_cx4dsp_pal.rev` | CX4, DSP-n (1–4), ST010, Super FX, MSU-1 | Mega Man X2/X3, Super Mario Kart, Pilotwings, … |
+
+NTSC and PAL variants are chosen from the ROM region. The automatic selection (`loader.bin`) is not yet verified on all games.
 
 ## Install
-Copy the folder(s) from `Cores/` to the `Cores/` folder of your Pocket SD card. You may remove the
+Copy the `Cores/Moongom.SNES_MSU` folder (and remove any older `Moongom.SNES_MSU*` folders) to the `Cores/` folder of your Pocket SD card. You may remove the
 original `agg23.SNES` core or keep it side by side.
+
+See also: [한국어 README](README.ko.md).
 
 ## Using MSU-1
 You must supply your own game files. Put them next to the ROM, with matching names:
 
     game.sfc   game.msu (may be empty)   game-1.pcm   game-2.pcm ...
 
+### Pack files (optional)
+For games with thousands of `.pcm` files use [MSUPackMaker](docs/MSUPackMaker.md) to build `game.msp` (music) and `game.ms1`… (voice). No 4 GiB limit; music and voice play in parallel.
+
 PCM format: header `MSU1`, 32-bit loop point, then 16-bit little-endian stereo at 44.1 kHz.
 **No ROMs, PCM audio or other copyrighted game data are included or may be distributed with this core.**
 
 ## CPU Turbo
-Off / On (6 master clocks, FastROM speed) / Max (original 5 clocks). Turbo is disabled automatically
+Off / On (6 master clocks, FastROM speed). The old "Max" level was removed. Turbo is disabled automatically
 for SA-1 and S-DD1 games. Some games may freeze with turbo enabled; leave it Off if so.
 
 ## Known issues / status
 - Experimental. Tested mainly on Tales of Phantasia and Final Fantasy VI MSU-1 packs; not every game is tested.
 - The CPU Turbo freezing issue has not been fully root-caused.
-- The SA-1 + GSU + S-DD1 core does not include CX4 or DSP-n (they do not fit the FPGA together).
-- Timing report shows one small fast-corner hold violation (−0.05 ns) in the SA-1/GSU/S-DD1 NTSC build.
+- SA-1 + GSU + S-DD1 and CX4 + DSP-n cannot share one bitstream (they do not fit the FPGA together), so they are separate bitstreams in the same core folder.
+- Timing is not clean in the latest builds: main-clock setup slack is slightly negative (about −0.1 to −0.9 ns, worst in the CX4/DSP PAL build); hold is met. Not all variants are verified on hardware.
+- In some folders with thousands of files MSU-1 did not start while the same files worked elsewhere (cause not found). Packs (`.msp`) or a separate folder helped.
 
 ## License and source
 This work is a modification of GPLv3 software and is distributed under the **GNU GPL v3** (see `LICENSE`).

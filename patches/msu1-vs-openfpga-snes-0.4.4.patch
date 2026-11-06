@@ -1,400 +1,336 @@
+diff -ruN a/CREDITS.md b/CREDITS.md
+--- a/CREDITS.md	1970-01-01 09:00:00.000000000 +0900
++++ b/CREDITS.md	2026-11-03 20:33:58.000000000 +0900
+@@ -0,0 +1,10 @@
++# Credits
++
++- **agg23** — openFPGA SNES port for Analogue Pocket (https://github.com/agg23/openfpga-snes), GPLv3.
++- **srg320** — original FPGA SNES core (SNES/SA-1/GSU/DSP/CX4/S-DD1/SPC7110 implementation).
++- **MiSTer-devel / SNES_MiSTer contributors** — MSU-1 reference implementation and SNES core integration (GPL).
++- **Analogue** — Analogue Pocket / openFPGA framework (APF).
++- MSU-1 specification by byuu (Near).
++
++This build only adds MSU-1 integration, CPU Turbo modes, chip combinations and related fixes on top of
++the above. All trademarks and game titles belong to their respective owners. No game data is included.
+diff -ruN a/README.ko.md b/README.ko.md
+--- a/README.ko.md	1970-01-01 09:00:00.000000000 +0900
++++ b/README.ko.md	2026-11-07 00:41:13.000000000 +0900
+@@ -0,0 +1,49 @@
++# Analogue Pocket용 SNES (MSU-1) — 비공식 수정 빌드
++
++agg23의 openFPGA SNES 코어(openfpga-snes 0.4.4)에 **MSU-1**(CD 음질 음악 트랙과 데이터 스트리밍), CPU 터보(Off/On),
++비프음 제거를 추가한 **비공식 실험용** 수정판입니다. agg23, srg320, MiSTer 프로젝트가 만들었거나 보증하거나 지원하는
++것이 아닙니다. 이 빌드의 문제를 그들에게 보고하지 마세요. 이 수정판은 AI의 도움을 받아 제작되었습니다.
++([English](README.md))
++
++## 구성
++코어 폴더는 `Cores/Moongom.SNES_MSU` 하나입니다. 안에 비트스트림이 여러 개 있고, 로더가 ROM 헤더를 읽어 자동으로 고릅니다
++(모든 칩이 FPGA에 함께 들어가지 않습니다. ALM 약 96%).
++
++| 비트스트림 | 칩 | 선택되는 게임 |
++|---|---|---|
++| `snes_main.rev` / `snes_pal.rev` | SA-1, Super FX(GSU), S-DD1, MSU-1 | 대부분의 게임, SA-1/GSU/S-DD1 게임 |
++| `snes_spc.rev` | SPC7110, BSX, S-DD1, MSU-1 | SPC7110, BSX |
++| `snes_cx4dsp.rev` / `snes_cx4dsp_pal.rev` | CX4, DSP-n(1~4), ST010, Super FX, MSU-1 | 록맨 X2/X3, 슈퍼 마리오 카트, 파일럿윙스 등 |
++
++NTSC/PAL은 ROM 지역으로 정해집니다. 자동 선택(`loader.bin`)은 모든 게임에서 검증되지는 않았습니다.
++
++## 설치
++`Cores/Moongom.SNES_MSU` 폴더를 Pocket SD카드의 `Cores/` 폴더에 복사합니다(예전 `Moongom.SNES_MSU*` 폴더는 지우세요).
++
++## MSU-1 사용
++게임 파일은 직접 준비해야 합니다. ROM과 같은 폴더에 이름을 맞춰 둡니다.
++
++    game.sfc   game.msu(비어 있어도 됨)   game-1.pcm   game-2.pcm ...
++
++PCM 형식: `MSU1` 헤더, 32비트 루프 지점, 이어서 44.1 kHz 16비트 리틀엔디언 스테레오.
++**ROM, PCM 음원 등 저작권이 있는 게임 데이터는 포함되어 있지 않으며 이 코어와 함께 배포해서는 안 됩니다.**
++
++### 팩 파일 (선택)
++`.pcm`이 수천 개인 게임(예: FF6)은 [MSUPackMaker](docs/MSUPackMaker.ko.md)로 `game.msp`(음악)와
++`game.ms1`…(음성)로 묶어 쓸 수 있습니다. 4 GiB 제한이 없고, 음악과 음성을 따로 동시에 재생합니다.
++
++## CPU 터보
++Off / On(마스터 클럭 6, FastROM 속도). 예전의 Max 단계는 없앴습니다. SA-1과 S-DD1 게임에서는 자동으로 꺼집니다.
++터보를 켜면 멈추는 게임이 있을 수 있으니 그럴 때는 Off로 두세요.
++
++## 알려진 문제 / 상태
++- 실험 단계입니다. 주로 환상의 전설(Tales of Phantasia)과 FF6 MSU-1 팩으로 테스트했고 모든 게임을 확인하지는 않았습니다.
++- CPU 터보 멈춤 문제는 원인을 완전히 찾지 못했습니다.
++- SA-1+GSU+S-DD1과 CX4+DSP-n은 한 비트스트림에 들어가지 않아서 같은 코어 폴더 안의 별도 비트스트림입니다.
++- 최신 빌드의 타이밍은 깨끗하지 않습니다. 주 클럭 setup 여유가 약 −0.1~−0.9 ns로 조금 음수입니다(CX4/DSP PAL이 가장 나쁨). hold는 충족합니다. 모든 변형을 하드웨어에서 확인하지는 않았습니다.
++- 파일이 수천 개인 폴더에서 MSU-1이 시작되지 않는 경우가 있었습니다(원인 불명). 게임을 별도 폴더에 두면 해결된 적이 있습니다.
++
++## 라이선스와 소스
++이 작업은 GPLv3 소프트웨어의 수정판이며 **GNU GPL v3**로 배포됩니다(`LICENSE` 참고). 소스 전체는 이 저장소에 있고
++`source/`에 업스트림 대비 패치가 있습니다. 빌드: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>`,
++이어서 `python3 tools/rbf_to_rev.py ap_core.rbf out.rev`. 출처 표기는 `CREDITS.md`를 보세요.
 diff -ruN a/README.md b/README.md
---- a/README.md	2026-11-03 20:10:20.262155042 +0900
-+++ b/README.md	2026-11-01 10:05:39.000000000 +0900
-@@ -44,7 +44,7 @@
- * ST1010 (F1 Roc 2)
- * BSX (Satellaview)
+--- a/README.md	2026-11-07 00:41:28.636385995 +0900
++++ b/README.md	2026-11-07 00:41:13.000000000 +0900
+@@ -1,90 +1,78 @@
+-# SNES for Analogue Pocket
++# SNES (MSU-1) for Analogue Pocket — unofficial modified build
  
+-Ported from the original core developed by [srg320](https://github.com/srg320) ([Patreon](https://www.patreon.com/srg320)). Latest upstream available at https://github.com/MiSTer-devel/SNES_MiSTer.
++An **unofficial, experimental, personal fork** of agg23's openFPGA SNES core (openfpga-snes 0.4.4).
++It is **not** made, endorsed or supported by agg23, srg320 or the MiSTer project, and it is **not** a
++pull request or proposal to upstream. Please do **not** report problems with this build to them;
++open an issue here instead.
++
++## AI disclosure
++This fork was developed with heavy help from an AI assistant (Claude, by Anthropic), directed and
++tested by the repository owner. Expect rough edges. It has not been reviewed by the upstream authors.
++
++## What this fork changes (vs upstream 0.4.4)
++Upstream already contains the MSU-1 HDL (`MSU.sv`, `msu_audio.v`, `msu_data_store.sv`, `msu_fifo.v`,
++ported from MiSTer) but ships it disabled (`USE_MSU=0`) and without Pocket data/audio streaming.
++This fork:
++- enables MSU-1 and connects it to the Pocket (APF data slots / bridge: `msu_bridge.v`, `core_bridge_cmd.v`, `core_top.sv`),
++- modifies the MSU audio/data path (buffering, aligned reads, retries) to stream tracks from the SD card,
++- adds a CPU Turbo setting (Off / On),
++- removes debug beeps,
++- provides different chip combinations per bitstream to fit the FPGA, all selected automatically from ONE core folder (the chip32 loader reads the ROM header),
++- adds an optional MSU-1 pack format (`.msp` / `.ms1`…) and the MSUPackMaker tool (see `docs/MSUPackMaker.md`).
++See `patches/` for the exact diff against upstream 0.4.4 (about +1,600 / −900 lines).
++
++## What's included
++One core folder, `Cores/Moongom.SNES_MSU`, holds several bitstreams. At load time the loader reads the ROM header and
++picks one (all chips do not fit the FPGA together, ~96% ALM full):
++
++| Bitstream | Chips | Selected for |
++|---|---|---|
++| `snes_main.rev` / `snes_pal.rev` | SA-1, Super FX (GSU), S-DD1, MSU-1 | most games, SA-1 / GSU / S-DD1 games |
++| `snes_spc.rev` | SPC7110, BSX, S-DD1, MSU-1 | SPC7110, BSX |
++| `snes_cx4dsp.rev` / `snes_cx4dsp_pal.rev` | CX4, DSP-n (1–4), ST010, Super FX, MSU-1 | Mega Man X2/X3, Super Mario Kart, Pilotwings, … |
++
++NTSC and PAL variants are chosen from the ROM region. The automatic selection (`loader.bin`) is not yet verified on all games.
++
++## Install
++Copy the `Cores/Moongom.SNES_MSU` folder (and remove any older `Moongom.SNES_MSU*` folders) to the `Cores/` folder of your Pocket SD card. You may remove the
++original `agg23.SNES` core or keep it side by side.
++
++See also: [한국어 README](README.ko.md).
++
++## Using MSU-1
++You must supply your own game files. Put them next to the ROM, with matching names:
++
++    game.sfc   game.msu (may be empty)   game-1.pcm   game-2.pcm ...
++
++### Pack files (optional)
++For games with thousands of `.pcm` files use [MSUPackMaker](docs/MSUPackMaker.md) to build `game.msp` (music) and `game.ms1`… (voice). No 4 GiB limit; music and voice play in parallel.
++
++PCM format: header `MSU1`, 32-bit loop point, then 16-bit little-endian stereo at 44.1 kHz.
++**No ROMs, PCM audio or other copyrighted game data are included or may be distributed with this core.**
++
++## CPU Turbo
++Off / On (6 master clocks, FastROM speed). The old "Max" level was removed. Turbo is disabled automatically
++for SA-1 and S-DD1 games. Some games may freeze with turbo enabled; leave it Off if so.
++
++## Known issues / status
++- Experimental. Tested mainly on Tales of Phantasia and Final Fantasy VI MSU-1 packs; not every game is tested.
++- The CPU Turbo freezing issue has not been fully root-caused.
++- SA-1 + GSU + S-DD1 and CX4 + DSP-n cannot share one bitstream (they do not fit the FPGA together), so they are separate bitstreams in the same core folder.
++- Timing is not clean in the latest builds: main-clock setup slack is slightly negative (about −0.1 to −0.9 ns, worst in the CX4/DSP PAL build); hold is met. Not all variants are verified on hardware.
++- In some folders with thousands of files MSU-1 did not start while the same files worked elsewhere (cause not found). Packs (`.msp`) or a separate folder helped.
++
++## License and source
++This work is a modification of GPLv3 software and is distributed under the **GNU GPL v3** (see `LICENSE`).
++The complete corresponding source is in `source/`:
++- `openfpga-snes-msu1-source.tar.gz` — full modified source tree (Quartus project)
++- `msu1-vs-openfpga-snes-0.4.4.patch` — changes against upstream openfpga-snes 0.4.4
++
++Build: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>`, then `python3 tools/rbf_to_rev.py ap_core.rbf out.rev`.
+ 
+-Please report any issues encountered to this repo. Most likely any problems are a result of my port, not the original core. Issues will be upstreamed as necessary.
++See `CREDITS.md` for attribution.
+ 
+-> [!WARNING]
+-> 
+-> Savestates/Memories/Sleep not supported
+->
+-> Savestates/Memories/Sleep are not supported by any FPGA SNES core. Not this one, not the MiSTer core it's ported from, not the Analogue Super NT one.
+-> 
+-> **Support for savestates will _not_ be coming** to any of these cores. Do not ask. If you would like to learn more, see [issue #59](https://github.com/agg23/openfpga-SNES/issues/59) and [this discussion on the MiSTer forums](https://misterfpga.org/viewtopic.php?t=4944).
++## Repository
++https://github.com/moongommoongom/Moongom (upstream: https://github.com/agg23/openfpga-snes)
+ 
+-## Installation
+-
+-### Easy mode
+-
+-I highly recommend the updater tools by [@mattpannella](https://github.com/mattpannella) and [@RetroDriven](https://github.com/RetroDriven). If you're running Windows, use [the RetroDriven GUI](https://github.com/RetroDriven/Pocket_Updater), or if you prefer the CLI, use [the mattpannella tool](https://github.com/mattpannella/pocket_core_autoupdate_net). Either of these will allow you to automatically download and install openFPGA cores onto your Analogue Pocket. Go donate to them if you can
+-
+-### Manual mode
+-To install the core, copy the `Assets`, `Cores`, and `Platform` folders over to the root of your SD card. Please note that Finder on macOS automatically _replaces_ folders, rather than merging them like Windows does, so you have to manually merge the folders.
+-
+-## Usage
+-
+-ROMs should be placed in `/Assets/snes/common`. Both headered and unheadered ROMs are now supported.
+-
+-## Features
+-
+-### Dock Support
+-
+-Core supports four players/controllers via the Analogue Dock. To enable four player mode, turn on `Use Multitap` setting.
+-
+-### Expansion Chips
+-
+-All original expansion chips supported by MiSTer are also supported on the Pocket. The full list is:
+-
+-* SA-1 (Super Mario RPG)
+-* Super FX/GSU-1/2 (Star Fox)
+-* DSP (Super Mario Kart)
+-* CX4 (Mega Man X 2)
+-* S-DD1 (Star Ocean)
+-* SPC7110 (Far East of Eden)
+-* ST1010 (F1 Roc 2)
+-* BSX (Satellaview)
+-
 -The Super Game Boy, ST011 (Hayazashi Nidan Morita Shougi), and ST018 (Hayazashi Nidan Morita Shougi 2) are not supported in the MiSTer core, and therefore are not supported here. Additionally, the homebrew MSU expansion chip is not currently supported.
-+The Super Game Boy, ST011 (Hayazashi Nidan Morita Shougi), and ST018 (Hayazashi Nidan Morita Shougi 2) are not supported in the MiSTer core, and therefore are not supported here. MSU-1 support is experimental (see docs/MSU1.md).
- 
- #### BSX
- 
-diff -ruN a/dist/Cores/agg23.SNES/audio.json b/dist/Cores/agg23.SNES/audio.json
---- a/dist/Cores/agg23.SNES/audio.json	2026-11-03 20:10:20.262795920 +0900
-+++ b/dist/Cores/agg23.SNES/audio.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,5 +0,0 @@
--{
--  "audio": {
--    "magic": "APF_VER_1"
--  }
--}
-diff -ruN a/dist/Cores/agg23.SNES/core.json b/dist/Cores/agg23.SNES/core.json
---- a/dist/Cores/agg23.SNES/core.json	2026-11-03 20:10:20.262816809 +0900
-+++ b/dist/Cores/agg23.SNES/core.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,47 +0,0 @@
--{
--  "core": {
--    "magic": "APF_VER_1",
--    "metadata": {
--      "platform_ids": [
--        "snes"
--      ],
--      "shortname": "SNES",
--      "description": "Super Nintendo and Super Famicom. Nintendo's second major home console",
--      "author": "agg23",
--      "url": "https://github.com/agg23/openfpga-snes",
--      "version": "0.4.4",
--      "date_release": "2024-09-16"
--    },
--    "framework": {
--      "target_product": "Analogue Pocket",
--      "version_required": "1.1",
--      "sleep_supported": false,
--      "dock": {
--        "supported": true,
--        "analog_output": false
--      },
--      "hardware": {
--        "link_port": false,
--        "cartridge_adapter": -1
--      },
--      "chip32_vm": "loader.bin"
--    },
--    "cores": [
--      {
--        "name": "main",
--        "id": 0,
--        "filename": "snes_main.rev"
--      },
--      {
--        "name": "SPCSDD1",
--        "id": 1,
--        "filename": "snes_spc.rev"
--      },
--      {
--        "name": "PAL",
--        "id": 2,
--        "filename": "snes_pal.rev"
--      }
--    ]
--  }
--}
-\ No newline at end of file
-diff -ruN a/dist/Cores/agg23.SNES/data.json b/dist/Cores/agg23.SNES/data.json
---- a/dist/Cores/agg23.SNES/data.json	2026-11-03 20:10:20.262836905 +0900
-+++ b/dist/Cores/agg23.SNES/data.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,25 +0,0 @@
--{
--  "data": {
--    "magic": "APF_VER_1",
--    "data_slots": [
--      {
--        "name": "Cartridge",
--        "id": 0,
--        "required": true,
--        "parameters": "0x109",
--        "extensions": ["smc", "sfc", "bs"],
--        "address": "0x10000000"
--      },
--      {
--        "name": "Save",
--        "id": 10,
--        "required": false,
--        "parameters": "0x84",
--        "nonvolatile": true,
--        "extensions": ["sav", "srm"],
--        "address": "0x20000000",
--        "size_maximum": "0x20000"
--      }
--    ]
--  }
--}
-Binary files a/dist/Cores/agg23.SNES/icon.bin and b/dist/Cores/agg23.SNES/icon.bin differ
-diff -ruN a/dist/Cores/agg23.SNES/info.txt b/dist/Cores/agg23.SNES/info.txt
---- a/dist/Cores/agg23.SNES/info.txt	2026-11-03 20:10:20.262888377 +0900
-+++ b/dist/Cores/agg23.SNES/info.txt	1970-01-01 09:00:00.000000000 +0900
-@@ -1,5 +0,0 @@
--Port by agg23. Core by srg320.
 -
--Super Nintendo Entertainment System (SNES), referred to as the Super Famicom (SFC) in Japan was the second home console produced by Nintendo. A 16-bit console that remains hugely popular to this day due to its expansive library and impressive enhancement chips.
+-#### BSX
 -
--Core supports 4 controllers (when connected to the Dock), and the SA-1, Super FX (GSU), DSP, CX4, S-DD1, SPC7110, and BSX expansion chips. Please report all issues to agg23, as most likely any issues experienced are issues with the port, not the core.
+-BSX ROMs must be patched to run without BIOS. The BSX BIOS is not currently supported
+-
+-### Savestates/Memories/Sleep
+-
+-> **Warning**: Not supported
+-
+-Savestates/Memories/Sleep are not supported by any FPGA SNES core. Not this one, not the MiSTer core it's ported from, not the Analogue Super NT one.
+-
+-**Support for savestates will _not_ be coming** to any of these cores. Do not ask. If you would like to learn more, see [issue #59](https://github.com/agg23/openfpga-SNES/issues/59) and [this discussion on the MiSTer forums](https://misterfpga.org/viewtopic.php?t=4944).
+-
+-### Video
+-
+-* `Square Pixels` - The internal resolution of the SNES is a 8:7 pixel aspect ratio (wide pixels), which roughly corresponds to what users would see on 4:3 display aspect ratio CRTs. Some games are designed to be displayed at 8:7 PAR (the core's default), and others at 1:1 PAR (square pixels). The `Square Pixels` option is provided to switch to a 1:1 pixel aspect ratio
+-* `Pseudo Transparency` - Enable blending of adjacent pixels, used in some games to simulate transparency
+-
+-### Turbo
+-
+-* `CPU Turbo` - Applies a speed increase to the main SNES CPU. **NOTE:** This has different compatibility with different games. See the [MiSTer list of games](https://github.com/MiSTer-devel/SNES_MiSTer/blob/master/SNES_Turbo.md) that this feature works with
+-* `SuperFX Turbo` - Applies a speed increase to the GSU (SuperFX) chip. Can be used in addition to the `CPU Turbo` option in games like Star Fox to maintain a higher frame rate.
+-
+-### Controller Options
+-
+-There are several options provided for selecting which type of controller the core will emulate.
+-
+-* `Gamepad` - The standard SNES controller used with most games.
+-* `Super Scope` - The Super Scope lightgun that's used with most lightgun games. See Lightguns for more details.
+-* `Justifier` - The Justifier lightgun that's used with Lethal Enforcers. See Lightguns for more details.
+-* `Mouse` - The SNES mouse that's used with Mario Paint and several other games. See SNES Mouse for more details.
+-
+-### Lightguns
+-
+-Core supports virtual lightguns by selecting the `Super Scope` or `Justifier` options under `Controller Options`. Most lightgun games user the Super Scope but Lethal Enforcers uses the Justifier. The crosshair can be controlled with the D-Pad or left joystick, using the A button to fire and the B button to reload. D-Pad aim sensitivity can be adjusted with the `D-Pad Aim Speed` setting.
+-
+-**NOTE:** Joystick support for aiming only appears to work when a controller is paired over Bluetooth and not connected to the Analogue Dock directly by USB.
+-
+-### SNES Mouse
+-
+-Core supports a virtual SNES mouse by selecting `Mouse` under `Controller Options`. The mouse can be moved with the D-Pad or left joystick and left and right clicks can be performed by pressing the A and B buttons respectively. Mouse D-Pad movement sensitivity can be adjusted with the `D-Pad Aim Speed` setting.
+-
+-**NOTE:** The dock firmware doesn't currently support a USB mouse.
 \ No newline at end of file
-diff -ruN a/dist/Cores/agg23.SNES/input.json b/dist/Cores/agg23.SNES/input.json
---- a/dist/Cores/agg23.SNES/input.json	2026-11-03 20:10:20.262908368 +0900
-+++ b/dist/Cores/agg23.SNES/input.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,52 +0,0 @@
--{
--  "input": {
--    "magic": "APF_VER_1",
--    "controllers": [
--      {
--        "type": "default",
--        "mappings": [
--          {
--            "id": 0,
--            "name": "A Button",
--            "key": "pad_btn_a"
--          },
--          {
--            "id": 1,
--            "name": "B Button",
--            "key": "pad_btn_b"
--          },
--          {
--            "id": 2,
--            "name": "X Button",
--            "key": "pad_btn_x"
--          },
--          {
--            "id": 3,
--            "name": "Y Button",
--            "key": "pad_btn_y"
--          },
--          {
--            "id": 10,
--            "name": "Left Trigger",
--            "key": "pad_trig_l"
--          },
--          {
--            "id": 11,
--            "name": "Right Trigger",
--            "key": "pad_trig_r"
--          },
--          {
--            "id": 20,
--            "name": "Start",
--            "key": "pad_btn_start"
--          },
--          {
--            "id": 21,
--            "name": "Select",
--            "key": "pad_btn_select"
--          }
--        ]
--      }
--    ]
--  }
--}
-diff -ruN a/dist/Cores/agg23.SNES/interact.json b/dist/Cores/agg23.SNES/interact.json
---- a/dist/Cores/agg23.SNES/interact.json	2026-11-03 20:10:20.262933394 +0900
-+++ b/dist/Cores/agg23.SNES/interact.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,133 +0,0 @@
--{
--  "interact": {
--    "magic": "APF_VER_1",
--    "variables": [
--      {
--        "name": "Reset Core",
--        "id": 10,
--        "type": "action",
--        "enabled": true,
--        "address": "0x50",
--        "value": 1
--      },
--      {
--        "name": "CPU Turbo",
--        "id": 15,
--        "type": "check",
--        "enabled": true,
--        "address": "0x80",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 0,
--        "value": 1
--      },
--      {
--        "name": "SuperFX Turbo",
--        "id": 16,
--        "type": "check",
--        "enabled": true,
--        "address": "0x84",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 0,
--        "value": 1
--      },
--      {
--        "name": "Use Multitap",
--        "id": 20,
--        "type": "check",
--        "enabled": true,
--        "address": "0x100",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 0,
--        "value": 1
--      },
--      {
--        "name": "Controller Options",
--        "id": 30,
--        "type": "list",
--        "enabled": true,
--        "address": "0x104",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 0,
--        "options": [
--          {
--            "name": "Gamepad",
--            "value": 0
--          },
--          {
--            "name": "Super Scope",
--            "value": 1
--          },
--          {
--            "name": "Justifier",
--            "value": 3
--          },
--          {
--            "name": "Mouse",
--            "value": 4
--          }
--        ]
--      },
--      {
--        "name": "D-Pad Aim Speed",
--        "id": 34,
--        "type": "slider_u32",
--        "enabled": true,
--        "address": "0x108",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 3,
--        "graphical": {
--          "signed": false,
--          "min": 1,
--          "max": 10,
--          "adjust_small": 1,
--          "adjust_large": 4
--        }
--      },
--      {
--        "name": "Joy Deadzone",
--        "id": 35,
--        "type": "slider_u32",
--        "enabled": true,
--        "address": "0x0000010C",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 0,
--        "graphical": {
--          "signed": false,
--          "min": 0,
--          "max": 64,
--          "adjust_small": 1,
--          "adjust_large": 10
--        }
--      },
--      {
--        "name": "Square Pixels",
--        "id": 42,
--        "type": "check",
--        "enabled": true,
--        "address": "0x200",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 0,
--        "value": 1
--      },
--      {
--        "name": "Pseudo Transparency",
--        "id": 41,
--        "type": "check",
--        "enabled": true,
--        "address": "0x204",
--        "persist": true,
--        "writeonly": true,
--        "defaultval": 1,
--        "value": 1
--      }
--    ],
--    "messages": []
--  }
--}
-diff -ruN a/dist/Cores/agg23.SNES/variants.json b/dist/Cores/agg23.SNES/variants.json
---- a/dist/Cores/agg23.SNES/variants.json	2026-11-03 20:10:20.263350853 +0900
-+++ b/dist/Cores/agg23.SNES/variants.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,6 +0,0 @@
--{
--  "variants": {
--    "magic": "APF_VER_1",
--    "variant_list": []
--  }
--}
-diff -ruN a/dist/Cores/agg23.SNES/video.json b/dist/Cores/agg23.SNES/video.json
---- a/dist/Cores/agg23.SNES/video.json	2026-11-03 20:10:20.263389518 +0900
-+++ b/dist/Cores/agg23.SNES/video.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,59 +0,0 @@
--{
--  "video": {
--    "magic": "APF_VER_1",
--    "scaler_modes": [
--      {
--        "width": 512,
--        "height": 224,
--        "aspect_w": 64,
--        "aspect_h": 49,
--        "rotation": 0,
--        "mirror": 0
--      },
--      {
--        "width": 512,
--        "height": 224,
--        "aspect_w": 8,
--        "aspect_h": 7,
--        "rotation": 0,
--        "mirror": 0
--      },
--      {
--        "width": 512,
--        "height": 240,
--        "aspect_w": 128,
--        "aspect_h": 105,
--        "rotation": 0,
--        "mirror": 0
--      },
--      {
--        "width": 512,
--        "height": 240,
--        "aspect_w": 16,
--        "aspect_h": 15,
--        "rotation": 0,
--        "mirror": 0
--      }
--    ],
--    "display_modes": [
--      {
--        "id": "0x10"
--      },
--      {
--         "id": "0x20"
--      },
--      {
--         "id": "0x30"
--      },
--      {
--         "id": "0x40"
--      },
--      {
--         "id": "0xE0"
--      },
--      {
--         "id": "0xE1"
--      }
--    ]
--  }
--}
-Binary files a/dist/Platforms/_images/snes.bin and b/dist/Platforms/_images/snes.bin differ
-diff -ruN a/dist/Platforms/snes.json b/dist/Platforms/snes.json
---- a/dist/Platforms/snes.json	2026-11-03 20:10:20.263576474 +0900
-+++ b/dist/Platforms/snes.json	1970-01-01 09:00:00.000000000 +0900
-@@ -1,8 +0,0 @@
--{
--  "platform": {
--    "category": "Console",
--    "name": "SNES",
--    "manufacturer": "Nintendo",
--    "year": 1990
--  }
--}
++## Contributing / upstream
++This is a separate fork. Do not send this work to upstream repositories unless the maintainers ask for it.
+diff -ruN a/docs/DEVLOG.md b/docs/DEVLOG.md
+--- a/docs/DEVLOG.md	1970-01-01 09:00:00.000000000 +0900
++++ b/docs/DEVLOG.md	2026-11-07 00:41:24.000000000 +0900
+@@ -0,0 +1,88 @@
++# 개발 일지: Analogue Pocket SNES 코어(agg23 openFPGA)에 MSU-1 추가
++
++작성일: 2026-11-03 (진행 중인 작업 포함)
++
++## 1. 목표
++
++- agg23의 Analogue Pocket용 SNES 코어(openfpga-SNES 0.4.4)에 **MSU-1**(CD급 PCM 음악 + 대용량 데이터 스트리밍)을 추가한다.
++- MiSTer SNES 코어(SNES_MiSTer 1.2.0)를 참고 구현으로 삼는다.
++- 최종 결과물: Pocket에서 바로 실행되는 코어 폴더(.rev 비트스트림 포함)를 **배포용 ZIP**으로 제공한다.
++- 첫 목표는 1GB 미만 MSU-1 팩(예: Tales of Phantasia, FF6 MSU 팩)이다.
++- 가능한 칩은 한 코어에 합치고, 완성되면 디버그용 비프음은 제거한다.
++
++## 2. 개발 환경
++
++- 빌드: PC의 Quartus Prime 25.1 Lite (`quartus_sh -t generate.tcl <variant>`)를 사용한다.
++- 대상 FPGA: Cyclone V 5CEBA4F23C8 (18,480 ALM, 308 M10K).
++- 비트스트림 변환: `ap_core.rbf`를 비트 반전해 `.rev`로 만든다(`tools/rbf_to_rev.py`). 변환 후 997바이트마다 샘플링해 검증한다.
++- 빌드 한 번에 약 20분이 걸린다.
++
++## 2-1. 버전별 기록
++
++배포 ZIP(`SNES_MSU1_pocket_build_vN.zip`) 기준입니다. 번호는 배포 순서입니다.
++
++| 버전 | 내용 |
++|---|---|
++| v1–v3 | 초기 작업. 상류에 꺼져 있던 MSU-1 HDL을 켜고 APF 데이터슬롯 연동을 추가했으며, 첫 Quartus 컴파일과 용량 확인을 했다. 이 구간은 상세 기록이 남아 있지 않다. |
++| v4_diag | 진단용 빌드. 오디오·데이터 경로 상태를 비프음으로 확인했다. 이때는 "미검증, 실험적" 상태였고 `docs/MSU1.md`에 검증 안 된 가정(데이터슬롯 크기 테이블 갱신, 슬롯 경로 반환, 브릿지 바이트 순서 등)을 적어 두었다. 구성: 메인/PAL에는 SA-1 없음, SA-1은 별도 코어, S-DD1/SPC7110/BSX는 별도 비트스트림. |
++| v5–v9 | 진단 비프음을 켜 둔 채 MSU 데이터/오디오 경로를 반복 수정하고 하드웨어에서 확인했다. 메인 비트스트림 크기가 빌드마다 달라졌다(약 2.07→2.09 MB). 개별 수정 내용은 기록이 남아 있지 않다. |
++| v10–v15 | 오디오 버퍼·읽기 로직 조정과 타이밍/용량 튜닝. SA-1 코어(SA-1+MSU)는 이 구간에서 안정화되어 값이 그대로 유지됐다. |
++| v16 | MSU 오디오 로직을 안정화한 버전(청크 8192 B, 리필 2048 B, 정렬 읽기, 재시도). 진단 비프음은 켜져  있었다. 사용자 테스트에서 "현재 버전이 완벽하다"는 평가를 받았다. 단 PCM 파일이 없으면 비프음 4번이 났다. |
++| v17 | 비프음을 끄려던 버전. S-DD1을 메인/PAL에 합쳤다. 그런데 PC에 소스가 제대로 반영되지 않은 채 빌드돼서 **비프음이 남아 있었다**(파일 전송 문제). |
++| v18 | 비프음 제거 확정(NTSC, PAL, SA-1, SPC 모두). CX4+GSU+DSPn+S-DD1을 메인/PAL에 합침. SA-1은 별도 코어, SPC7110/BSX는 별도 비트스트림. 1GB 이상 팩 동작, 0바이트 `.msu` 허용. CPU 터보를 원본 5클럭에서 6클럭으로 완화. |
++| v19 (진행 중) | 3단계 터보(Off/On/Max)와 SA-1+GSU+S-DD1 통합 코어(CX4·DSPn 제외). b22 빌드 중. |
++
++## 3. MSU-1 구현 요약
++
++- 상류(openfpga-snes 0.4.4)에 이미 있던 MiSTer 유래 MSU-1 HDL(레지스터 $2000–$2007 포함)을 켜고 Pocket에 연결·수정했다. 파일은 `<rom>.msu`와 `<rom>-N.pcm`을 쓴다.
++- PCM 형식: 헤더 "MSU1", 루프 지점(u32), 16-bit LE 스테레오 44.1 kHz.
++- 0바이트 `.msu` 파일도 크기 폴백으로 동작한다.
++- 오디오 경로(`msu_audio.v`)는 청크 8192 B / 리필 레벨 2048 B로 읽고, 정렬된 읽기와 재시도 로직을 넣었다.
++- 디버그 비프 코드(진단음)를 넣어 상태를 소리로 확인하며 개발했다. 예: PCM 파일이 없으면 4번 울린다.
++
++## 4. 코어 구성과 용량(Fit) 실측
++
++특수칩은 FPGA 면적 때문에 구성별로 나눠서 빌드했다.
++
++| 빌드 | 구성 | ALM | RAM 블록 | 타이밍 |
++|---|---|---|---|---|
++| NTSC 메인 | CX4 + GSU + DSPn + S-DD1 + MSU | 약 92% (16,943) | 94% (291) | slack +0.102 |
++| PAL 메인 | 위와 동일(PAL PLL) | 약 92% | 94% | slack +0.077 |
++| SA-1 | SA-1 + MSU | 76% | 78% | Fast-0C hold −0.016 |
++| SPC7110/BSX | SPC7110 + BSX + S-DD1 + MSU | 92% | 80% | — |
++
++- 면적 추정(ALM): 기본 코어+MSU 약 11.3k, S-DD1 약 870, SPC7110 약 4,260, BSX 약 480, SA-1 약 2,600, CX4+GSU+DSPn 약 4,700.
++- Tales of Phantasia는 ExHiROM이고 코프로세서가 없다. 그래서 S-DD1 없이 메인 코어로 충분하다.
++- S-DD1을 메인 코어에 합쳐도 용량에 들어가는 것을 확인했다.
++
++## 5. 해결한 문제들
++
++1. **디버그 비프음 제거**: `BEEP_ENABLE=0`으로 껐다. v17에서는 PC에 소스가 반영되지 않아 비프음이 남은 채 배포됐고, v18에서 4종 비트스트림 모두 제거했다.
++2. **파일 전송 문제**: 이미 있는 PC 경로에 덮어쓸 때 예전 내용이 남는 현상이 있었다. 새 디렉터리나 새 파일명으로 보내고, 다시 읽어서 확인하는 절차로 바꿨다.
++3. **빌드 경로 오류**: 배치 파일의 Quartus 경로가 틀렸던 것을 바로잡았다.
++4. **CPU Turbo로 게임이 멈추는 문제**: 원본 터보는 주변장치 접근이 없는 구간에서 5 마스터 클럭 사이클(약 4.3 MHz)로 동작한다. 먼저 6클럭(FastROM 속도)으로 완화한 v18을 냈다. 아직 하드웨어 테스트 결과를 받지 못했다. 원인은 확정되지 않았고, 메모리 응답이 5클럭에 맞지 않을 가능성을 의심하고 있다.
++5. **정정한 오해**: 터보 수치를 "4→5 클럭"이라고 설명했는데 실제로는 마스터 클럭 기준 5→6이었다. 터보가 막히는 칩은 DSPn이 아니라 SA-1과 S-DD1이다.
++
++## 6. 현재 작업
++
++- **3단계 터보**를 구현했다. Off / On(6클럭, FastROM 속도) / Max(원본 5클럭). `CPU.vhd`, `SNES.vhd`, `main.v`, `SNES.sv`, `core_top.sv`와 `interact.json`(리스트 옵션)을 수정했다.
++- **CX4와 DSPn을 뺀 통합 코어**: SA-1 + GSU + S-DD1 + MSU를 NTSC/PAL 한 코어로 만든다. 추정 약 90%이며, 빌드로 용량을 확인하는 중이다.
++- 빌드 순서: SA-1+GSU+S-DD1 NTSC, PAL, 이전 구성(CX4+DSPn 포함) 메인, SPC7110/BSX 순이다.
++- 완료되면 용량·타이밍을 확인하고 `.rev`로 변환한 뒤 ZIP으로 전달한다.
++
++## 7. 남은 일
++
++- v18 하드웨어 테스트 결과 확인: 비프음이 사라졌는지, 터보에서 멈추는 증상이 남았는지.
++- 터보 멈춤의 원인이 확정되면 보강한다. 공식 0.4.4 코어와의 비교 테스트도 부탁할 예정이다.
++- CX4/DSPn 게임용으로는 이전 구성의 메인 비트스트림을 별도 코어로 함께 배포하는 방안을 정한다.
++- 최종 ZIP 배포용 README와 info.txt를 정리한다.
++
++## 8. 최근 작업 (test10 ~ test18)
++
++- **팩 형식 v2**: 수천 개의 `.pcm`을 `.msp`(음악+인덱스)와 `.ms1`~`.ms3`(음성)로 묶는다. 파일은 2 GiB 미만, 4096바이트 정렬, 인덱스 4096×8바이트. 변환 도구는 `tools/MSUPackMaker.exe`(소스 `tools/msupack/main.go`, 사용법 `docs/MSUPackMaker.ko.md`).
++- **FF6 음성 패치 대응**: 패치는 음악을 멈추고 음성을 MSU로 재생한 뒤 `$2000`의 "재생 중" 비트를 기다린다. 음성 클립이 재생 중일 때도 이 비트가 서도록 수정했고, `$2007=0`은 음성도 멈추며 안전 타임아웃(약 50초)을 둔다 (test14).
++- **시작 감시 타이머**: MSU 초기화가 약 15초 안에 끝나지 않으면 실패로 처리한다 (test15). 파일이 많은 폴더에서 MSU-1이 시작되지 않는 증상과 관련이 의심되나 원인은 확정되지 않았다.
++- **CPU 터보**: Max 단계를 없애고 Off/On만 남겼다. 불필요한 타이밍 보정/디버그 코드를 정리했다.
++- **칩 통합 코어**: 한 코어 폴더에 비트스트림 5개를 두고 chip32 `loader.bin`이 ROM 헤더의 칩 코드로 고른다 (DSP1 0x84/0x80, DSP2 0x90, DSP3 0xA0, DSP4 0xB0, ST010 0x88, CX4 0x40 → CX4/DSP 코어). 한 비트스트림에 모든 칩은 들어가지 않는다(ALM 약 96%, M10K 307/308). 로더는 bass로 어셈블했고 원본 로더는 바이트 단위로 같게 재현됐다. 새 로더는 하드웨어 미검증이다.
++- **타이밍(최신 재빌드, 주 클럭 setup)**: CX4/DSP NTSC −0.35 ns, CX4/DSP PAL −0.91 ns, SPC −0.38 ns, PAL 메인 −0.10 ns. hold는 모두 충족. 시드 변경으로 개선하려던 시도는 성공하지 못했다.
++- **알려진 미해결 문제**: 파일이 수천 개인 폴더에서 MSU-1이 시작되지 않는 경우가 있다(같은 파일이 다른 폴더에서는 동작). test15에서 동작하던 환경에서 같은 빌드가 안 되는 사례도 있어 빌드가 아니라 SD카드/파일 열기 쪽을 의심하고 있다.
 diff -ruN a/docs/MSU1.md b/docs/MSU1.md
 --- a/docs/MSU1.md	1970-01-01 09:00:00.000000000 +0900
-+++ b/docs/MSU1.md	2026-11-01 10:05:37.000000000 +0900
++++ b/docs/MSU1.md	2026-11-03 21:07:28.000000000 +0900
 @@ -0,0 +1,20 @@
-+# MSU-1 support (experimental, untested)
++# MSU-1 support (experimental)
 +
 +## 파일 배치
 +ROM과 같은 폴더(예: /Assets/snes/common/)에 둡니다.
@@ -414,9 +350,82 @@ diff -ruN a/docs/MSU1.md b/docs/MSU1.md
 +- 0x0190 이 슬롯 0 에서 /Assets/... 전체 경로를 돌려주는지
 +- 브릿지 바이트 순서, 타겟 커맨드 지연 vs 오디오 버퍼, FPGA 리소스/타이밍
 +- Quartus 컴파일·시뮬레이션 하지 않음
+diff -ruN a/docs/MSUPackMaker.ko.md b/docs/MSUPackMaker.ko.md
+--- a/docs/MSUPackMaker.ko.md	1970-01-01 09:00:00.000000000 +0900
++++ b/docs/MSUPackMaker.ko.md	2026-11-07 00:40:58.000000000 +0900
+@@ -0,0 +1,32 @@
++# MSUPackMaker — MSU-1 팩 변환 툴
++
++수천 개의 `game-N.pcm` 파일을 소수의 큰 파일로 묶는 도구입니다. 팩을 쓰면 Pocket이 거대한 폴더를 뒤지지 않고
++큰 파일 몇 개만 열면 됩니다. 팩은 선택 사항이며 `.pcm` 파일 그대로도 동작합니다.
++([English](MSUPackMaker.md))
++
++> 소스: `tools/msupack/main.go` (Go). 빌드: `GOOS=windows go build -o MSUPackMaker.exe`
++> Windows 실행 파일: `tools/MSUPackMaker.exe`. 본인이 가진 게임 파일에만 사용하세요.
++
++## 사용법
++1. `MSUPackMaker.exe`를 `game.msu`와 `game-1.pcm`, `game-2.pcm`, … 이 있는 폴더에 복사합니다.
++2. 더블클릭하거나 터미널에서 `MSUPackMaker.exe <폴더 또는 .msu 파일>`로 실행합니다.
++3. `Done`이 나오면 Enter를 눌러 닫습니다.
++4. 생성된 파일을 SD카드의 ROM과 같은 폴더(같은 기본 이름)에 넣습니다. 코어가 팩을 자동으로 사용합니다.
++   이후 `.pcm` 파일은 지워도 되지만 백업은 보관하세요.
++
++## 생성 파일
++| 파일 | 내용 |
++|---|---|
++| `game.msp` | 인덱스 + 음악 트랙(트랙 번호 1000 미만) |
++| `game.ms1` `game.ms2` `game.ms3` | 음성/긴 트랙(트랙 번호 1000 이상). 1000번부터 새 파일로 시작 |
++
++- 파일 하나는 2 GiB 미만이라 4 GiB 제한이 없습니다. 파일은 최대 4개(`.msp` + 3개), 트랙 하나는 1 GiB 미만입니다.
++- 트랙은 4096바이트 단위로 정렬됩니다. v2 형식: 8바이트 인덱스 4096개 `{offset, size | part<<30}`, 0번 항목은 `MSUP`, 버전 2.
++- 끝에 출력되는 요약에 음악/음성 트랙 수와 용량이 나옵니다. `WARNING`이 나오면 일부 트랙이 팩에 들어가지 못한 것이고
++  그 트랙은 재생되지 않습니다.
++- `game.msu` 파일은 수정하지 않습니다. 0바이트여도 괜찮습니다.
++
++## 참고
++- 테스트용: exe 옆에 숫자 N이 적힌 `maxtrack.txt`를 두면 1~N번 트랙만 묶습니다.
++- 알려진 문제(원인 불명): 파일이 수천 개인 폴더에서 MSU-1이 시작되지 않았는데 같은 파일이 다른 폴더에서는 동작한 경우가
++  있었습니다. 테스트에서는 게임을 별도 폴더로 옮기면 해결된 적이 있습니다.
+diff -ruN a/docs/MSUPackMaker.md b/docs/MSUPackMaker.md
+--- a/docs/MSUPackMaker.md	1970-01-01 09:00:00.000000000 +0900
++++ b/docs/MSUPackMaker.md	2026-11-07 00:40:58.000000000 +0900
+@@ -0,0 +1,33 @@
++# MSUPackMaker — MSU-1 pack tool / MSU-1 팩 변환 툴
++
++Packs the thousands of `game-N.pcm` files of an MSU-1 set into a few large files, so the Pocket opens
++one file instead of searching a huge folder. The pack is optional: plain `.pcm` files keep working.
++(수천 개의 `game-N.pcm`을 소수의 큰 파일로 묶는 도구입니다. 팩은 선택 사항이며 `.pcm` 그대로도 동작합니다.)
++
++> Tool source: `tools/msupack/main.go` (Go). Build: `GOOS=windows go build -o MSUPackMaker.exe`.
++> Windows binary: `tools/MSUPackMaker.exe`. Use only with game files you own.
++
++## How to use / 사용법
++1. Copy `MSUPackMaker.exe` into the folder that holds your `game.msu` and `game-1.pcm`, `game-2.pcm`, …
++   (`.msu` 와 `-N.pcm` 이 있는 폴더에 exe 를 복사)
++2. Double-click it (or run `MSUPackMaker.exe <folder-or-.msu file>` from a terminal).
++3. Wait for `Done`, press Enter.
++4. Put the generated files next to the ROM on the SD card (same folder, same base name).
++   The core uses the pack automatically; you may delete the `.pcm` files afterwards (keep a backup).
++
++## Output files / 생성 파일
++| File | Content |
++|---|---|
++| `game.msp` | index + music tracks (track number < 1000) |
++| `game.ms1` `game.ms2` `game.ms3` | voice / long tracks (track ≥ 1000), a new file starts at track 1000 |
++
++- Each file stays under 2 GiB (no 4 GiB limit), at most 4 files (`.msp` + 3), one track < 1 GiB.
++- Tracks are aligned to 4096 bytes. Format v2: 4096 × 8-byte index entries `{offset, size | part<<30}`, entry 0 = `MSUP`, version 2.
++- The summary printed at the end lists music/voice track counts and sizes; a `WARNING` means some tracks did not
++  fit and are **not** in the pack (they will not play).
++- The `game.msu` file is not modified. A 0-byte `.msu` is fine.
++
++## Notes / 참고
++- Test aid: a `maxtrack.txt` next to the exe containing a number N packs only tracks 1..N.
++- Known issue (not fully understood): in some folders with thousands of files MSU-1 did not start while the same
++  files worked in another folder. Moving the game into its own folder helped in tests.
 diff -ruN a/generate.tcl b/generate.tcl
---- a/generate.tcl	2026-11-03 20:10:20.263626589 +0900
-+++ b/generate.tcl	2026-11-01 17:13:39.000000000 +0900
+--- a/generate.tcl	2026-11-07 00:41:28.636832764 +0900
++++ b/generate.tcl	2026-11-07 00:40:57.000000000 +0900
 @@ -20,11 +20,11 @@
    set_parameter -name USE_CX4 -entity MAIN_SNES '1
    set_parameter -name USE_SDD1 -entity MAIN_SNES '0
@@ -431,21 +440,69 @@ diff -ruN a/generate.tcl b/generate.tcl
  } elseif { [lindex $argv 0] == "pal" } {
    puts "PAL"
    set_parameter -name PAL_PLL -entity core_top '1
-@@ -32,11 +32,11 @@
+@@ -32,11 +32,59 @@
    set_parameter -name USE_CX4 -entity MAIN_SNES '1
    set_parameter -name USE_SDD1 -entity MAIN_SNES '0
    set_parameter -name USE_GSU -entity MAIN_SNES '1
 -  set_parameter -name USE_SA1 -entity MAIN_SNES '1
++  set_parameter -name USE_SA1 -entity MAIN_SNES '0
++  set_parameter -name USE_DSPn -entity MAIN_SNES '1
++  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
++  set_parameter -name USE_BSX -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
++} elseif { [lindex $argv 0] == "ntsc_sdd1" } {
++  puts "ntsc_sdd1"
++  set_parameter -name PAL_PLL -entity core_top '0
++
++  set_parameter -name USE_CX4 -entity MAIN_SNES '1
++  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
++  set_parameter -name USE_GSU -entity MAIN_SNES '1
 +  set_parameter -name USE_SA1 -entity MAIN_SNES '0
    set_parameter -name USE_DSPn -entity MAIN_SNES '1
    set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
    set_parameter -name USE_BSX -entity MAIN_SNES '0
 -  set_parameter -name USE_MSU -entity MAIN_SNES '0
 +  set_parameter -name USE_MSU -entity MAIN_SNES '1
++} elseif { [lindex $argv 0] == "pal_sdd1" } {
++  puts "pal_sdd1"
++  set_parameter -name PAL_PLL -entity core_top '1
++
++  set_parameter -name USE_CX4 -entity MAIN_SNES '1
++  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
++  set_parameter -name USE_GSU -entity MAIN_SNES '1
++  set_parameter -name USE_SA1 -entity MAIN_SNES '0
++  set_parameter -name USE_DSPn -entity MAIN_SNES '1
++  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
++  set_parameter -name USE_BSX -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
++} elseif { [lindex $argv 0] == "ntsc_sa1gsu" } {
++  puts "ntsc_sa1gsu"
++  set_parameter -name PAL_PLL -entity core_top '0
++
++  set_parameter -name USE_CX4 -entity MAIN_SNES '0
++  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
++  set_parameter -name USE_GSU -entity MAIN_SNES '1
++  set_parameter -name USE_SA1 -entity MAIN_SNES '1
++  set_parameter -name USE_DSPn -entity MAIN_SNES '0
++  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
++  set_parameter -name USE_BSX -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
++} elseif { [lindex $argv 0] == "pal_sa1gsu" } {
++  puts "pal_sa1gsu"
++  set_parameter -name PAL_PLL -entity core_top '1
++
++  set_parameter -name USE_CX4 -entity MAIN_SNES '0
++  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
++  set_parameter -name USE_GSU -entity MAIN_SNES '1
++  set_parameter -name USE_SA1 -entity MAIN_SNES '1
++  set_parameter -name USE_DSPn -entity MAIN_SNES '0
++  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
++  set_parameter -name USE_BSX -entity MAIN_SNES '0
++  set_parameter -name USE_MSU -entity MAIN_SNES '1
  } elseif { [lindex $argv 0] == "ntsc_spc" } {
    puts "NTSC SPC"
    set_parameter -name PAL_PLL -entity core_top '0
-@@ -48,7 +48,19 @@
+@@ -48,7 +96,19 @@
    set_parameter -name USE_DSPn -entity MAIN_SNES '0
    set_parameter -name USE_SPC7110 -entity MAIN_SNES '1
    set_parameter -name USE_BSX -entity MAIN_SNES '1
@@ -467,7 +524,7 @@ diff -ruN a/generate.tcl b/generate.tcl
    puts "NONE"
    set_parameter -name PAL_PLL -entity core_top '0
 diff -ruN a/src/fpga/ap_core.qsf b/src/fpga/ap_core.qsf
---- a/src/fpga/ap_core.qsf	2026-11-03 20:10:20.263814318 +0900
+--- a/src/fpga/ap_core.qsf	2026-11-07 00:41:28.636904046 +0900
 +++ b/src/fpga/ap_core.qsf	2026-11-01 10:03:59.000000000 +0900
 @@ -776,6 +776,7 @@
  set_global_assignment -name QIP_FILE core/rtl/chip/chip.qip
@@ -478,7 +535,7 @@ diff -ruN a/src/fpga/ap_core.qsf b/src/fpga/ap_core.qsf
  set_global_assignment -name SIGNALTAP_FILE core/stp1.stp
  set_global_assignment -name QIP_FILE core/mf_pllbase.qip
 diff -ruN a/src/fpga/apf/build_id.mif b/src/fpga/apf/build_id.mif
---- a/src/fpga/apf/build_id.mif	2026-11-03 20:10:20.263968047 +0900
+--- a/src/fpga/apf/build_id.mif	2026-11-07 00:41:28.636963463 +0900
 +++ b/src/fpga/apf/build_id.mif	1970-01-01 09:00:00.000000000 +0900
 @@ -1,16 +0,0 @@
 --- Build ID Memory Initialization File
@@ -498,7 +555,7 @@ diff -ruN a/src/fpga/apf/build_id.mif b/src/fpga/apf/build_id.mif
 -
 -END;
 diff -ruN a/src/fpga/apf/build_id_gen.tcl b/src/fpga/apf/build_id_gen.tcl
---- a/src/fpga/apf/build_id_gen.tcl	2026-11-03 20:10:20.263991480 +0900
+--- a/src/fpga/apf/build_id_gen.tcl	2026-11-07 00:41:28.636972046 +0900
 +++ b/src/fpga/apf/build_id_gen.tcl	1970-01-01 09:00:00.000000000 +0900
 @@ -1,171 +0,0 @@
 -# ================================================================================
@@ -673,7 +730,7 @@ diff -ruN a/src/fpga/apf/build_id_gen.tcl b/src/fpga/apf/build_id_gen.tcl
 -#
 -# generateBuildID_Verilog
 diff -ruN a/src/fpga/core/core_bridge_cmd.v b/src/fpga/core/core_bridge_cmd.v
---- a/src/fpga/core/core_bridge_cmd.v	2026-11-03 20:10:20.264285143 +0900
+--- a/src/fpga/core/core_bridge_cmd.v	2026-11-07 00:41:28.637063698 +0900
 +++ b/src/fpga/core/core_bridge_cmd.v	2026-11-01 10:02:13.000000000 +0900
 @@ -71,7 +71,18 @@
  input   wire    [9:0]   datatable_addr,
@@ -746,8 +803,27 @@ diff -ruN a/src/fpga/core/core_bridge_cmd.v b/src/fpga/core/core_bridge_cmd.v
          target_0 <= 32'h636D_0140;
          tstate <= TARG_ST_WAITRESULT;
 diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
---- a/src/fpga/core/core_top.sv	2026-11-03 20:10:20.264352372 +0900
-+++ b/src/fpga/core/core_top.sv	2026-11-03 09:12:18.000000000 +0900
+--- a/src/fpga/core/core_top.sv	2026-11-07 00:41:28.637086420 +0900
++++ b/src/fpga/core/core_top.sv	2026-11-07 00:40:57.000000000 +0900
+@@ -293,12 +293,12 @@
+   //   assign dram_cas_n              = 'h1;
+   //   assign dram_we_n               = 'h1;
+ 
+-  assign sram_a                  = 'h0;
+-  assign sram_dq                 = {16{1'bZ}};
+-  assign sram_oe_n               = 1;
+-  assign sram_we_n               = 1;
+-  assign sram_ub_n               = 1;
+-  assign sram_lb_n               = 1;
++  // external SRAM: MSU-1 track-head cache
++  wire [15:0] msu_sram_do;
++  wire        msu_sram_oe;
++  assign sram_dq                 = msu_sram_oe ? msu_sram_do : {16{1'bZ}};
++  assign sram_ub_n               = 0;
++  assign sram_lb_n               = 0;
+ 
+   assign dbg_tx                  = 1'bZ;
+   assign user1                   = 1'bZ;
 @@ -326,6 +326,10 @@
      if (bridge_addr[31:28] == 4'h2) begin
        bridge_rd_data <= sd_read_data;
@@ -759,16 +835,23 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
    end
  
    always @(posedge clk_74a) begin
-@@ -354,7 +358,7 @@
+@@ -354,11 +358,14 @@
            reset_delay <= 32'h100000;
          end
          32'h80: begin
 -          cpu_turbo_enabled <= bridge_wr_data[0];
-+          cpu_turbo_enabled <= bridge_wr_data[1:0];
++          cpu_turbo_enabled <= {1'b0, bridge_wr_data[0]}; // Off/On only
          end
          32'h84: begin
            gsu_turbo_enabled <= bridge_wr_data[0];
-@@ -434,6 +438,13 @@
+         end
++        32'h88: begin
++          msu_preload_en <= bridge_wr_data[0];
++        end
+         32'h100: begin
+           multitap_enabled <= bridge_wr_data[0];
+         end
+@@ -434,6 +441,13 @@
    // synchronous to clk_74a
  
  
@@ -782,7 +865,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
    // bridge data slot access
  
    reg [9:0] datatable_addr;
-@@ -494,7 +505,16 @@
+@@ -494,7 +508,16 @@
        .datatable_addr(datatable_addr),
        .datatable_wren(datatable_wren),
        .datatable_data(datatable_data),
@@ -800,7 +883,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
    );
  
    reg ioctl_download = 0;
-@@ -599,18 +619,211 @@
+@@ -599,18 +622,284 @@
        .read_data(sd_buff_din)
    );
  
@@ -879,6 +962,30 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +      .write_data(pcm_data)
 +  );
 +
++  // Voice stream data (bridge address 0x6xxxxxxx) -> second msu_audio
++  wire        vpcm_wr;
++  wire [15:0] vpcm_waddr;
++  wire [15:0] vpcm_data;
++
++  data_loader #(
++      .ADDRESS_MASK_UPPER_4(4'h6),
++      .ADDRESS_SIZE(15),
++      .WRITE_MEM_CLOCK_DELAY(7),
++      .OUTPUT_WORD_SIZE(2)
++  ) vpcm_loader (
++      .clk_74a(clk_74a),
++      .clk_memory(clk_sys_21_48),
++
++      .bridge_wr(bridge_wr),
++      .bridge_endian_little(bridge_endian_little),
++      .bridge_addr(bridge_addr),
++      .bridge_wr_data(bridge_wr_data),
++
++      .write_en  (vpcm_wr),
++      .write_addr(vpcm_waddr),
++      .write_data(vpcm_data)
++  );
++
 +  // MSU data file blocks (bridge address 0x4xxxxxxx, 16KB window) -> msu_data_store
 +  wire        dw_wr;
 +  wire [13:0] dw_addr;
@@ -910,9 +1017,16 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +  wire        msu_enable;
 +  wire        msu_track_mounting;
 +  wire        msu_track_missing;
++  wire        msu_hd_missing;
 +  wire [31:0] msu_audio_size;
 +  wire [31:0] msu_data_size;
++  reg msu_preload_en = 1;   // preload the head of every MSU-1 track at boot
 +  wire        msu_init_hold;
++  wire        msu_pre_req;
++  wire [15:0] msu_pre_num;
++  wire        msu_pre_flush;
++  wire        msu_pre_active;
++  wire        msu_pre_done;
 +  wire  [3:0] msu_diag;
 +  wire [15:0] msu_track_num;
 +  wire        msu_track_request;
@@ -922,6 +1036,15 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +  wire [15:0] a_fetch_len;
 +  wire        a_done_tgl;
 +  wire        a_err;
++
++  wire        v_en, v_mounting, v_missing;
++  wire [31:0] v_size;
++  wire        v_fetch_tgl;
++  wire [31:0] v_fetch_off;
++  wire [15:0] v_fetch_len;
++  wire        v_done_tgl, v_err;
++  wire        v_track_request;
++  wire [15:0] v_track_num;
 +
 +  wire        d_fill_tgl;
 +  wire [31:0] d_fill_off;
@@ -934,6 +1057,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +      .SLOT_ROM(16'd0),
 +      .SLOT_MSU(16'd20),  // data.json: "MSU Data"
 +      .SLOT_PCM(16'd21),  // data.json: "MSU Audio"
++      .SLOT_VOICE(16'd22),  // data.json: "MSU Voice"
 +      .IDX_MSU(8'd2),  // position inside data_slots[]
 +      .IDX_PCM(8'd3)
 +  ) msu_bridge (
@@ -959,11 +1083,12 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +      .pb_din(pb_b_din),
 +      .pb_q(pb_b_q),
 +
-+      .track_request(msu_track_request),
-+      .track_num(msu_track_num),
++      .track_request(msu_track_request | msu_pre_req),
++      .track_num(msu_pre_req ? msu_pre_num : msu_track_num),
 +      .msu_enable(msu_enable),
 +      .track_mounting(msu_track_mounting),
 +      .track_missing(msu_track_missing),
++      .hd_missing(msu_hd_missing),
 +      .audio_size(msu_audio_size),
 +      .data_size(msu_data_size),
 +      .init_hold(msu_init_hold),
@@ -980,10 +1105,41 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +      .d_fill_len(d_fill_len),
 +      .d_fill_slot(d_fill_slot),
 +      .d_done_tgl(d_done_tgl),
-+      .d_err(d_err)
++      .d_err(d_err),
++
++      .v_req(v_track_request),
++      .v_num(v_track_num),
++      .voice_en(v_en),
++      .v_mounting(v_mounting),
++      .v_missing(v_missing),
++      .v_size(v_size),
++      .v_fetch_tgl(v_fetch_tgl),
++      .v_fetch_off(v_fetch_off),
++      .v_fetch_len(v_fetch_len),
++      .v_done_tgl(v_done_tgl),
++      .v_err(v_err)
 +  );
 +
-+  wire msu_hold = msu_init_hold;
++  // ---- MSU-1 boot preload: fill the SRAM head cache before the game starts ----
++  wire msu_preload_en_s;
++  synch_3 msu_pl_s (msu_preload_en, msu_preload_en_s, clk_sys_21_48);
++
++
++  msu_preload msu_preload (
++      .clk(clk_sys_21_48),
++      .init_hold(msu_init_hold),
++      .enable(1'b0),   // boot preload of track heads removed (pack file mode)
++      .mounting(msu_track_mounting),
++      .missing(msu_hd_missing),
++      .done(msu_pre_done),
++      .req(msu_pre_req),
++      .num(msu_pre_num),
++      .flush(msu_pre_flush),
++      .active(msu_pre_active),
++      .pre_mode()
++  );
++
++  wire msu_hold = msu_init_hold | msu_pre_active;
 +
 +  // Port A alternates: even cycles write the save RAM size (data slot index 1),
 +  // odd cycles present the address msu_bridge wants to read. dt_valid marks the
@@ -1018,7 +1174,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
      end
    end
  
-@@ -677,7 +890,7 @@
+@@ -677,7 +966,7 @@
    reg [31:0] reset_delay = 0;
    wire reset_button = reset_delay > 0;
  
@@ -1027,7 +1183,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
    reg gsu_turbo_enabled = 0;
  
    reg multitap_enabled = 0;
-@@ -693,7 +906,7 @@
+@@ -693,7 +982,7 @@
    // Settings sync
    wire reset_button_s;
  
@@ -1036,7 +1192,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
    wire gsu_turbo_enabled_s;
  
    wire multitap_enabled_s;
-@@ -707,7 +920,7 @@
+@@ -707,7 +996,7 @@
    wire blend_enabled_s;
  
    synch_3 #(
@@ -1045,7 +1201,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
    ) settings_s (
        {
          reset_button,
-@@ -764,7 +977,7 @@
+@@ -764,7 +1053,7 @@
        .clk_mem_85_9 (clk_mem_85_9),
        .clk_sys_21_48(clk_sys_21_48),
  
@@ -1054,7 +1210,7 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
  
        .rtc(rtc),
  
-@@ -905,6 +1118,34 @@
+@@ -905,6 +1194,59 @@
        .video_b(video_rgb_snes[7:0]),
  
        // Audio
@@ -1067,6 +1223,17 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +      .msu_data_size(msu_data_size),
 +      .msu_track_num(msu_track_num),
 +      .msu_track_request(msu_track_request),
++      .msu_pre_req(msu_pre_req),
++      .msu_pre_num(msu_pre_num),
++      .msu_pre_flush(msu_pre_flush),
++      .msu_pre_active(msu_pre_active),
++      .msu_pre_done(msu_pre_done),
++      .sram_a(sram_a),
++      .sram_do(msu_sram_do),
++      .sram_oe(msu_sram_oe),
++      .sram_di(sram_dq),
++      .sram_we_n(sram_we_n),
++      .sram_oe_n(sram_oe_n),
 +
 +      .pcm_wr(pcm_wr),
 +      .pcm_data(pcm_data),
@@ -1075,6 +1242,20 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
 +      .a_fetch_len(a_fetch_len),
 +      .a_done_tgl(a_done_tgl),
 +      .a_err(a_err),
++
++      .v_en(v_en),
++      .v_mounting(v_mounting),
++      .v_missing(v_missing),
++      .v_size(v_size),
++      .v_pcm_wr(vpcm_wr),
++      .v_pcm_data(vpcm_data),
++      .v_fetch_tgl(v_fetch_tgl),
++      .v_fetch_off(v_fetch_off),
++      .v_fetch_len(v_fetch_len),
++      .v_done_tgl(v_done_tgl),
++      .v_err(v_err),
++      .v_track_request(v_track_request),
++      .v_track_num(v_track_num),
 +
 +      .dw_wr(dw_wr),
 +      .dw_addr(dw_addr),
@@ -1091,8 +1272,8 @@ diff -ruN a/src/fpga/core/core_top.sv b/src/fpga/core/core_top.sv
    );
 diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 --- a/src/fpga/core/msu_bridge.v	1970-01-01 09:00:00.000000000 +0900
-+++ b/src/fpga/core/msu_bridge.v	2026-11-02 23:46:36.000000000 +0900
-@@ -0,0 +1,701 @@
++++ b/src/fpga/core/msu_bridge.v	2026-11-07 00:40:57.000000000 +0900
+@@ -0,0 +1,1006 @@
 +//
 +// msu_bridge.v -- MSU-1 <-> Analogue APF glue (runs on clk_74a)
 +//
@@ -1115,6 +1296,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +	parameter [15:0] SLOT_ROM = 16'd0,
 +	parameter [15:0] SLOT_MSU = 16'd20,
 +	parameter [15:0] SLOT_PCM = 16'd21,
++	parameter [15:0] SLOT_VOICE = 16'd22,
 +	parameter  [7:0] IDX_MSU  = 8'd2,      // position of the slot in data.json
 +	parameter  [7:0] IDX_PCM  = 8'd3
 +) (
@@ -1149,6 +1331,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +	output wire        msu_enable,
 +	output wire        track_mounting,
 +	output wire        track_missing,
++	output wire        hd_missing,       // the heads file (.msh) does not exist
 +	output wire [31:0] audio_size,
 +	output wire [31:0] data_size,
 +	output wire        init_hold,
@@ -1159,6 +1342,19 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +	input  wire [15:0] a_fetch_len,
 +	output wire        a_done_tgl,
 +	output wire        a_err,
++
++	// voice stream (tracks >= 1000 from the pack file, second data slot)
++	input  wire        v_req,
++	input  wire [15:0] v_num,
++	output wire        voice_en,
++	output wire        v_mounting,
++	output wire        v_missing,
++	output wire [31:0] v_size,
++	input  wire        v_fetch_tgl,
++	input  wire [31:0] v_fetch_off,
++	input  wire [15:0] v_fetch_len,
++	output wire        v_done_tgl,
++	output wire        v_err,
 +
 +	input  wire        d_fill_tgl,
 +	input  wire [31:0] d_fill_off,
@@ -1171,6 +1367,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +localparam [31:0] PB_BASE  = 32'h5000_0000;
 +localparam [31:0] PCM_BASE = 32'h3000_0000;
 +localparam [31:0] DAT_BASE = 32'h4000_0000;
++localparam [31:0] VOI_BASE = 32'h6000_0000;
 +
 +// ---------------------------------------------------------------------------
 +// Status registers (clk domain) and their clk_sys views
@@ -1178,6 +1375,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +reg        enable_r = 0;
 +reg        mounting_r = 0;
 +reg        missing_r = 0;
++reg        hd_miss_r = 0, hd_req = 0;
 +reg [31:0] asize_r = 0;
 +reg [31:0] dsize_r = 0;
 +reg        hold_r = 0;
@@ -1192,6 +1390,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +synch_3 s_en   (.i(enable_r),   .o(msu_enable),     .clk(clk_sys), .rise(), .fall());
 +synch_3 s_mnt  (.i(mounting_r), .o(track_mounting), .clk(clk_sys), .rise(), .fall());
 +synch_3 s_mis  (.i(missing_r),  .o(track_missing),  .clk(clk_sys), .rise(), .fall());
++synch_3 s_hdm  (.i(hd_miss_r),  .o(hd_missing),     .clk(clk_sys), .rise(), .fall());
 +synch_3 s_hold (.i(hold_r),     .o(init_hold),      .clk(clk_sys), .rise(), .fall());
 +synch_3 s_adn  (.i(a_done_r),   .o(a_done_tgl),     .clk(clk_sys), .rise(), .fall());
 +synch_3 s_ddn  (.i(d_done_r),   .o(d_done_tgl),     .clk(clk_sys), .rise(), .fall());
@@ -1203,6 +1402,18 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +
 +wire req_s, a_s, d_s;
 +synch_3 s_req (.i(track_request), .o(req_s), .clk(clk), .rise(), .fall());
++wire vreq_s, vf_s;
++synch_3 s_vrq (.i(v_req),       .o(vreq_s), .clk(clk), .rise(), .fall());
++synch_3 s_vft (.i(v_fetch_tgl), .o(vf_s),   .clk(clk), .rise(), .fall());
++reg        voice_ok = 0, vmode = 0, vmount_r = 0, vmiss_r = 0, vdone_r = 0, verr_r = 0;
++reg        vreq_seen = 0, vf_ack = 0;
++reg [31:0] vbase = 0, vsize_r = 0;
++synch_3 s_ven (.i(voice_ok),  .o(voice_en),   .clk(clk_sys), .rise(), .fall());
++synch_3 s_vmn (.i(vmount_r),  .o(v_mounting), .clk(clk_sys), .rise(), .fall());
++synch_3 s_vms (.i(vmiss_r),   .o(v_missing),  .clk(clk_sys), .rise(), .fall());
++synch_3 s_vdn (.i(vdone_r),   .o(v_done_tgl), .clk(clk_sys), .rise(), .fall());
++assign v_size = vsize_r;
++assign v_err  = verr_r;
 +synch_3 s_atg (.i(a_fetch_tgl),   .o(a_s),   .clk(clk), .rise(), .fall());
 +synch_3 s_dtg (.i(d_fill_tgl),    .o(d_s),   .clk(clk), .rise(), .fall());
 +
@@ -1211,7 +1422,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +// ---------------------------------------------------------------------------
 +// digits are produced by a registered pipeline (see sfx_pipe below), so no
 +// divider ends up in the clk_74a critical path.
-+function [7:0] sfx_char(input mode, input [3:0] nd, input [19:0] dg, input [3:0] j);
++function [7:0] sfx_char(input mode, input hd, input pk, input [1:0] pkd, input [3:0] nd, input [19:0] dg, input [3:0] j);
 +	reg [3:0] k;
 +	reg [3:0] e;
 +	begin
@@ -1221,7 +1432,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +				4'd0: sfx_char = ".";
 +				4'd1: sfx_char = "m";
 +				4'd2: sfx_char = "s";
-+				4'd3: sfx_char = "u";
++				4'd3: sfx_char = pk ? ((pkd == 2'd0) ? "p" : (8'h30 + {6'd0, pkd})) : hd ? "h" : "u";
 +				default: sfx_char = 8'h00;
 +			endcase
 +		end
@@ -1289,7 +1500,28 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +	// data slot table scan by slot id (as the reference core does)
 +	ST_SCN_S    = 6'd36,
 +	ST_SCN_C    = 6'd37,
-+	ST_SCN_D    = 6'd38;
++	ST_SCN_D    = 6'd38,
++	// pack file (.msp): all tracks in one file, opened once
++	ST_K_P0     = 6'd40,
++	ST_K_OPEN   = 6'd41,
++	ST_K_OR     = 6'd42,
++	ST_K_MG     = 6'd43,
++	ST_K_ME     = 6'd44,
++	ST_K_MW     = 6'd45,
++	ST_K_RES    = 6'd46,
++	ST_K_A0     = 6'd47,
++	ST_K_W0     = 6'd48,
++	ST_K_E0     = 6'd49,
++	ST_K_A1     = 6'd50,
++	ST_K_W1     = 6'd51,
++	ST_K_E1     = 6'd52,
++	ST_K_VO     = 6'd53,
++	ST_K_VR     = 6'd54,
++	ST_V_FIN    = 6'd55,
++	ST_K_Q0     = 6'd57,
++	ST_K_QO     = 6'd58,
++	ST_K_QR     = 6'd59,
++	ST_VF_FIN   = 6'd56;
 +
 +initial begin
 +	tc_req = 0; tc_code = 0; tc_p0 = 0; tc_p1 = 0; tc_p2 = 0; tc_p3 = 0;
@@ -1305,7 +1537,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +reg        rn_d = 0;
 +reg        init_done = 0;
 +reg        path_ok = 0;
-+reg [27:0] init_to = 0;
++reg [29:0] init_to = 0;          // init watchdog (clk_74a cycles)
 +reg        req_seen = 0;
 +reg        a_ack = 0, d_ack = 0;
 +
@@ -1314,7 +1546,9 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +reg        dot_valid = 0;
 +reg  [7:0] dpos = 0;              // index where the suffix starts
 +
-+reg        sfx_mode = 0;          // 0: track pcm, 1: data msu
++reg        sfx_mode = 0;          // 0: track pcm, 1: data msu (or heads file when sfx_hd)
++reg        sfx_pk = 0;            // ".msp" pack file
++reg        sfx_hd = 0;            // ".msh" instead of ".msu" (track number 0xFFFF)
 +reg [15:0] sfx_track = 0;
 +reg  [3:0] wr_j = 0;
 +reg  [3:0] sfx_nd = 4'd1;
@@ -1375,6 +1609,18 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +localparam [8*44-1:0] LIT = "/Assets/snes/common/FF6/FF6_Enhanced(ko).msu";
 +wire [7:0] lit_ch = (lj < 6'd44) ? LIT[8*(43-lj) +: 8] : 8'h00;
 +reg        retried = 0;
++reg        msu_failed = 0;         // the .msu data file could not be opened (e.g. empty file): try the pack before giving up
++reg        pack_ok = 0;            // a valid .msp pack file is open in the PCM slot
++reg        pk_le = 0;              // pack data arrives with byte 0 in bits [7:0]
++reg  [1:0] wpart = 0;             // part number written into the pack suffix (.msp .ms1 .ms2 .ms3)
++reg  [3:0] parts_ok = 4'b0001;   // which pack parts are open
++reg  [1:0] pk_part = 0, vpart = 0;
++wire [31:0] w1d = pk_le ? pk_w1 : bsw(pk_w1);
++wire [31:0] w0d = pk_le ? pk_w0 : bsw(pk_w0);
++reg [31:0] pk_base = 0;            // offset of the current track inside the pack
++reg [31:0] pk_w0 = 0, pk_w1 = 0;
++reg  [5:0] pk_tn = 0;
++function [31:0] bsw(input [31:0] w); bsw = {w[7:0], w[15:8], w[23:16], w[31:24]}; endfunction
 +reg        ord_r = 0;      // 1: first path byte arrives in bits [7:0] (little endian)
 +wire       first_big = (pb_q[31:24] == 8'h2F);
 +wire       first_lit = (pb_q[7:0]   == 8'h2F);
@@ -1397,6 +1643,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +	else        init_to <= 0;
 +
 +	if (!(req_s)) req_seen <= 0;
++	if (!vreq_s) vreq_seen <= 0;
 +
 +	if (!reset_n) begin
 +		// Pocket holds the core in reset: forget everything
@@ -1407,6 +1654,12 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +		path_ok    <= 0;
 +		hold_r     <= 0;
 +		enable_r   <= 0;
++		pack_ok    <= 0;
++		voice_ok   <= 0;
++		vmode      <= 0;
++		vmount_r   <= 0;
++		vmiss_r    <= 0;
++		vf_ack     <= vf_s;
 +		diag_r     <= 0;
 +		retried    <= 0;
 +		mounting_r <= 0;
@@ -1422,7 +1675,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +		init_done <= 0;
 +		state     <= ST_IDLE;
 +	end
-+	else if (hold_r && init_to == 28'h8F0_0000) begin
++	else if (hold_r && init_to == 30'd1113750000) begin   // about 15 s: a big folder makes every file open slow
 +		// Pocket never answered: give up, run without MSU-1
 +		diag_r    <= 4'd7;
 +		hold_r    <= 0;
@@ -1448,28 +1701,75 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +						req_seen   <= 1;
 +						mounting_r <= 1;
 +						missing_r  <= 0;
++						hd_miss_r  <= 0;
++						hd_req     <= (track_num == 16'hFFFF);
 +						asize_r    <= 0;
 +						wcnt       <= 0;
-+						if (!path_ok || !enable_r) begin
++						if (!path_ok || !enable_r || (pack_ok && (track_num == 16'hFFFF || track_num >= 16'd4096))) begin
 +							missing_r <= 1;
++							hd_miss_r <= (track_num == 16'hFFFF);
 +							state     <= ST_T_FIN;
++						end
++						else if (pack_ok) begin
++							// pack file: read the 8 byte index entry (offset, size) of the track into the path buffer
++							tc_code <= 16'h0180;
++							tc_p0   <= {16'b0, SLOT_PCM};
++							tc_p1   <= {16'b0, track_num[11:4], 7'b0};       // 128 byte aligned block of the index (16 entries)
++							tc_p2   <= PB_BASE + 32'h180;                    // upper end of the path buffer: the path string stays intact
++							tc_p3   <= 32'd128;
++							pk_tn   <= track_num[5:0];
++							ret_cmd <= ST_K_RES;
++							state   <= ST_CMD_GO;
 +						end
 +						else begin
 +							diag_r    <= 4'd0;             // silent while mounting
-+							sfx_mode  <= 0;
-+							sfx_track <= track_num;
++							sfx_hd    <= (track_num == 16'hFFFF);
++							sfx_mode  <= (track_num == 16'hFFFF);
++							sfx_track <= (track_num == 16'hFFFF) ? 16'd0 : track_num;
 +							ret_wr    <= ST_T_OPEN;
 +							state     <= ST_WR_START;
++						end
++					end
++					else if (vreq_s && !vreq_seen && voice_ok) begin
++						vreq_seen <= 1;
++						vmount_r  <= 1;
++						vmiss_r   <= 0;
++						vsize_r   <= 0;
++						vmode     <= 1;
++						wcnt      <= 0;
++						if (v_num >= 16'd4096) begin
++							vmiss_r <= 1;
++							state   <= ST_V_FIN;
++						end
++						else begin
++							tc_code <= 16'h0180;
++							tc_p0   <= {16'b0, SLOT_VOICE};
++							tc_p1   <= {16'b0, v_num[11:4], 7'b0};
++							tc_p2   <= PB_BASE + 32'h180;
++							tc_p3   <= 32'd128;
++							pk_tn   <= v_num[5:0];
++							ret_cmd <= ST_K_RES;
++							state   <= ST_CMD_GO;
 +						end
 +					end
 +					else if (a_s != a_ack) begin
 +						a_ack   <= a_s;
 +						tc_code <= 16'h0180;
-+						tc_p0   <= {16'b0, SLOT_PCM};
-+						tc_p1   <= a_fetch_off;
++						tc_p0   <= (pack_ok && pk_part != 2'd0) ? (SLOT_VOICE + {14'b0, pk_part}) : {16'b0, SLOT_PCM};
++						tc_p1   <= pack_ok ? (a_fetch_off + pk_base) : a_fetch_off;
 +						tc_p2   <= PCM_BASE;
 +						tc_p3   <= {16'b0, a_fetch_len};
 +						ret_cmd <= ST_A_FIN;
++						state   <= ST_CMD_GO;
++					end
++					else if (vf_s != vf_ack && voice_ok) begin
++						vf_ack  <= vf_s;
++						tc_code <= 16'h0180;
++						tc_p0   <= (vpart != 2'd0) ? (SLOT_VOICE + {14'b0, vpart}) : {16'b0, SLOT_VOICE};
++						tc_p1   <= v_fetch_off + vbase;
++						tc_p2   <= VOI_BASE;
++						tc_p3   <= {16'b0, v_fetch_len};
++						ret_cmd <= ST_VF_FIN;
 +						state   <= ST_CMD_GO;
 +					end
 +					else if (d_s != d_ack) begin
@@ -1598,6 +1898,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +					pb_we     <= 4'h0;
 +					path_ok   <= 1;
 +					sfx_mode  <= 1;                  // ".msu"
++					sfx_hd    <= 0;
 +					sfx_track <= 16'd0;
 +					state     <= ST_P_OPEN;
 +				end
@@ -1635,10 +1936,12 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +						state   <= ST_WR_START;
 +					end
 +					else if (res > 16'd1) begin
-+						// derived path rejected: remember why, then probe a literal path
-+						res_fin <= res;
-+						lj      <= 6'd0;
-+						state   <= ST_L_CH;
++						// derived path rejected: remember why, try the pack file (an empty .msu cannot be opened),
++						// then probe a literal path
++						res_fin    <= res;
++						lj         <= 6'd0;
++						msu_failed <= 1'b1;
++						state      <= ST_K_P0;
 +					end
 +					else begin
 +						diag_r   <= 4'd0;                 // init OK: silent
@@ -1693,8 +1996,189 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +				begin
 +					// size table may not be refreshed by the open: fall back to "large"
 +					dsize_r  <= (scan_sz != 32'd0) ? scan_sz : 32'h0FFF_FFFF;
-+					state    <= ST_I_END;
++					state    <= ST_K_P0;
 +				end
++			// ---- optional pack file "<rom>.msp" (all PCM tracks in one file; no per-track open) ----
++			ST_K_P0:
++				begin
++					sfx_mode  <= 1;
++					sfx_hd    <= 0;
++					sfx_pk    <= 1;
++					sfx_track <= 16'd0;
++					ret_wr    <= ST_K_OPEN;
++					state     <= ST_WR_START;
++				end
++			ST_K_OPEN:
++				begin
++					tc_code <= 16'h0192;
++					tc_p0   <= {16'b0, SLOT_PCM};
++					tc_p1   <= PB_BASE;
++					ret_cmd <= ST_K_OR;
++					state   <= ST_CMD_GO;
++				end
++			ST_K_OR:
++				begin
++					sfx_pk <= 0;
++					if (res > 16'd1) begin                   // no pack file: per-track files as before
++						if (msu_failed) begin msu_failed <= 1'b0; lj <= 6'd0; state <= ST_L_CH; end
++						else state <= ST_I_END;
++					end
++					else begin
++						tc_code <= 16'h0180;                   // read the 8 byte pack header (index entry 0)
++						tc_p0   <= {16'b0, SLOT_PCM};
++						tc_p1   <= 32'd0;
++						tc_p2   <= PB_BASE + 32'h180;
++						tc_p3   <= 32'd128;
++						ret_cmd <= ST_K_MG;
++						state   <= ST_CMD_GO;
++					end
++				end
++			ST_K_MG:
++				begin
++					if (res != 16'd0) begin
++						if (msu_failed) begin msu_failed <= 1'b0; lj <= 6'd0; state <= ST_L_CH; end
++						else state <= ST_I_END;
++					end
++					else begin
++						pb_addr <= 7'd96;
++						state   <= ST_K_MW;
++					end
++				end
++			ST_K_MW: state <= ST_K_ME;
++			ST_K_ME:
++				begin
++					if (msu_failed) begin msu_failed <= 1'b0; lj <= 6'd0; state <= ST_L_CH; end
++					else state <= ST_I_END;
++					if (pb_q == 32'h4D53_5550)      begin pack_ok <= 1; pk_le <= 0; enable_r <= 1'b1; diag_r <= 4'd0; msu_failed <= 1'b0; state <= ST_K_VO; end   // "MSUP", byte 0 in [31:24]
++					else if (pb_q == 32'h5055_534D) begin pack_ok <= 1; pk_le <= 1; enable_r <= 1'b1; diag_r <= 4'd0; msu_failed <= 1'b0; state <= ST_K_VO; end   // byte 0 in [7:0]
++				end
++
++			// open the pack a second time for the voice stream
++			ST_K_VO:
++				begin
++					tc_code <= 16'h0192;
++					tc_p0   <= {16'b0, SLOT_VOICE};
++					tc_p1   <= PB_BASE;
++					ret_cmd <= ST_K_VR;
++					state   <= ST_CMD_GO;
++				end
++			ST_K_VR:
++				begin
++					if (res <= 16'd1) voice_ok <= 1;
++					wpart <= 2'd1;
++					state <= ST_K_Q0;
++				end
++			// further pack parts "<rom>.ms1" .. ".ms3" (each below 2 GiB) in slots SLOT_VOICE+1 ..
++			ST_K_Q0:
++				begin
++					sfx_mode  <= 1;
++					sfx_hd    <= 0;
++					sfx_pk    <= 1;
++					sfx_track <= 16'd0;
++					ret_wr    <= ST_K_QO;
++					state     <= ST_WR_START;
++				end
++			ST_K_QO:
++				begin
++					tc_code <= 16'h0192;
++					tc_p0   <= SLOT_VOICE + {14'b0, wpart};
++					tc_p1   <= PB_BASE;
++					ret_cmd <= ST_K_QR;
++					state   <= ST_CMD_GO;
++				end
++			ST_K_QR:
++				begin
++					if (res <= 16'd1) begin
++						parts_ok[wpart] <= 1'b1;
++						if (wpart != 2'd3) begin
++							wpart <= wpart + 2'd1;
++							state <= ST_K_Q0;
++						end
++						else begin
++							sfx_pk <= 0; wpart <= 0;
++							state  <= ST_I_END;
++						end
++					end
++					else begin
++						sfx_pk <= 0; wpart <= 0;
++						state  <= ST_I_END;
++					end
++				end
++			ST_V_FIN:
++				begin
++					wcnt <= wcnt + 1'd1;
++					if (wcnt == 8'd255) begin
++						vmount_r <= 0;
++						vmode    <= 0;
++						state    <= ST_IDLE;
++					end
++				end
++			ST_VF_FIN:
++				begin
++					verr_r  <= (res != 16'd0);
++					vdone_r <= ~vdone_r;
++					state   <= ST_IDLE;
++				end
++
++			// ---- pack: index entry of the requested track has been read ----
++			ST_K_RES:
++				begin
++					if (vmode && res != 16'd0) begin
++						vmiss_r <= 1; wcnt <= 0; state <= ST_V_FIN;
++					end
++					else if (res != 16'd0) begin
++						// pack read failed: give up the pack, use the per-track .pcm files from now on
++						pack_ok   <= 0;
++						sfx_hd    <= 0;
++						sfx_mode  <= 0;
++						sfx_pk    <= 0;
++						sfx_track <= track_num;
++						ret_wr    <= ST_T_OPEN;
++						state     <= ST_WR_START;
++					end
++					else begin
++						pb_addr <= 7'd96 + {2'b0, pk_tn[3:0], 1'b0};
++						state   <= ST_K_W0;
++					end
++				end
++			ST_K_W0: state <= ST_K_E0;
++			ST_K_E0:
++				begin
++					pk_w0   <= pb_q;
++					pb_addr <= pb_addr + 7'd1;
++					state   <= ST_K_W1;
++				end
++			ST_K_W1: state <= ST_K_E1;
++			ST_K_E1:
++				begin
++					pk_w1 <= pb_q;
++					state <= ST_K_A1;
++				end
++			ST_K_A1:
++				begin
++					wcnt <= 0;
++					if (vmode) begin
++						if (w1d[29:0] == 30'd0 || !parts_ok[w1d[31:30]]) vmiss_r <= 1;
++						else begin
++							vbase   <= w0d;
++							vsize_r <= {2'b00, w1d[29:0]};
++							vpart   <= w1d[31:30];
++						end
++						state <= ST_V_FIN;
++					end
++					else begin
++						if (w1d[29:0] == 30'd0 || !parts_ok[w1d[31:30]]) begin
++							missing_r <= 1;                        // track not in the pack
++						end
++						else begin
++							pk_base <= w0d;
++							asize_r <= {2'b00, w1d[29:0]};
++							pk_part <= w1d[31:30];
++						end
++						state <= ST_T_FIN;
++					end
++				end
++
 +			ST_I_END:
 +				begin
 +					init_done <= 1;
@@ -1720,7 +2204,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +			ST_WR_CH:
 +				begin
 +					pb_addr <= wr_idx[8:2];
-+					pb_din  <= sfx_char(sfx_mode, sfx_nd, sfx_dg, wr_j);
++					pb_din  <= sfx_char(sfx_mode, sfx_hd, sfx_pk, wpart, sfx_nd, sfx_dg, wr_j);
 +					pb_we   <= 4'b0001 << (wr_idx[1:0] ^ {2{ord_r}});
 +					state   <= ST_WR_COMMIT;
 +				end
@@ -1748,6 +2232,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +					if (res > 16'd1) begin
 +						diag_r    <= (res == 16'd3) ? 4'd5 : (res == 16'd4) ? 4'd8 : 4'd9;
 +						missing_r <= 1;
++						hd_miss_r <= hd_req;
 +						wcnt      <= 0;
 +						state     <= ST_T_FIN;
 +					end
@@ -1769,6 +2254,7 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +					wcnt <= wcnt + 1'd1;
 +					if (wcnt == 8'd255) begin
 +						mounting_r <= 0;
++						if (hd_req) missing_r <= 0;              // the heads file is not a game track: no "track missing" status
 +						state      <= ST_IDLE;
 +					end
 +				end
@@ -1795,8 +2281,8 @@ diff -ruN a/src/fpga/core/msu_bridge.v b/src/fpga/core/msu_bridge.v
 +
 +endmodule
 diff -ruN a/src/fpga/core/rtl/CPU.vhd b/src/fpga/core/rtl/CPU.vhd
---- a/src/fpga/core/rtl/CPU.vhd	2026-11-03 20:10:20.266136353 +0900
-+++ b/src/fpga/core/rtl/CPU.vhd	2026-11-03 09:12:23.000000000 +0900
+--- a/src/fpga/core/rtl/CPU.vhd	2026-11-07 00:41:28.637961883 +0900
++++ b/src/fpga/core/rtl/CPU.vhd	2026-11-07 00:40:57.000000000 +0900
 @@ -41,7 +41,7 @@
  		JOY1_CLK			: out std_logic;
  		JOY2_CLK			: out std_logic;
@@ -1806,24 +2292,20 @@ diff -ruN a/src/fpga/core/rtl/CPU.vhd b/src/fpga/core/rtl/CPU.vhd
  		
  		DBG_CPU_EN		: in std_logic
  	);
-@@ -246,8 +246,13 @@
+@@ -246,8 +246,9 @@
  	process( SPEED, MEMSEL, REFRESHED, CPU_ACTIVEr, TURBO, P65_CLK_CNT, P65_ACCESSED_PERIPHERAL_CNT)	
  	begin		
  		-- Turbo should only occur when the cpu is ONLY accessing ram/rom, in otherwords during the main game loop	
 -		if TURBO = '1' and P65_ACCESSED_PERIPHERAL_CNT = x"0" then	
 -			CPU_LAST_CLOCK <= x"4";	
 +		if TURBO /= "00" and P65_ACCESSED_PERIPHERAL_CNT = x"0" then	
-+			-- TURBO = "01": normal turbo (FastROM speed), "10"/"11": max turbo (original, 5 master clocks)
-+			if TURBO(1) = '1' then
-+				CPU_LAST_CLOCK <= x"4";
-+			else
-+				CPU_LAST_CLOCK <= x"5";
-+			end if;	
++			-- Turbo (On): FastROM speed (6 master clocks). The old "Max" level was removed.
++			CPU_LAST_CLOCK <= x"5";
  		elsif REFRESHED = '1' and CPU_ACTIVEr = '1' then	
  			CPU_LAST_CLOCK <= x"7";	
  		elsif SPEED = FAST or (SPEED = SLOWFAST and MEMSEL = '1') then	
 diff -ruN a/src/fpga/core/rtl/SNES.vhd b/src/fpga/core/rtl/SNES.vhd
---- a/src/fpga/core/rtl/SNES.vhd	2026-11-03 20:10:20.266276384 +0900
+--- a/src/fpga/core/rtl/SNES.vhd	2026-11-07 00:41:28.638437749 +0900
 +++ b/src/fpga/core/rtl/SNES.vhd	2026-11-03 09:12:23.000000000 +0900
 @@ -95,7 +95,7 @@
  		IO_DAT  		: in std_logic_vector(15 downto 0);
@@ -1835,19 +2317,46 @@ diff -ruN a/src/fpga/core/rtl/SNES.vhd b/src/fpga/core/rtl/SNES.vhd
  		DBG_BG_EN	: in std_logic_vector(4 downto 0);
  		DBG_CPU_EN	: in std_logic;
 diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU.sv
---- a/src/fpga/core/rtl/chip/MSU1/MSU.sv	2026-11-03 20:10:20.267517888 +0900
-+++ b/src/fpga/core/rtl/chip/MSU1/MSU.sv	2026-11-02 22:43:48.000000000 +0900
-@@ -25,6 +25,9 @@
+--- a/src/fpga/core/rtl/chip/MSU1/MSU.sv	2026-11-07 00:41:28.639073288 +0900
++++ b/src/fpga/core/rtl/chip/MSU1/MSU.sv	2026-11-07 00:40:57.000000000 +0900
+@@ -25,6 +25,20 @@
  	output reg        status_audio_repeat,
  	output reg        status_audio_playing,
  	input             audio_stop,
++	input             AUDIO_READY,   // first PCM data of the mounted track is buffered
++	input             HEAD_HIT,      // head of the selected track is already buffered (from the SRAM cache)
 +	output reg        audio_resume,
++	// voice channel (tracks >= 1000 are played on a second stream, mixed over the music)
++	input             v_en,
++	output reg [15:0] v_track_num,
++	output reg        v_track_request,
++	input             v_mounting,
++	input             v_not_ready,
++	input             v_missing,
++	output reg        v_play,
++	input             v_audio_stop,       // the voice clip has ended
 +	input      [21:0] audio_sector,
 +	output reg [21:0] resume_sector,
  
  	// Data track read
  	output reg [31:0] data_addr,
-@@ -38,7 +41,7 @@
+@@ -35,94 +49,168 @@
+ );
+ 
+ 
++// Cached-track-head handling and the busy flag are declared first: they feed the status byte
++reg        await_audio;
++reg [25:0] await_to;
++reg        hit_latch;
++reg  [5:0] hit_wait;
++reg        v_ctx;            // the last track select was a voice clip: status/play writes belong to the voice stream
++reg  [5:0] v_wait;
++reg [29:0] v_wd;
++reg        v_mounting_old;
++wire       v_busy_eff        = (v_wait != 0) | v_track_request | v_mounting | v_not_ready;
++wire       status_audio_busy = v_ctx ? v_busy_eff : ((track_request | await_audio) & ~hit_latch);
++wire       track_missing_eff = v_ctx ? v_missing : (status_track_missing & ~hit_latch);
++
  // Read 'registers'
  // MSU_STATUS - $2000
  // Status bits
@@ -1856,7 +2365,11 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU
  wire [7:0] MSU_STATUS = {
  	status_data_busy,
  	status_audio_busy,
-@@ -48,44 +51,51 @@
+ 	status_audio_repeat,
+-	status_audio_playing,
+-	status_track_missing,
++	status_audio_playing | v_play,        // a playing voice clip also shows as "audio playing" (the game waits for it)
++	track_missing_eff,
  	status_revision
  };
  
@@ -1875,7 +2388,9 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU
 -reg data_ack_1 = 1'b0;
 -reg status_data_busy = 1'b0;
 -reg track_mounting_old = 0;
-+wire       status_audio_busy = track_request;
++// Keep audio_busy asserted after a track select until the first PCM data has
++// been prefetched (or a timeout), so the game's play command starts sound at once.
++localparam [25:0] await_lim = 26'd21477000;  // wait at most ~1 s for the prebuffer
 +reg [15:0] resume_track_num;
 +reg        resume_valid;
 +
@@ -1904,25 +2419,57 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU
 +		resume_valid <= 0;
  		data_req <= 0;
  		data_seek <= 0;
++		await_audio <= 0;
++		await_to <= 0;
++		hit_latch <= 0;
++		hit_wait <= 0;
++		v_ctx <= 0;
++		v_wait <= 0;
++		v_wd <= 0;
++		v_mounting_old <= 0;
++		v_track_request <= 0;
++		v_track_num <= 0;
++		v_play <= 0;
  	end
  	else begin
 -		// Reset our request trigger for pulsing
-+
-+		// Set/reset pulsed signals
- 		data_req <= 0;
-+		audio_resume <= 0;
-+		if (audio_stop) status_audio_playing <= 0;
+-		data_req <= 0;
  
 -		// Falling edge of data busy
 -		data_ack_1 <= data_ack;
 -		if (!data_ack_1 && data_ack) begin
++		// Set/reset pulsed signals
++		data_req <= 0;
++		audio_resume <= 0;
++		if (audio_stop) status_audio_playing <= 0;
++		if (v_audio_stop) v_play <= 1'b0;      // play the voice clip only once
++		v_wd <= v_play ? (v_wd + 1'd1) : 30'd0;
++		if (&v_wd) v_play <= 1'b0;             // safety: never stay in "playing" forever (about 50 s)
++
 +		// Rising edge of data busy
 +		data_ack_old <= data_ack;
 +		if (!data_ack_old && data_ack) begin
  			status_data_busy <= 0;
  			data_seek <= 0;
  		end
-@@ -94,35 +104,38 @@
+ 
++		// Cached track head: audio is ready at once, the file opens in the background
++		if (hit_wait != 0) hit_wait <= hit_wait - 1'd1;
++		else if (HEAD_HIT && track_request) hit_latch <= 1'b1;
++
++		// Prefetch wait
++		if (await_audio) begin
++			await_to <= await_to + 1'd1;
++			if (!track_request && !track_mounting && (AUDIO_READY || status_track_missing)) await_audio <= 0;
++			else if (await_to >= await_lim) await_audio <= 0;
++		end
++
++		// voice stream bookkeeping
++		if (v_wait != 0) v_wait <= v_wait - 1'd1;
++		v_mounting_old <= v_mounting;
++		if (v_mounting_old && !v_mounting) v_track_request <= 0;
++
+ 		// Falling edge of track mounting
  		track_mounting_old <= track_mounting;
  		if (track_mounting_old && !track_mounting) track_request <= 0;
  
@@ -1945,17 +2492,30 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU
 -					end
 -
 -				4: MSU_TRACK[7:0] <= DIN; // MSU_Track LSB
+-				5: begin
+-						MSU_TRACK[15:8] <= DIN; // MSU_Track MSB
+-						track_num <= {DIN, MSU_TRACK[7:0]};
+-						track_request <= 1;
 +					data_addr <= {DIN, MSU_SEEK};
 +					data_seek <= 1;
 +					status_data_busy <= 1;
 +				end
 +				4: MSU_TRACK <= DIN;
- 				5: begin
--						MSU_TRACK[15:8] <= DIN; // MSU_Track MSB
--						track_num <= {DIN, MSU_TRACK[7:0]};
--						track_request <= 1;
++				5: if (v_en && {DIN, MSU_TRACK} >= 16'd1000) begin
++					v_ctx           <= 1'b1;
++					v_track_num     <= {DIN, MSU_TRACK};
++					v_track_request <= 1'b1;
++					v_wait          <= 6'd48;
++					v_play          <= 1'b0;
++				end
++				else begin
++					v_ctx <= 1'b0;
 +					track_num <= {DIN, MSU_TRACK};
 +					track_request <= 1;
++					await_audio <= 1'b1;
++					await_to <= 0;
++					hit_latch <= 0;
++					hit_wait <= 6'd32;
 +					status_audio_playing <= 0;
 +					status_audio_repeat <= 0;
 +					if (resume_valid && resume_track_num == {DIN, MSU_TRACK}) begin
@@ -1967,23 +2527,28 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU
 -
 -				// MSU Audio state control
 -				7: begin
--						status_audio_repeat <= DIN[1];
--						status_audio_playing <= DIN[0];
 +				end
 +				6: volume <= DIN;
-+				7: if (!status_audio_busy && !status_track_missing) begin
-+					status_audio_repeat <= DIN[1];
-+					status_audio_playing <= DIN[0];
-+					if (DIN[2] && !DIN[0]) begin
-+						resume_track_num <= track_num;
-+						resume_sector <= audio_sector;
-+						resume_valid <= 1;
++				7: if (v_ctx) begin
++					if (!v_busy_eff && !v_missing) v_play <= DIN[0];
++					v_ctx <= 1'b0;                       // the play command ends the voice context
++				end
++				else begin
++					if (!DIN[0]) v_play <= 1'b0;         // a stop command stops a playing voice clip too (one stream like real MSU-1)
++					if (!status_audio_busy && !track_missing_eff) begin
+ 						status_audio_repeat <= DIN[1];
+ 						status_audio_playing <= DIN[0];
++						if (DIN[2] && !DIN[0]) begin
++							resume_track_num <= track_num;
++							resume_sector <= audio_sector;
++							resume_valid <= 1;
++						end
  					end
 +				end
  			endcase
  		end
  
-@@ -132,7 +145,7 @@
+@@ -132,7 +220,7 @@
  			data_addr <= data_addr + 1;
  			data_req <= 1'b1;
  		end
@@ -1993,9 +2558,9 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/MSU.sv b/src/fpga/core/rtl/chip/MSU1/MSU
  			0: DOUT <= MSU_STATUS;
  			1: DOUT <= data;
 diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU1/msu_audio.v
---- a/src/fpga/core/rtl/chip/MSU1/msu_audio.v	2026-11-03 20:10:20.267537264 +0900
-+++ b/src/fpga/core/rtl/chip/MSU1/msu_audio.v	2026-11-03 00:21:33.000000000 +0900
-@@ -1,5 +1,15 @@
+--- a/src/fpga/core/rtl/chip/MSU1/msu_audio.v	2026-11-07 00:41:28.639083127 +0900
++++ b/src/fpga/core/rtl/chip/MSU1/msu_audio.v	2026-11-07 00:40:57.000000000 +0900
+@@ -1,7 +1,21 @@
 -// This module is responsible for handling sectors, including loop point and partial end sector.
 -// Pausing/resuming also handled here
 +// MSU-1 audio player for the Analogue Pocket (openFPGA) port.
@@ -2008,19 +2573,52 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 +//  * Every track starts with an 8 byte header fetch ("MSU1" + loop point) which
 +//    is parsed but not played, then the audio data is fetched in CHUNK_BYTES chunks.
 +//  * audio_sector (1KB units) reports the current fetch position for MSU resume.
++//  * Track heads (the first 128 KB = ~0.74 s of every track 1..127) are kept in the otherwise
++//    unused part of the Pocket PSRAM, so a track starts instantly from there while the real
++//    file is mounted in the background.  Heads are filled either by the boot preload
++//    (msu_preload) or on the first play of a track.
 +//
 +// PCM file: "MSU1", u32 loop point (in stereo frames), then 16-bit LE stereo samples.
  
- module msu_audio
+-module msu_audio
++module msu_audio #(parameter FIFO_AW = 14)
  (
-@@ -11,177 +21,239 @@
+ 	input             reset,
+ 
+@@ -11,177 +25,579 @@
  	input      [7:0]  ctl_volume,
  	input             ctl_repeat,
  	input             ctl_play,
 +	input             ctl_resume,
  	output reg        ctl_stop,
++	output            audio_ready,       // first data buffered (or nothing to buffer)
  
 -	input      [31:0] track_size,
++	// Track-head cache (PSRAM)
++	input      [15:0] track_num,
++	input             track_req,         // track select pending (from MSU or the boot preload)
++	input             pre_mode,          // boot preload: bulk-load the heads file into the head cache, no playback
++	output reg        head_hit,          // head of the requested track is already buffered
++	input             cache_flush,       // forget all cached heads (new game / boot preload start)
++	output reg        fill_ok,           // the head of the requested track has just been cached
++
++	// PSRAM port (toggle handshake, see psram.sv)
++	output reg        pr_req_tgl,
++	output reg        pr_we,
++	output reg        pr_bank,
++	output reg [21:0] pr_addr,
++	output reg [15:0] pr_wdata,
++	input             pr_ack_tgl,
++	input      [15:0] pr_rdata,
++
++	// the old external SRAM cache is no longer used
++	output     [16:0] sram_a,
++	output     [15:0] sram_do,
++	output            sram_oe,
++	input      [15:0] sram_di,
++	output            sram_we_n,
++	output            sram_oe_n,
++
 +	input      [31:0] track_size,        // bytes, 0 = unknown/missing
  	input             track_processing,
  
@@ -2062,8 +2660,17 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -localparam PLAYING_STATE          = 2;
 -localparam PLAYING_CHECKS_STATE   = 3;
 -localparam END_SECTOR_STATE       = 5;
-+localparam [15:0] CHUNK_BYTES = 16'd8192;           // 2048 stereo frames
-+localparam [11:0] REFILL_LEVEL = 12'd2048;          // fetch when FIFO holds <= this many frames
++assign sram_a = 17'd0;
++assign sram_do = 16'd0;
++assign sram_oe = 1'b0;
++assign sram_we_n = 1'b1;
++assign sram_oe_n = 1'b1;
++
++localparam [15:0] CHUNK_BYTES  = (FIFO_AW == 14) ? 16'd32768 : 16'd8192;
++localparam [15:0] FIRST_BYTES  = (FIFO_AW == 14) ? 16'd32768 : 16'd16384;
++localparam [31:0] HEADB        = 32'd98304;                          // cached head bytes per track (96 KB, ~0.56 s)
++localparam [13:0] REFILL_LEVEL = (FIFO_AW == 14) ? 14'd7936   : 14'd1984;   // fetch when FIFO holds <= this many frames
++localparam [13:0] COPY_LIMIT   = (FIFO_AW == 14) ? 14'd16300  : 14'd4020;   // head copy pauses above this fill level
 +
 +localparam [3:0] S_IDLE   = 4'd0;
 +localparam [3:0] S_HDR    = 4'd1;
@@ -2073,9 +2680,17 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 +localparam [3:0] S_DATA   = 4'd5;
 +localparam [3:0] S_END    = 4'd6;
 +localparam [3:0] S_DRAIN  = 4'd7;
++localparam [3:0] S_BHDR   = 4'd8;    // bulk head load: read the index of the heads file
++localparam [3:0] S_BSCAN  = 4'd9;
++localparam [3:0] S_BCH    = 4'd10;
++localparam [3:0] S_BEND   = 4'd11;
++localparam [3:0] S_TCH    = 4'd12;   // hit: fetch the data behind the cached head into a PSRAM tail buffer
++localparam [22:0] STASH_BASE = 23'd6291456;    // word address of the tail buffer (128 * 0xC000), 1.94 MB used
++localparam [20:0] TAILMAX    = 21'd2031616;
 +
 +wire        fifo_full;
-+wire [11:0] fifo_usedw;
++wire [FIFO_AW-1:0] fifo_usedw_r;
++wire [13:0] fifo_usedw = {{(14-FIFO_AW){1'b0}}, fifo_usedw_r};
 +wire        fifo_empty;
 +
 +reg  [3:0]  state = S_IDLE;
@@ -2092,19 +2707,91 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 +reg   [7:0] settle = 0;
 +reg         last_err = 0;
 +reg   [3:0] hold = 0;
++reg         pf_done = 0;           // prefetch already started for this track
++
++// ---- track-head cache (PSRAM: 128 KB per track number 1..127) ----
++localparam [1:0] H_IDLE = 2'd0, H_LK = 2'd1, H_WAIT = 2'd2, H_COPY = 2'd3;
++reg   [1:0] hs = H_IDLE;
++reg         use_head = 0, fill_pending = 0, fill_active = 0;
++initial fill_ok = 0;
++reg [127:0] valid = 0;
++reg  [16:0] hwm [0:127];           // head length in words per track
++reg  [16:0] hm_q = 0;
++reg  [16:0] hw_cur = 0;
++reg   [6:0] fill_tn = 0, cp_tn = 0;
++reg  [22:0] fill_base = 0, cp_base = 0;   // word address of the track's head in the PSRAM (track * 0x16000)
++function [22:0] tbase(input [6:0] t);
++	tbase = {t, 15'b0} + {1'b0, t, 14'b0};          // t * 0xC000
++endfunction
++reg   [6:0] flush_cnt = 0;
++reg         treq_q = 0;
++reg         cp_go = 0;
++wire        cp_fin;
++wire        wr_busy;
++reg   [3:0] cs = 0;
++reg  [19:0] cp_w = 0;
++reg  [15:0] cp_lo = 0;
++reg  [13:0] cp_n = 0;
++reg         cp_v = 0;
++reg  [31:0] cp_din = 0;
++reg         cp_fin_r = 0;
++reg         cp_first = 0;
++reg         cp_loop_v = 0;
++reg  [31:0] cp_loop_d = 0;
++wire        new_trk   = track_req & ~treq_q;
++wire        head_busy = (hs != H_IDLE);
++wire        tn_ok     = 1'b0;   // head cache disabled: the .msp pack file makes track changes fast, and track numbers go up to ~4000
++reg         wq_ld_tgl = 0, wq_ld_q = 0;
++reg  [19:0] wq_base = 0;
++reg         tail = 0, tail_known = 0, tail_use = 0, tail_done = 0;
++reg  [19:0] tail_wds = 0;
++reg  [20:0] tail_bytes = 0;
++reg   [1:0] t_retry = 0;
++reg         cp_tail_ph = 0;
++// bulk head load (heads file: 512 byte index of u32 head lengths per track, then the heads in track order)
++reg         bulk = 0, b_hdr = 0, b_fill = 0, b_ph = 0;
++reg   [7:0] b_tn = 0;
++reg  [31:0] b_off = 0;
++reg  [17:0] b_done = 0;
++reg  [16:0] b_len = 0;                 // head length (words) of the track being loaded
++reg  [15:0] b_clen = 0;
++reg   [1:0] b_retry = 0;
++reg  [16:0] hl [0:127];
++reg  [16:0] hl_q = 0;
++localparam HEADS = 0;   // head cache / heads file removed (pack file mode): frees the index RAM
++always @(posedge clk) hl_q <= HEADS ? hl[b_tn[6:0]] : 17'd0;
++reg  [15:0] wq [0:7];
++reg   [3:0] wq_w = 0, wq_r = 0;
++wire        wq_empty = (wq_w == wq_r);
++reg        pm_busy = 0, pm_done = 0;
++reg [15:0] pm_rd = 0;
++reg        ack1 = 0, ack2 = 0;
++reg [19:0] wa = 0;
++wire [22:0] cp_b   = cp_tail_ph ? STASH_BASE : cp_base;
++wire [22:0] pa_rd0 = cp_b + {3'b0, cp_w};
++wire [22:0] pa_rd1 = cp_b + {3'b0, cp_w[19:1], 1'b1};
++wire [22:0] pa_wr  = fill_base + {3'b0, wa};
 +
 +initial begin
 +	fetch_tgl = 0;
 +	fetch_off = 0;
 +	fetch_len = 0;
 +	ctl_stop  = 0;
++	pr_req_tgl = 0; pr_we = 0; pr_bank = 0; pr_addr = 0; pr_wdata = 0; head_hit = 0;
 +end
 +
++always @(posedge clk) hm_q <= hwm[track_num[6:0]];
++
 +assign audio_sector = pos[31:10];
++
++assign audio_ready = (fifo_usedw >= 14'd3500) | (state == S_END) | (state == S_DRAIN) | (track_size == 32'd0);
 +
 +wire done_changed = (fetch_done_tgl != done_prev);
 +
 +wire [31:0] remaining  = track_size - pos;
++wire [31:0] npos       = pos + {16'b0, cur_len};
++// The first read of a track is a big one (the ~80 ms prebuffer is reached while it streams in); later reads are big for throughput.
++wire [15:0] chunk_len  = (pos == 32'd0) ? FIRST_BYTES : CHUNK_BYTES;
 +wire        pos_valid  = (pos < track_size);
 +wire [31:0] loop_pos   = {loop_index[29:0], 2'b00};
 +wire        loop_valid = (loop_pos >= 32'd8) && (loop_pos < track_size);
@@ -2130,27 +2817,56 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 +		state    <= S_IDLE;
 +		resuming <= 0;
 +		hold     <= 0;
++		hs       <= H_IDLE;
++		cp_go    <= 0;
++		use_head <= 0; fill_pending <= 0; fill_active <= 0;
++		bulk <= 0; b_hdr <= 0; b_fill <= 0;
++		tail <= 0; tail_known <= 0; tail_use <= 0; tail_done <= 0;
  	end
  	else begin
--
--		// Loop sector handling - also need to take into account the 8 bytes for file header (msu1 and loop index = 8 bytes)
--		if (audio_sector == 0 && data_cnt == 1 && data_wr && audio_ack) loop_index <= data + 2;
--
- 		case (state)
--			WAITING_FOR_PLAY_STATE:
++		case (state)
 +			S_IDLE:
- 				begin
--					audio_sector <= 0;
--					audio_seek <= 0;
--					partial_sector_state <= 0;
--					fifo_wren <= 0;
--					looping <= 0;
--					audio_req <= 0;
--					if (~track_processing & ctl_play) begin
--						audio_seek <= 1;
--						state <= WAITING_ACK_STATE;
-+					if (~track_processing & ctl_play & (hold == 0) & (|track_size)) begin
-+						if (resuming && resume_sector != 0) begin
++				begin
++					if (~track_processing & ~head_busy & pre_mode & ~pf_done & (|track_size)) begin
++						pf_done  <= 1;
++						bulk     <= 1'b1;
++						b_hdr    <= 1'b1;
++						b_retry  <= 0;
++						state    <= S_BHDR;
++					end
++					else if (~track_processing & use_head & ~pre_mode & ~pf_done & (|track_size)) begin
++						// cached head: start fetching what follows it right away (into the PSRAM tail buffer),
++						// independent of how full the audio FIFO is
++						pf_done    <= 1;
++						use_head   <= 1'b0;
++						pos        <= {14'b0, hw_cur, 1'b0};
++						skip_cnt   <= 10'd0;
++						resuming   <= 0;
++						last_err   <= 0;
++						retries    <= 0;
++						t_retry    <= 0;
++						tail_bytes <= 0;
++						tail_wds   <= 0;
++						tail_done  <= 0;
++						tail_known <= 1'b1;
++						if ({14'b0, hw_cur, 1'b0} >= HEADB && ({14'b0, hw_cur, 1'b0} + 32'd4) <= track_size) begin
++							tail     <= 1'b1;
++							tail_use <= 1'b1;
++							state    <= S_TCH;
++						end
++						else begin
++							tail_use <= 1'b0;
++							state    <= S_SPACE;
++						end
++					end
++					else if (~track_processing & ~head_busy & ~use_head & ~pre_mode & (ctl_play | ~pf_done) & (hold == 0) & (|track_size)) begin
++						pf_done  <= 1;
++						use_head <= 1'b0;
++						if (use_head) begin
++							pos      <= {14'b0, hw_cur, 1'b0};   // the head came from the PSRAM cache
++							skip_cnt <= 10'd0;
++						end
++						else if (resuming && resume_sector != 0) begin
 +							pos      <= {resume_sector, 10'b0};
 +							skip_cnt <= 10'd0;
 +						end
@@ -2162,6 +2878,70 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 +						last_err <= 0;
 +						retries  <= 0;
 +						state    <= S_SPACE;
++					end
++				end
+ 
+-		// Loop sector handling - also need to take into account the 8 bytes for file header (msu1 and loop index = 8 bytes)
+-		if (audio_sector == 0 && data_cnt == 1 && data_wr && audio_ack) loop_index <= data + 2;
++			// ---- bulk head load ----
++			S_BHDR:
++				begin
++					skip_cur  <= 10'd0;
++					first_cur <= 1'b0;
++					cur_len   <= 16'd512;
++					b_clen    <= 16'd512;
++					fetch_off <= 32'd0;
++					fetch_len <= 16'd512;
++					fetch_tgl <= ~fetch_tgl;
++					state     <= S_WAIT;
++				end
+ 
+-		case (state)
+-			WAITING_FOR_PLAY_STATE:
++			S_BSCAN:
++				begin
++					if (b_tn > 8'd127) state <= S_BEND;
++					else if (!b_ph) b_ph <= 1'b1;               // let hl_q settle
++					else begin
++						b_ph <= 1'b0;
++						if (hl_q == 17'd0) b_tn <= b_tn + 1'd1;
++						else begin
++							b_len   <= hl_q;
++							b_done  <= 18'd0;
++							fill_tn <= b_tn[6:0];
++							fill_base <= tbase(b_tn[6:0]);
++							state   <= S_BCH;
++						end
++					end
++				end
++
++			S_BCH:
+ 				begin
+-					audio_sector <= 0;
+-					audio_seek <= 0;
+-					partial_sector_state <= 0;
+-					fifo_wren <= 0;
+-					looping <= 0;
+-					audio_req <= 0;
+-					if (~track_processing & ctl_play) begin
+-						audio_seek <= 1;
+-						state <= WAITING_ACK_STATE;
++					if ({b_len, 1'b0} == {1'b0, b_done}) begin
++						hwm[fill_tn]   <= b_len;
++						valid[fill_tn] <= 1'b1;
++						b_tn           <= b_tn + 1'd1;
++						b_retry        <= 0;
++						state          <= S_BSCAN;
++					end
++					else begin
++						b_fill    <= 1'b1;
++						b_clen    <= (({b_len, 1'b0} - {1'b0, b_done}) >= 19'd32768) ? 16'd32768 : ({b_len, 1'b0} - {1'b0, b_done});
++						fetch_off <= b_off;
++						fetch_len <= (({b_len, 1'b0} - {1'b0, b_done}) >= 19'd32768) ? 16'd32768 : ({b_len, 1'b0} - {1'b0, b_done});
++						wq_base   <= b_done[17:1];
++						wq_ld_tgl <= ~wq_ld_tgl;
++						fetch_tgl <= ~fetch_tgl;
++						state     <= S_WAIT;
  					end
  				end
  
@@ -2187,6 +2967,37 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -						if (data_cnt < loop_index[7:0]) begin
 -							// Disable writing to the fifo, skipping to the correct sample in the loop sector
 -							fifo_wren <= 0;
++			S_TCH:
++				begin
++					if (tail_bytes >= TAILMAX || remaining < 32'd4) begin
++						tail <= 1'b0; tail_done <= 1'b1; b_fill <= 1'b0;
++						state <= S_SPACE;
++					end
++					else begin
++						b_fill    <= 1'b1;
++						b_clen    <= (remaining >= 32'd32768) ? 16'd32768 : {remaining[15:2], 2'b00};
++						cur_len   <= (remaining >= 32'd32768) ? 16'd32768 : {remaining[15:2], 2'b00};
++						skip_cur  <= 10'd0;
++						first_cur <= 1'b0;
++						fill_base <= STASH_BASE;
++						wq_base   <= tail_bytes[20:1];
++						wq_ld_tgl <= ~wq_ld_tgl;
++						fetch_off <= pos;
++						fetch_len <= (remaining >= 32'd32768) ? 16'd32768 : {remaining[15:2], 2'b00};
++						fetch_tgl <= ~fetch_tgl;
++						state     <= S_WAIT;
++					end
++				end
++
++			S_BEND:
++				begin
++					bulk    <= 1'b0;
++					b_fill  <= 1'b0;
++					fill_ok <= 1'b1;
++					pf_done <= 1'b1;
++					state   <= S_IDLE;
++				end
++
 +			// Header: bytes 0..7
 +			S_HDR:
 +				begin
@@ -2205,16 +3016,57 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 +					state    <= S_SETTLE;
 +				end
 +
-+			// Let the tail of the transfer trickle through data_loader
++			// Let the tail of the transfer trickle through data_loader (and the head writer drain)
 +			S_SETTLE:
 +				begin
-+					settle <= settle + 1'd1;
-+					if (settle == 8'd255) begin
-+						if (!last_err) begin
-+							pos      <= pos + {16'b0, cur_len};
++					if (settle != 8'd255) settle <= settle + 1'd1;
++					else if (!(fill_active | b_fill) || (wq_empty && !pm_busy)) begin
++						if (tail) begin
++							if (!last_err) begin
++								t_retry    <= 0;
++								pos        <= npos;
++								tail_bytes <= tail_bytes + {5'b0, b_clen};
++								tail_wds   <= tail_wds + {5'b0, b_clen[15:1]};
++								state      <= S_TCH;
++							end
++							else if (t_retry != 2'd3) begin
++								t_retry  <= t_retry + 1'd1;
++								last_err <= 1'b0;
++								state    <= S_TCH;
++							end
++							else begin
++								tail <= 1'b0; tail_done <= 1'b1; b_fill <= 1'b0;   // give up the tail: continue the normal way
++								state <= S_SPACE;
++							end
++						end
++						else if (bulk) begin
++							if (!last_err) begin
++								b_retry <= 0;
++								if (b_hdr) begin b_hdr <= 1'b0; b_tn <= 8'd1; b_off <= 32'd512; b_ph <= 1'b0; state <= S_BSCAN; end
++								else begin b_off <= b_off + {16'b0, b_clen}; b_done <= b_done + {2'b0, b_clen}; state <= S_BCH; end
++							end
++							else if (b_retry != 2'd3) begin
++								b_retry <= b_retry + 1'd1;
++								last_err <= 1'b0;
++								state <= b_hdr ? S_BHDR : S_BCH;
++							end
++							else state <= S_BEND;                // give up: whatever is loaded stays valid
++						end
++						else if (!last_err) begin
++							if (fill_active && (npos >= HEADB || (npos + 32'd4) > track_size)) begin
++								hwm[fill_tn]   <= npos[17:1];    // whole head (or whole short track) is cached
++								valid[fill_tn] <= 1'b1;
++								fill_ok        <= 1'b1;
++								fill_active    <= 1'b0;
++							end
++							pos      <= npos;
 +							skip_cnt <= 10'd0;
 +							retries  <= 0;
 +							state    <= S_SPACE;
++							if (pre_mode && fill_active && (npos >= HEADB || (npos + 32'd4) > track_size)) begin
++								pf_done <= 1'b1;               // preload: this track is done, don't fetch on
++								state   <= S_IDLE;
++							end
 +						end
 +						else if (retries != 2'd3) begin
 +							retries  <= retries + 1'd1;   // transient error: read the same chunk again
@@ -2232,17 +3084,21 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 +				end
 +
 +			S_SPACE:
-+				if (!pos_valid) state <= S_END;
++				if (head_busy) ;                         // the head / tail copy still owns the FIFO
++				else if (!pos_valid) state <= S_END;
 +				else if (fifo_usedw <= REFILL_LEVEL) state <= S_DATA;
 +
 +			S_DATA:
 +				begin
 +					// Whole dwords only, at most one chunk
-+					cur_len   <= (remaining >= {16'b0, CHUNK_BYTES}) ? CHUNK_BYTES : {remaining[15:2], 2'b00};
++					cur_len   <= (remaining >= {16'b0, chunk_len}) ? chunk_len : {remaining[15:2], 2'b00};
 +					skip_cur  <= skip_cnt;
 +					first_cur <= (pos == 32'd0);
++					if (pos == 32'd0 && fill_pending) begin fill_active <= 1'b1; fill_pending <= 1'b0; end
++					wq_base    <= pos[17:1];
++					wq_ld_tgl  <= ~wq_ld_tgl;
 +					fetch_off <= pos;
-+					fetch_len <= (remaining >= {16'b0, CHUNK_BYTES}) ? CHUNK_BYTES : {remaining[15:2], 2'b00};
++					fetch_len <= (remaining >= {16'b0, chunk_len}) ? chunk_len : {remaining[15:2], 2'b00};
 +					if (remaining < 32'd4) begin
 +						state <= S_END;
  					end
@@ -2265,11 +3121,29 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -					audio_sector <= audio_sector + 1'd1;
 -					audio_req <= 1;
 -					state <= WAITING_ACK_STATE;
--				end
++			S_END:
++				begin
++					last_err <= 0;
++					if (ctl_repeat && loop_valid) begin
++						pos      <= {loop_pos[31:10], 10'b0};
++						skip_cnt <= loop_pos[9:2];
++						retries  <= 0;
++						state    <= S_SPACE;
++					end
++					else begin
++						state <= S_DRAIN;
++					end
+ 				end
 -				else begin
 -					state <= END_SECTOR_STATE;
--				end
--
++
++			S_DRAIN:
++				if (fifo_empty) begin
++					ctl_stop <= 1;
++					hold     <= 4'd15;
++					state    <= S_IDLE;
+ 				end
+ 
 -			END_SECTOR_STATE:
 -				// Depending on the last sector and looping, we need to handle things differently
 -				if (!track_size[9:2] || partial_sector_state) begin
@@ -2279,14 +3153,26 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -						// Stop, no loop
 -						ctl_stop <= 1;
 -						state <= WAITING_FOR_PLAY_STATE;
-+			S_END:
++			default: state <= S_IDLE;
++		endcase
++
++		// New track requested: abandon everything, except while a transfer is
++		// still landing (its data is discarded by the FIFO clear).
++		if (track_processing && state != S_WAIT && state != S_SETTLE) state <= S_IDLE;
++		if (bulk && !pre_mode) begin bulk <= 0; b_hdr <= 0; b_fill <= 0; state <= S_IDLE; end   // preload aborted
++		if (track_processing) pf_done <= 0;
++
++		// ---- track-head cache control ----
++		if (flush_cnt != 0) flush_cnt <= flush_cnt - 1'd1;
++		case (hs)
++			H_LK:
 +				begin
-+					last_err <= 0;
-+					if (ctl_repeat && loop_valid) begin
-+						pos      <= {loop_pos[31:10], 10'b0};
-+						skip_cnt <= loop_pos[9:2];
-+						retries  <= 0;
-+						state    <= S_SPACE;
++					if (valid[track_num[6:0]]) begin
++						hw_cur   <= hm_q;
++						cp_tn    <= track_num[6:0];
++						cp_base  <= tbase(track_num[6:0]);
++						use_head <= 1'b1;
++						hs       <= H_WAIT;
  					end
  					else begin
 -						// Loop, jump back to the loop sector
@@ -2294,7 +3180,11 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -						audio_seek <= 1;
 -						state <= WAITING_ACK_STATE;
 -						looping <= 1;
-+						state <= S_DRAIN;
++						fill_tn      <= track_num[6:0];
++						fill_base    <= tbase(track_num[6:0]);
++						// miss: cache this track's head while it is fetched
++						fill_pending <= 1'b1;
++						hs           <= H_IDLE;
  					end
  				end
 -				else begin
@@ -2305,57 +3195,73 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -					audio_sector <= audio_sector + 1'd1;
 -					audio_req <= 1;
 -					state <= WAITING_ACK_STATE;
-+
-+			S_DRAIN:
-+				if (fifo_empty) begin
-+					ctl_stop <= 1;
-+					hold     <= 4'd15;
-+					state    <= S_IDLE;
++			H_WAIT:
++				if (flush_cnt == 0 && !wr_busy) begin
++					cp_go <= 1'b1;
++					hs    <= H_COPY;
++				end
++			H_COPY:
++				if (cp_fin) begin
++					cp_go <= 1'b0;
++					hs    <= H_IDLE;
  				end
-+
-+			default: state <= S_IDLE;
++			default: ;
  		endcase
 -		
 -		if(track_processing) state <= WAITING_FOR_PLAY_STATE;
-+
-+		// New track requested: abandon everything, except while a transfer is
-+		// still landing (its data is discarded by the FIFO clear).
-+		if (track_processing && state != S_WAIT && state != S_SETTLE) state <= S_IDLE;
++		if (new_trk) begin
++			fill_ok      <= 1'b0;
++			flush_cnt    <= 7'd40;
++			use_head     <= 1'b0;
++			fill_pending <= 1'b0;
++			fill_active  <= 1'b0;
++			cp_go        <= 1'b0;
++			tail         <= 1'b0; tail_known <= 1'b0; tail_use <= 1'b0; tail_done <= 1'b0;
++			if (!bulk) b_fill <= 1'b0;
++			hs           <= ((ctl_resume | resuming) || !tn_ok) ? H_IDLE : H_LK;
++		end
  	end
++	if (cache_flush) begin valid <= 128'd0; fill_pending <= 0; fill_active <= 0; fill_ok <= 0; end
++	treq_q <= track_req;
  end
  
 -reg        data_wr;
 -reg [31:0] data;
 -reg  [7:0] data_cnt;
 +// ---------------------------------------------------------------------------
-+// Incoming 16-bit words -> 32-bit stereo frames -> FIFO
++// Incoming 16-bit words -> 32-bit stereo frames -> FIFO (and the head writer queue)
 +// ---------------------------------------------------------------------------
 +reg  [15:0] lo_word;
 +reg         wcnt = 0;
-+reg  [11:0] dcnt = 0;
++reg  [13:0] dcnt = 0;
 +reg         fifo_wr = 0;
 +reg  [31:0] fifo_din;
++wire [16:0] widx = pos[17:1] + {2'b00, dcnt, wcnt};      // word index inside the head
  
  always @(posedge clk) begin
 -	reg [8:0] cnt;
 -
 -	data_wr <= 0;
 +	fifo_wr <= 0;
++	if (cp_loop_v) loop_index <= cp_loop_d + 32'd2;
  
 -	if(~audio_download) begin
 -		data_cnt <= 0;
 -		cnt <= 0;
--	end
++	if (state != S_WAIT && state != S_SETTLE) begin
++		wcnt <= 0;
++		dcnt <= 0;
+ 	end
 -	else if(audio_data_wr)  begin
 -		cnt <= cnt + 1'd1;
 -		if(cnt[0]) begin
 -			data[31:16] <= audio_data;
 -			data_wr <= 1;
-+	if (state != S_WAIT && state != S_SETTLE) begin
-+		wcnt <= 0;
-+		dcnt <= 0;
-+	end
 +	else if (pcm_wr) begin
++		if ((fill_active && widx < 17'd49152) || b_fill) begin
++			wq[wq_w[2:0]] <= pcm_data;
++			wq_w          <= wq_w + 1'd1;
++		end
 +		if (!wcnt) begin
 +			lo_word <= pcm_data;
 +			wcnt    <= 1;
@@ -2365,8 +3271,9 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -			data_cnt <= cnt[8:1];
 +			wcnt     <= 0;
 +			fifo_din <= {pcm_data, lo_word};
-+			if (first_cur && dcnt == 12'd1) loop_index <= {pcm_data, lo_word} + 32'd2;
-+			if (dcnt >= {2'b00, skip_cur}) fifo_wr <= 1;
++			if (first_cur && dcnt == 14'd1) loop_index <= {pcm_data, lo_word} + 32'd2;
++			if (HEADS && b_hdr && dcnt != 14'd0 && dcnt < 14'd128) hl[dcnt[6:0]] <= {pcm_data, lo_word} >> 1;   // head length in words
++			if (dcnt >= {4'b0000, skip_cur}) fifo_wr <= 1;
 +			dcnt <= dcnt + 1'd1;
  		end
  	end
@@ -2380,29 +3287,42 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
  CEGen sample_clock
  (
  	.CLK(clk),
-@@ -192,31 +264,87 @@
+@@ -191,33 +607,285 @@
+ 	.CE(sample_ce)
  );
  
- wire        playing = ctl_play & ~track_processing & ~fifo_empty;
+-wire        playing = ctl_play & ~track_processing & ~fifo_empty;
 -wire        fifo_full;
 -wire  [9:0] fifo_usedw;
 -wire        fifo_empty;
 -reg         fifo_wren;
++// Playback itself only starts once ~80 ms are buffered (and restarts after an underrun),
++// independent of the early audio_ready the game sees.
++reg started = 0;
++always @(posedge clk) begin
++	if (reset | ~ctl_play) started <= 1'b0;
++	else if (fifo_usedw >= 14'd3500 || state == S_END || state == S_DRAIN) started <= 1'b1;
++	else if (fifo_empty && state != S_IDLE) started <= 1'b0;
++end
++
++wire        playing = ctl_play & ~fifo_empty & started;
  wire [15:0] sample_l;
  wire [15:0] sample_r;
  
 -msu_fifo #(32,10) audio_fifo
-+msu_fifo #(32,12) audio_fifo
++msu_fifo #(32,FIFO_AW) audio_fifo
  (
- 	.aclr(track_processing),
+-	.aclr(track_processing),
++	.aclr(flush_cnt > 7'd30),
  
  	.wrclk(clk),
 -	.wrreq(data_wr & ~fifo_full & fifo_wren),
 -	.data(data),
-+	.wrreq(fifo_wr & ~fifo_full),
-+	.data(fifo_din),
++	.wrreq(((fifo_wr & ~track_processing & ~pre_mode & ~tail) | cp_v) & ~fifo_full),
++	.data(cp_v ? cp_din : fifo_din),
  	.wrfull(fifo_full),
- 	.wrusedw(fifo_usedw),
+-	.wrusedw(fifo_usedw),
++	.wrusedw(fifo_usedw_r),
  
  	.rdclk(clk),
  	.q({sample_r,sample_l}),
@@ -2416,6 +3336,101 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
 -wire [23:0] vol_mix_r = $signed(sample_r) * ctl_volume;
 +wire [23:0] vol_mix_l = $signed(sample_l) * $signed({1'b0, ctl_volume});
 +wire [23:0] vol_mix_r = $signed(sample_r) * $signed({1'b0, ctl_volume});
++
++// ---------------------------------------------------------------------------
++// PSRAM access engine: head writer (queue -> PSRAM) and head copy (PSRAM -> FIFO).
++// One 16-bit access at a time through a toggle handshake with the memory clock domain.
++// ---------------------------------------------------------------------------
++assign cp_fin  = cp_fin_r;
++assign wr_busy = !wq_empty | pm_busy;
++
++
++always @(posedge clk) begin
++	ack1 <= pr_ack_tgl;
++	ack2 <= ack1;
++	cp_v <= 0;
++	cp_loop_v <= 0;
++	pm_done <= 0;
++
++	if (pm_busy && ack2 == pr_req_tgl) begin
++		pm_busy <= 0;
++		pm_done <= 1;
++		pm_rd   <= pr_rdata;
++	end
++	if (wq_ld_tgl != wq_ld_q) begin wq_ld_q <= wq_ld_tgl; wa <= wq_base; end
++	if (new_trk) wq_r <= wq_w;                 // drop whatever is still queued
++
++	if (reset) begin
++		cs <= 0; cp_fin_r <= 0; head_hit <= 0;
++	end
++	else begin
++		if (cp_go) begin
++			case (cs)
++				4'd0: begin cp_tail_ph <= 1'b0; cp_w <= 20'd2; cp_first <= 1'b1; cp_n <= 14'd0; cs <= 4'd1; end   // dword 1 = loop point, then the audio
++				4'd1: if (!pm_busy && (cp_first || fifo_usedw < COPY_LIMIT)) begin
++						pr_we <= 1'b0; pr_bank <= pa_rd0[22]; pr_addr <= pa_rd0[21:0];
++						pr_req_tgl <= ~pr_req_tgl; pm_busy <= 1'b1;
++						cs <= 4'd2;
++					end
++				4'd2: if (pm_done) begin
++						cp_lo <= pm_rd;
++						pr_we <= 1'b0; pr_bank <= pa_rd1[22]; pr_addr <= pa_rd1[21:0];
++						pr_req_tgl <= ~pr_req_tgl; pm_busy <= 1'b1;
++						cs <= 4'd3;
++					end
++				4'd3: if (pm_done) begin
++						cp_din   <= {pm_rd, cp_lo};
++						cp_first <= 1'b0;
++						if (cp_first) begin cp_loop_v <= 1'b1; cp_loop_d <= {pm_rd, cp_lo}; end
++						else begin
++							cp_v <= 1'b1;
++							cp_n <= cp_n + 1'd1;
++							if (cp_n >= 14'd3498) head_hit <= 1'b1;   // enough buffered: the game may start
++						end
++						cp_w <= cp_w + 20'd2;
++						cs   <= ((cp_w + 20'd2) >= {3'b0, hw_cur}) ? 4'd4 : 4'd1;
++					end
++				4'd4: begin                                  // head copied; continue with the tail buffer if there is one
++						if (tail_known && tail_use) begin cp_tail_ph <= 1'b1; cp_w <= 20'd0; cs <= 4'd5; end
++						else if (tail_known || (!track_processing && track_size == 32'd0)) cs <= 4'd8;
++					end
++				4'd5: if (tail_done && cp_w >= tail_wds) cs <= 4'd8;
++					else if (!pm_busy && (cp_w + 20'd2) <= tail_wds && fifo_usedw < COPY_LIMIT) begin
++						pr_we <= 1'b0; pr_bank <= pa_rd0[22]; pr_addr <= pa_rd0[21:0];
++						pr_req_tgl <= ~pr_req_tgl; pm_busy <= 1'b1;
++						cs <= 4'd6;
++					end
++				4'd6: if (pm_done) begin
++						cp_lo <= pm_rd;
++						pr_we <= 1'b0; pr_bank <= pa_rd1[22]; pr_addr <= pa_rd1[21:0];
++						pr_req_tgl <= ~pr_req_tgl; pm_busy <= 1'b1;
++						cs <= 4'd7;
++					end
++				4'd7: if (pm_done) begin
++						cp_din <= {pm_rd, cp_lo};
++						cp_v   <= 1'b1;
++						cp_w   <= cp_w + 20'd2;
++						cs     <= 4'd5;
++					end
++				4'd8: begin cp_fin_r <= 1'b1; head_hit <= 1'b1; cs <= 4'd9; end
++				default: ;
++			endcase
++		end
++		else begin
++			cs       <= 0;
++			cp_fin_r <= 0;
++			if (!wq_empty && !pm_busy) begin
++				pr_we <= 1'b1; pr_bank <= pa_wr[22]; pr_addr <= pa_wr[21:0];
++				pr_wdata <= wq[wq_r[2:0]];
++				pr_req_tgl <= ~pr_req_tgl; pm_busy <= 1'b1;
++				wa <= wa + 1'd1;
++				wq_r <= wq_r + 1'd1;
++			end
++		end
++		if (new_trk) head_hit <= 1'b0;
++	end
++end
++
 +// ---- diagnostics (beeper) ----
 +reg        d_words = 0, d_fifo = 0, d_play = 0, d_nz = 0, d_raw = 0, d_started = 0, d_under = 0;
 +reg        d_end = 0, d_err = 0, d_pdrop = 0, d_rst = 0, tp_d = 0;
@@ -2478,8 +3493,101 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_audio.v b/src/fpga/core/rtl/chip/MSU
  assign      audio_l = playing ? vol_mix_l[23:8] : 16'h0000;
  assign      audio_r = playing ? vol_mix_r[23:8] : 16'h0000;
  
+ endmodule
++
++// ---------------------------------------------------------------------------
++// Boot preload: while the SNES is still held in reset, mount "<rom>.msh" (track number 0xFFFF)
++// and let msu_audio bulk-load every track head from it into the PSRAM head cache.
++// If the heads file does not exist the preload ends immediately and the game starts as usual.
++// ---------------------------------------------------------------------------
++module msu_preload
++(
++	input             clk,
++	input             init_hold,        // msu_bridge is still initialising
++	input             enable,           // MSU-1 data file found and the option is on
++	input             mounting,
++	input             missing,
++	input             done,             // bulk load finished (fill_ok)
++
++	output reg        req,
++	output reg [15:0] num,
++	output reg        flush,
++	output            active,
++	output            pre_mode
++);
++
++localparam [2:0] ST_IDLE = 3'd0, ST_REQ = 3'd1, ST_MEND = 3'd2, ST_DONE = 3'd3, ST_DROP = 3'd4;
++
++reg        hold_q = 0;
++reg  [2:0] st = ST_IDLE;
++reg [30:0] tmo = 0;
++reg  [8:0] gap = 0;
++
++wire hold_fall = hold_q & ~init_hold & enable;
++assign active   = (st != ST_IDLE) | hold_fall;
++assign pre_mode = active;
++
++initial begin req = 0; num = 0; flush = 0; end
++
++always @(posedge clk) begin
++	hold_q <= init_hold;
++	flush  <= 1'b0;
++
++	if (init_hold) begin
++		st  <= ST_IDLE;
++		req <= 1'b0;
++	end
++	else begin
++		case (st)
++			ST_IDLE:
++				if (hold_fall) begin
++					flush <= 1'b1;
++					num   <= 16'hFFFF;
++					req   <= 1'b1;
++					tmo   <= 0;
++					st    <= ST_REQ;
++				end
++
++			ST_REQ:                       // wait for the bridge to start mounting
++				begin
++					tmo <= tmo + 1'd1;
++					if (mounting) begin tmo <= 0; st <= ST_MEND; end
++					else if (tmo[24]) begin gap <= 0; st <= ST_DROP; end
++				end
++
++			ST_MEND:                      // wait for the mount to finish
++				begin
++					tmo <= tmo + 1'd1;
++					if (!mounting) begin
++						tmo <= 0; gap <= 0;
++						if (missing) st <= ST_DROP;           // no heads file: nothing to preload
++						else st <= ST_DONE;
++					end
++					else if (tmo[26]) begin gap <= 0; st <= ST_DROP; end
++				end
++
++			ST_DONE:                      // wait for the bulk load (ignore stale flags at first)
++				begin
++					tmo <= tmo + 1'd1;
++					if (gap[8] == 1'b0) gap <= gap + 1'd1;
++					if ((gap[8] && done) || tmo[30]) begin gap <= 0; st <= ST_DROP; end
++				end
++
++			ST_DROP:
++				begin
++					req <= 1'b0;
++					gap <= gap + 1'd1;
++					if (gap[7]) st <= ST_IDLE;
++				end
++
++			default: st <= ST_IDLE;
++		endcase
++	end
++end
++
++endmodule
 diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv b/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv
---- a/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv	2026-11-03 20:10:20.267552383 +0900
+--- a/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv	2026-11-07 00:41:28.639092667 +0900
 +++ b/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv	2026-11-01 10:00:17.000000000 +0900
 @@ -1,110 +1,158 @@
  //
@@ -2735,8 +3843,8 @@ diff -ruN a/src/fpga/core/rtl/chip/MSU1/msu_data_store.sv b/src/fpga/core/rtl/ch
  	end
  end
 diff -ruN a/src/fpga/core/rtl/main.v b/src/fpga/core/rtl/main.v
---- a/src/fpga/core/rtl/main.v	2026-11-03 20:10:20.268099242 +0900
-+++ b/src/fpga/core/rtl/main.v	2026-11-03 09:12:18.000000000 +0900
+--- a/src/fpga/core/rtl/main.v	2026-11-07 00:41:28.639404227 +0900
++++ b/src/fpga/core/rtl/main.v	2026-11-07 00:40:57.000000000 +0900
 @@ -98,7 +98,7 @@
      input [4:0] DBG_BG_EN,
      input       DBG_CPU_EN,
@@ -2746,31 +3854,56 @@ diff -ruN a/src/fpga/core/rtl/main.v b/src/fpga/core/rtl/main.v
      output TURBO_ALLOW,
  
      output [15:0] MSU_TRACK_NUM,
-@@ -109,6 +109,9 @@
+@@ -107,8 +107,21 @@
+     input         MSU_TRACK_MISSING,
+     output [ 7:0] MSU_VOLUME,
      input         MSU_AUDIO_STOP,
++    input         MSU_AUDIO_READY,
++    input         MSU_HEAD_HIT,
      output        MSU_AUDIO_REPEAT,
      output        MSU_AUDIO_PLAYING,
 +    output        MSU_AUDIO_RESUME,
++    input         MSU_V_EN,
++    output [15:0] MSU_V_NUM,
++    output        MSU_V_REQUEST,
++    input         MSU_V_MOUNTING,
++    input         MSU_V_NOT_READY,
++    input         MSU_V_MISSING,
++    output        MSU_V_PLAY,
++    input         MSU_V_STOP,
 +    input  [21:0] MSU_AUDIO_SECTOR,
 +    output [21:0] MSU_RESUME_SECTOR,
      output [31:0] MSU_DATA_ADDR,
      input  [ 7:0] MSU_DATA,
      input         MSU_DATA_ACK,
-@@ -265,6 +268,9 @@
+@@ -265,6 +278,19 @@
            .status_audio_repeat(MSU_AUDIO_REPEAT),
            .status_audio_playing(MSU_AUDIO_PLAYING),
            .audio_stop(MSU_AUDIO_STOP),
++          .AUDIO_READY(MSU_AUDIO_READY),
++          .HEAD_HIT(MSU_HEAD_HIT),
 +          .audio_resume(MSU_AUDIO_RESUME),
++          .v_en(MSU_V_EN),
++          .v_track_num(MSU_V_NUM),
++          .v_track_request(MSU_V_REQUEST),
++          .v_mounting(MSU_V_MOUNTING),
++          .v_not_ready(MSU_V_NOT_READY),
++          .v_missing(MSU_V_MISSING),
++          .v_play(MSU_V_PLAY),
++          .v_audio_stop(MSU_V_STOP),
 +          .audio_sector(MSU_AUDIO_SECTOR),
 +          .resume_sector(MSU_RESUME_SECTOR),
  
            .volume(MSU_VOLUME)
        );
-@@ -276,6 +282,11 @@
+@@ -276,6 +302,14 @@
        assign MSU_VOLUME = 0;
        assign MSU_AUDIO_REPEAT = 0;
        assign MSU_AUDIO_PLAYING = 0;
 +      assign MSU_AUDIO_RESUME = 0;
++      assign MSU_V_NUM = 0;
++      assign MSU_V_REQUEST = 0;
++      assign MSU_V_PLAY = 0;
 +      assign MSU_RESUME_SECTOR = 0;
 +      assign MSU_DATA_ADDR = 0;
 +      assign MSU_DATA_SEEK = 0;
@@ -2779,8 +3912,8 @@ diff -ruN a/src/fpga/core/rtl/main.v b/src/fpga/core/rtl/main.v
    endgenerate
  
 diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/SNES.sv
---- a/src/fpga/core/rtl/mister_top/SNES.sv	2026-11-03 20:10:20.268152486 +0900
-+++ b/src/fpga/core/rtl/mister_top/SNES.sv	2026-11-03 09:12:18.000000000 +0900
+--- a/src/fpga/core/rtl/mister_top/SNES.sv	2026-11-07 00:41:28.639442181 +0900
++++ b/src/fpga/core/rtl/mister_top/SNES.sv	2026-11-07 00:40:57.000000000 +0900
 @@ -7,7 +7,7 @@
      input [64:0] rtc,
  
@@ -2790,7 +3923,7 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
      input wire gsu_turbo_enabled,
  
      input wire multitap_enabled,
-@@ -143,6 +143,34 @@
+@@ -143,6 +143,64 @@
      output wire [7:0] video_g,
      output wire [7:0] video_b,
  
@@ -2804,6 +3937,21 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +    output wire [15:0] msu_track_num,
 +    output wire        msu_track_request,
 +
++    // MSU-1 boot preload (from core_top)
++    input  wire        msu_pre_req,
++    input  wire [15:0] msu_pre_num,
++    input  wire        msu_pre_flush,
++    input  wire        msu_pre_active,
++    output wire        msu_pre_done,
++
++    // external SRAM (MSU-1 track-head cache)
++    output wire [16:0] sram_a,
++    output wire [15:0] sram_do,
++    output wire        sram_oe,
++    input  wire [15:0] sram_di,
++    output wire        sram_we_n,
++    output wire        sram_oe_n,
++
 +    input  wire        pcm_wr,          // PCM words (data_loader, 0x3xxxxxxx)
 +    input  wire [15:0] pcm_data,
 +    output wire        a_fetch_tgl,
@@ -2811,6 +3959,21 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +    output wire [15:0] a_fetch_len,
 +    input  wire        a_done_tgl,
 +    input  wire        a_err,
++
++    // MSU-1 voice stream (tracks >= 1000), second player fed from the pack file
++    input  wire        v_en,
++    input  wire        v_mounting,
++    input  wire        v_missing,
++    input  wire [31:0] v_size,
++    input  wire        v_pcm_wr,
++    input  wire [15:0] v_pcm_data,
++    output wire        v_fetch_tgl,
++    output wire [31:0] v_fetch_off,
++    output wire [15:0] v_fetch_len,
++    input  wire        v_done_tgl,
++    input  wire        v_err,
++    output wire        v_track_request,
++    output wire [15:0] v_track_num,
 +
 +    input  wire        dw_wr,           // data cache words (data_loader, 0x4xxxxxxx)
 +    input  wire [13:0] dw_addr,
@@ -2825,7 +3988,7 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
      // Audio
      output wire [15:0] audio_l,
      output wire [15:0] audio_r
-@@ -299,8 +327,27 @@
+@@ -299,8 +357,34 @@
  
    wire turbo_allow;
  
@@ -2839,6 +4002,8 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +  wire        msu_audio_repeat;
 +  wire        msu_audio_playing;
 +  wire        msu_audio_stop;
++  wire        msu_audio_ready;
++  wire        msu_head_hit;
 +  wire        msu_audio_resume;
 +  wire [21:0] msu_audio_sector;
 +  wire [21:0] msu_resume_sector;
@@ -2849,13 +4014,18 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +  wire        msu_data_req;
 +  wire [15:0] msu_l;
 +  wire [15:0] msu_r;
++  wire [15:0] msu_vl;
++  wire [15:0] msu_vr;
++  wire        msu_v_play;
++  wire        msu_v_stop;
++  wire        msu_v_ready;
 +  wire  [4:0] msu_dbg_code;
 +  wire  [2:0] msu_dbg_lat;
 +  wire  [3:0] msu_dbg_reqs;
  
    wire vblank_n;
    wire hblank_n;
-@@ -411,7 +458,7 @@
+@@ -411,7 +495,7 @@
        .IO_DAT (ioctl_dout),
        .IO_WR  (spc_download & ioctl_wr),
  
@@ -2864,7 +4034,7 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
        .TURBO_ALLOW(turbo_allow),
  
  `ifdef DEBUG_BUILD
-@@ -423,23 +470,26 @@
+@@ -423,23 +507,36 @@
  `endif
  
        // MSU register handling
@@ -2889,7 +4059,17 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +      .MSU_VOLUME(msu_volume),
 +      .MSU_AUDIO_REPEAT(msu_audio_repeat),
 +      .MSU_AUDIO_RESUME(msu_audio_resume),
++      .MSU_V_EN(v_en),
++      .MSU_V_NUM(v_track_num),
++      .MSU_V_REQUEST(v_track_request),
++      .MSU_V_MOUNTING(v_mounting),
++      .MSU_V_NOT_READY(~msu_v_ready),
++      .MSU_V_MISSING(v_missing),
++      .MSU_V_PLAY(msu_v_play),
++      .MSU_V_STOP(msu_v_stop),
 +      .MSU_AUDIO_STOP(msu_audio_stop),
++      .MSU_AUDIO_READY(msu_audio_ready),
++      .MSU_HEAD_HIT(msu_head_hit),
 +      .MSU_AUDIO_PLAYING(msu_audio_playing),
 +      .MSU_AUDIO_SECTOR(msu_audio_sector),
 +      .MSU_RESUME_SECTOR(msu_resume_sector),
@@ -2907,7 +4087,49 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
    );
  
    wire reset = core_reset | cart_download | spc_download | bk_loading | clearing_ram | msu_data_download | parser_delay != 0;
-@@ -970,113 +1020,159 @@
+@@ -564,6 +661,14 @@
+       .read_en (clearing_ram ? 1'b0 : ~WRAM_CE_N & ~WRAM_OE_N),
+       .data_out(wram_data_out),
+ 
++      .m_req_tgl(1'b0),
++      .m_we(1'b0),
++      .m_bank(1'b0),
++      .m_addr(22'd0),
++      .m_wdata(16'd0),
++      .m_ack_tgl(),
++      .m_rdata(),
++
+       // Actual PSRAM interface
+       .cram_a(cram0_a),
+       .cram_dq(cram0_dq),
+@@ -617,6 +722,11 @@
+ 
+   wire [15:0] aram_16_out;
+ 
++  // MSU-1 track-head cache port into the ARAM PSRAM chip (clk_sys -> clk_mem handshake)
++  wire        msu_pr_req, msu_pr_we, msu_pr_bank, msu_pr_ack;
++  wire [21:0] msu_pr_addr;
++  wire [15:0] msu_pr_wd, msu_pr_rd;
++
+   assign ARAM_Q = psram_aram_addr[0] ? aram_16_out[15:8] : aram_16_out[7:0];
+ 
+   wire [15:0] psram_aram_addr = clearing_ram ? mem_fill_addr[15:0] : ARAM_ADDR;
+@@ -641,6 +751,14 @@
+       .read_en (~ARAM_CE_N & ~ARAM_OE_N),
+       .data_out(aram_16_out),
+ 
++      .m_req_tgl(msu_pr_req),
++      .m_we(msu_pr_we),
++      .m_bank(msu_pr_bank),
++      .m_addr(msu_pr_addr),
++      .m_wdata(msu_pr_wd),
++      .m_ack_tgl(msu_pr_ack),
++      .m_rdata(msu_pr_rd),
++
+       // Actual PSRAM interface
+       .cram_a(cram1_a),
+       .cram_dq(cram1_dq),
+@@ -970,113 +1088,238 @@
  
    ///////////////////////////  MSU1  ///////////////////////////////////
  
@@ -2989,14 +4211,31 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 -  // );
 +  generate
 +    if (USE_MSU == 1'b1) begin : g_msu
-+      msu_audio msu_audio (
-+          .reset(reset),
++      wire msu_fill_ok;
++      assign msu_pre_done = msu_fill_ok | msu_head_hit;
++      msu_audio #(.FIFO_AW(USE_CX4 ? 12 : 14)) msu_audio (
++          .reset(reset & ~msu_pre_active),
 +
 +          .clk(clk_sys),
 +          .clk_rate(PAL ? 32'd21281370 : 32'd21477270),
 +
 +          .ctl_volume(msu_volume),
 +          .ctl_stop(msu_audio_stop),
++          .audio_ready(msu_audio_ready),
++          .track_num(msu_pre_req ? msu_pre_num : msu_track_num),
++          .track_req(msu_track_request | msu_pre_req),
++          .cache_flush(1'b0),   // head cache / boot preload removed (the .msp pack file replaces it)
++          .pre_mode(1'b0),
++          .pr_req_tgl(msu_pr_req), .pr_we(msu_pr_we), .pr_bank(msu_pr_bank), .pr_addr(msu_pr_addr), .pr_wdata(msu_pr_wd),
++          .pr_ack_tgl(msu_pr_ack), .pr_rdata(msu_pr_rd),
++          .fill_ok(msu_fill_ok),
++          .head_hit(msu_head_hit),
++          .sram_a(sram_a),
++          .sram_do(sram_do),
++          .sram_oe(sram_oe),
++          .sram_di(sram_di),
++          .sram_we_n(sram_we_n),
++          .sram_oe_n(sram_oe_n),
 +          .ctl_play(msu_audio_playing),
 +          .ctl_resume(msu_audio_resume),
 +          .ctl_repeat(msu_audio_repeat),
@@ -3021,6 +4260,48 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +          .dbg_code(msu_dbg_code),
 +          .dbg_lat(msu_dbg_lat),
 +          .dbg_reqs(msu_dbg_reqs)
++      );
++
++      msu_audio #(.FIFO_AW(12)) msu_voice (
++          .reset(reset),
++          .clk(clk_sys),
++          .clk_rate(PAL ? 32'd21281370 : 32'd21477270),
++          .ctl_volume(msu_volume),
++          .ctl_stop(msu_v_stop),
++          .audio_ready(msu_v_ready),
++          .track_num(v_track_num),
++          .track_req(v_track_request),
++          .cache_flush(1'b0),
++          .pre_mode(1'b0),
++          .pr_req_tgl(), .pr_we(), .pr_bank(), .pr_addr(), .pr_wdata(),
++          .pr_ack_tgl(1'b0), .pr_rdata(16'd0),
++          .fill_ok(),
++          .head_hit(),
++          .sram_a(),
++          .sram_do(),
++          .sram_oe(),
++          .sram_di(16'd0),
++          .sram_we_n(),
++          .sram_oe_n(),
++          .ctl_play(msu_v_play),
++          .ctl_resume(1'b0),
++          .ctl_repeat(1'b0),
++          .track_size(v_size),
++          .track_processing(v_missing | v_mounting | v_track_request),
++          .pcm_wr(v_pcm_wr),
++          .pcm_data(v_pcm_data),
++          .fetch_tgl(v_fetch_tgl),
++          .fetch_off(v_fetch_off),
++          .fetch_len(v_fetch_len),
++          .fetch_done_tgl(v_done_tgl),
++          .fetch_err(v_err),
++          .audio_sector(),
++          .resume_sector(22'd0),
++          .audio_l(msu_vl),
++          .audio_r(msu_vr),
++          .dbg_code(),
++          .dbg_lat(),
++          .dbg_reqs()
 +      );
 +
 +      msu_data_store msu_data_store (
@@ -3050,10 +4331,30 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +    end else begin : g_nomsu
 +      assign msu_l = 16'd0;
 +      assign msu_r = 16'd0;
++      assign msu_vl = 16'd0;
++      assign msu_vr = 16'd0;
++      assign msu_v_ready = 1'b1;
++      assign v_fetch_tgl = 1'b0;
++      assign v_fetch_off = 32'd0;
++      assign v_fetch_len = 16'd0;
 +      assign msu_dbg_code = 5'd0;
 +      assign msu_dbg_lat = 3'd0;
 +      assign msu_dbg_reqs = 4'd0;
 +      assign msu_audio_stop = 1'b0;
++      assign msu_v_stop = 1'b0;
++      assign msu_audio_ready = 1'b1;
++      assign msu_head_hit = 1'b0;
++      assign msu_pre_done = 1'b1;
++      assign msu_pr_req = 1'b0;
++      assign msu_pr_we = 1'b0;
++      assign msu_pr_bank = 1'b0;
++      assign msu_pr_addr = 22'd0;
++      assign msu_pr_wd = 16'd0;
++      assign sram_a = 17'd0;
++      assign sram_do = 16'd0;
++      assign sram_oe = 1'b0;
++      assign sram_we_n = 1'b1;
++      assign sram_oe_n = 1'b1;
 +      assign msu_audio_sector = 22'd0;
 +      assign msu_data = 8'd0;
 +      assign msu_data_ack = 1'b1;
@@ -3135,8 +4436,8 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 -  // 	mix_l = $signed({main_audio_l[15], main_audio_l}) + $signed({msu_l[15], msu_l});
 -  // 	mix_r = $signed({main_audio_r[15], main_audio_r}) + $signed({msu_r[15], msu_r});
 +  always @(posedge clk_sys) begin
-+    mix_l = $signed({{2{main_audio_l[15]}}, main_audio_l}) + $signed({{2{msu_l[15]}}, msu_l}) + bp_s;
-+    mix_r = $signed({{2{main_audio_r[15]}}, main_audio_r}) + $signed({{2{msu_r[15]}}, msu_r}) + bp_s;
++    mix_l = $signed({{2{main_audio_l[15]}}, main_audio_l}) + $signed({{2{msu_l[15]}}, msu_l}) + $signed({{2{msu_vl[15]}}, msu_vl}) + bp_s;
++    mix_r = $signed({{2{main_audio_r[15]}}, main_audio_r}) + $signed({{2{msu_r[15]}}, msu_r}) + $signed({{2{msu_vr[15]}}, msu_vr}) + bp_s;
  
 -  // 	audio_l <= (^mix_l[16:15]) ? {mix_l[16], {15{mix_l[15]}}} : mix_l[15:0];
 -  // 	audio_r <= (^mix_r[16:15]) ? {mix_r[16], {15{mix_r[15]}}} : mix_r[15:0];
@@ -3168,6 +4469,420 @@ diff -ruN a/src/fpga/core/rtl/mister_top/SNES.sv b/src/fpga/core/rtl/mister_top/
 +  assign audio_r = mixed_r;
  
  endmodule
+diff -ruN a/src/fpga/core/rtl/mister_top/psram.sv b/src/fpga/core/rtl/mister_top/psram.sv
+--- a/src/fpga/core/rtl/mister_top/psram.sv	2026-11-07 00:41:28.639478433 +0900
++++ b/src/fpga/core/rtl/mister_top/psram.sv	2026-11-07 00:40:57.000000000 +0900
+@@ -65,6 +65,16 @@
+ 
+     output reg busy,
+ 
++    // Second (low priority) port used by the MSU-1 head cache; clk_mem side of a toggle handshake.
++    // The other port's repeated re-reads/re-writes of an unchanged request are the only thing it displaces.
++    input wire m_req_tgl,
++    input wire m_we,
++    input wire m_bank,
++    input wire [21:0] m_addr,
++    input wire [15:0] m_wdata,
++    output reg m_ack_tgl = 0,
++    output reg [15:0] m_rdata = 0,
++
+     // PSRAM signals
+     output reg [21:16] cram_a,
+     inout wire [15:0] cram_dq,
+@@ -240,7 +250,27 @@
+ 
+   assign cram_dq = data_out_en ? cram_data : 16'hZZ;
+ 
++  // ---- arbitration with the second port ----
++  reg m_s1 = 0, m_s2 = 0;
++  always @(posedge clk) begin
++    m_s1 <= m_req_tgl;
++    m_s2 <= m_s1;
++  end
++  wire m_pend = (m_s2 != m_ack_tgl);
++  reg m_active = 0;
++
++  wire snes_req = write_en | read_en;
++  wire [42:0] snes_sig = {write_en, read_en, bank_sel, addr, write_high_byte, write_low_byte, data_in};
++  reg [42:0] snes_sig_q = 0;
++  reg sig_same_q = 0;   // registered (1 cycle late) 'request unchanged' flag: keeps the wide compare off the state logic
++  reg first_done = 0;  // the current (unchanged) request has already been served once; repeats may yield
++  wire do_snes = snes_req && !(first_done && m_pend);
++
+   always @(posedge clk) begin
++    snes_sig_q <= snes_sig;
++    sig_same_q <= (snes_sig == snes_sig_q);
++    if (!snes_req || !sig_same_q) first_done <= 0;
++
+     if (state != STATE_NONE) begin
+       // If we are not at STATE_NONE, increment state
+       state <= state + 1;
+@@ -267,8 +297,9 @@
+         cram_ub_n  <= 1;
+         cram_lb_n  <= 1;
+ 
+-        if (write_en) begin
++        if (do_snes && write_en) begin
+           // Enter write_init
++          m_active <= 0;
+           state <= WRITE_INITIAL_COUNT;
+ 
+           if (bank_sel) cram_ce1_n <= 0;
+@@ -292,8 +323,9 @@
+ 
+           // Set busy now instead of waiting for the state change
+           busy <= 1;
+-        end else if (read_en) begin
++        end else if (do_snes && read_en) begin
+           state <= READ_INITIAL_COUNT;
++          m_active <= 0;
+ 
+           // Activate chip
+           if (bank_sel) cram_ce1_n <= 0;
+@@ -311,6 +343,27 @@
+ 
+           // Set busy now instead of waiting for the state change
+           busy <= 1;
++        end else if (m_pend) begin
++          // MSU-1 head cache access
++          m_active <= 1;
++          if (m_bank) cram_ce1_n <= 0;
++          else cram_ce0_n <= 0;
++
++          cram_a <= m_addr[21:16];
++          cram_data <= m_addr[15:0];
++          data_out_en <= 1;
++          cram_adv_n <= 0;
++          cram_ub_n <= 0;
++          cram_lb_n <= 0;
++          busy <= 1;
++
++          if (m_we) begin
++            state <= WRITE_INITIAL_COUNT;
++            cram_we_n <= 0;
++            latched_data_in <= m_wdata;
++          end else begin
++            state <= READ_INITIAL_COUNT;
++          end
+         end
+       end
+ 
+@@ -344,6 +397,11 @@
+ 
+         // Clear busy now, so we don't have to wait for the state change
+         busy <= 0;
++
++        if (m_active) begin
++          m_active <= 0;
++          m_ack_tgl <= ~m_ack_tgl;
++        end else first_done <= snes_req && sig_same_q;
+       end
+ 
+       // Reads
+@@ -363,8 +421,15 @@
+         state <= STATE_NONE;
+ 
+         // Actually read data
+-        read_avail <= 1;
+-        data_out <= cram_dq;
++        if (m_active) begin
++          m_rdata <= cram_dq;
++          m_active <= 0;
++          m_ack_tgl <= ~m_ack_tgl;
++        end else begin
++          read_avail <= 1;
++          data_out <= cram_dq;
++          first_done <= snes_req && sig_same_q;
++        end
+ 
+         // We're done reading, clean up
+         cram_ce0_n <= 1;
+diff -ruN a/src/support/loader.asm b/src/support/loader.asm
+--- a/src/support/loader.asm	2026-11-07 00:41:28.642743262 +0900
++++ b/src/support/loader.asm	2026-11-07 00:40:57.000000000 +0900
+@@ -142,6 +142,17 @@
+ ld r8,#0
+ core r8 // Default to the main core
+ 
++cmp r4,#0x40 // Check if CX4
++jp z, cx4dsp_core
++cmp r4,#0x80 // Check if DSP-1 / DSP-1B / ST010
++jp z, cx4dsp_core
++cmp r4,#0x90 // Check if DSP-2
++jp z, cx4dsp_core
++cmp r4,#0xA0 // Check if DSP-3
++jp z, cx4dsp_core
++cmp r4,#0xB0 // Check if DSP-4
++jp z, cx4dsp_core
++
+ cmp r4,#0xD0 // Check if SPC7110
+ jp nz, bit_sdd1
+ log_string("Using SPC7110")
+@@ -164,6 +175,16 @@
+ core r8 // Boot SPC7110/SDD1/BSX core
+ jp send_chip
+ 
++cx4dsp_core:
++log_string("Using CX4/DSP core")
++ld r8,#3 // NTSC CX4/DSP-n core
++cmp r3,#1 // Check if PAL
++jp nz, cx4dsp_boot
++ld r8,#4 // PAL CX4/DSP-n core
++cx4dsp_boot:
++core r8
++jp send_chip
++
+ check_pal:
+ cmp r3,#1 // Check if PAL
+ jp nz, send_chip
+diff -ruN a/tools/msupack/go.mod b/tools/msupack/go.mod
+--- a/tools/msupack/go.mod	1970-01-01 09:00:00.000000000 +0900
++++ b/tools/msupack/go.mod	2026-11-07 00:40:57.000000000 +0900
+@@ -0,0 +1,3 @@
++module msupack
++
++go 1.24
+diff -ruN a/tools/msupack/main.go b/tools/msupack/main.go
+--- a/tools/msupack/main.go	1970-01-01 09:00:00.000000000 +0900
++++ b/tools/msupack/main.go	2026-11-07 00:40:57.000000000 +0900
+@@ -0,0 +1,237 @@
++// MSU Pack Maker - packs all "<game>-N.pcm" tracks into one "<game>.msp" file next to "<game>.msu".
++// For the Moongom SNES MSU-1 core (Analogue Pocket, unofficial, AI-assisted fork).  GPLv3.
++//
++// Put MSUPackMaker.exe in the folder with your .msu / -N.pcm files and run it (double click).
++// You can also drag a .msu file (or a folder) onto the exe.  The .pcm files are only read, never changed.
++//
++// .msp format (all u32 little endian):
++//
++//	4096 index entries of 8 bytes at file offset 8*N: {offset, size} of the original PCM file of track N
++//	(0,0 = no such track); entry 0 holds the magic "MSUP" and the version (1).
++//	The tracks follow, each is the unmodified .pcm file, starting at a multiple of 4096.
++//
++// The core opens the pack once and reads tracks by offset, so changing tracks needs no file open.
++// Version 2: the pack is split into parts of < 2 GiB: <name>.msp (with the index), <name>.ms1, .ms2, .ms3.
++// Music (tracks < 1000) is in <name>.msp, voice clips (tracks >= 1000) start in <name>.ms1.
++// The top 2 bits of the size field in the index tell the part of the track; offsets are inside that part.
++// At most 4 parts (about 8 GB); tracks that do not fit are left out and reported.
++package main
++
++import (
++	"bufio"
++	"encoding/binary"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"strings"
++)
++
++const (
++	maxTrack  = 4095
++	idxBytes  = 4096 * 8
++	align     = 4096
++	partMax   = uint64(0x7FFFF000) // each part file stays below 2 GiB
++	maxParts  = 4
++	voiceFrom = 1000
++	maxTrkSz  = uint64(1)<<30 - 1
++)
++
++var maxN = maxTrack
++
++type trk struct {
++	n    int
++	path string
++	size uint64
++	off  uint64
++	part int
++}
++
++func build(msuPath string) error {
++	base := strings.TrimSuffix(msuPath, filepath.Ext(msuPath))
++	dir, name := filepath.Split(base)
++	var tr []trk
++	pos := uint64(idxBytes)
++	part := 0
++	voiceStarted := false
++	var skipped []int
++	var total uint64
++	for n := 1; n <= maxN; n++ {
++		p := filepath.Join(dir, fmt.Sprintf("%s-%d.pcm", name, n))
++		st, err := os.Stat(p)
++		if err != nil || st.IsDir() {
++			continue
++		}
++		f, err := os.Open(p)
++		if err != nil {
++			continue
++		}
++		var h [4]byte
++		_, e := io.ReadFull(f, h[:])
++		f.Close()
++		if e != nil || string(h[:]) != "MSU1" {
++			fmt.Printf("  skip %s (not an MSU1 pcm)\n", filepath.Base(p))
++			continue
++		}
++		sz := uint64(st.Size())
++		if sz > maxTrkSz {
++			skipped = append(skipped, n)
++			continue
++		}
++		if n >= voiceFrom && !voiceStarted {
++			// voice clips (tracks >= 1000) always start in their own file, separate from the music
++			voiceStarted = true
++			if pos > 0 && len(tr) > 0 {
++				if part+1 >= maxParts {
++					skipped = append(skipped, n)
++					continue
++				}
++				part++
++				pos = 0
++			}
++		}
++		if pos+sz > partMax {
++			if part+1 >= maxParts {
++				skipped = append(skipped, n)
++				continue
++			}
++			part++
++			pos = 0
++		}
++		tr = append(tr, trk{n, p, sz, pos, part})
++		total += sz
++		pos += sz
++		pos = (pos + align - 1) &^ (align - 1)
++	}
++	if len(tr) == 0 {
++		return fmt.Errorf("no %s-<N>.pcm files found", name)
++	}
++	idx := make([]byte, idxBytes)
++	copy(idx, "MSUP")
++	binary.LittleEndian.PutUint32(idx[4:], 2)
++	for _, t := range tr {
++		binary.LittleEndian.PutUint32(idx[t.n*8:], uint32(t.off))
++		binary.LittleEndian.PutUint32(idx[t.n*8+4:], uint32(t.size)|uint32(t.part)<<30)
++	}
++	var total2 uint64
++	nparts := tr[len(tr)-1].part + 1
++	for pi := 0; pi < nparts; pi++ {
++		out := base + ".msp"
++		if pi > 0 {
++			out = fmt.Sprintf("%s.ms%d", base, pi)
++		}
++		f, err := os.Create(out)
++		if err != nil {
++			return err
++		}
++		w := bufio.NewWriterSize(f, 1<<20)
++		cur := uint64(0)
++		if pi == 0 {
++			w.Write(idx)
++			cur = uint64(idxBytes)
++		}
++		zero := make([]byte, align)
++		for i, t := range tr {
++			if t.part != pi {
++				continue
++			}
++			if cur < t.off {
++				w.Write(zero[:t.off-cur])
++				cur = t.off
++			}
++			src, err := os.Open(t.path)
++			if err != nil {
++				f.Close()
++				return err
++			}
++			nw, err := io.Copy(w, src)
++			src.Close()
++			if err != nil {
++				f.Close()
++				return err
++			}
++			cur += uint64(nw)
++			if i%100 == 99 {
++				fmt.Printf("  %d / %d tracks\n", i+1, len(tr))
++			}
++		}
++		if err := w.Flush(); err != nil {
++			f.Close()
++			return err
++		}
++		f.Close()
++		total2 += cur
++		fmt.Printf("  wrote %s  (%.2f GB)\n", filepath.Base(out), float64(cur)/1e9)
++	}
++	fmt.Printf("  %d tracks, %d file(s), %.2f GB in total\n", len(tr), nparts, float64(total2)/1e9)
++	var nm, nv int
++	var sm, sv uint64
++	for _, t := range tr {
++		if t.n >= voiceFrom {
++			nv++
++			sv += t.size
++		} else {
++			nm++
++			sm += t.size
++		}
++	}
++	fmt.Printf("  music (tracks 1-%d): %d tracks, %.2f GB  -> %s.msp\n", voiceFrom-1, nm, float64(sm)/1e9, name)
++	fmt.Printf("  voice (tracks %d+):  %d tracks, %.2f GB  -> %s.ms1 ...\n", voiceFrom, nv, float64(sv)/1e9, name)
++	// remove stale parts of an earlier, larger pack
++	for pi := nparts; pi < maxParts; pi++ {
++		os.Remove(fmt.Sprintf("%s.ms%d", base, pi))
++	}
++	if len(skipped) > 0 {
++		fmt.Printf("  WARNING: %d tracks did not fit (too big, or more than 4 parts) and are NOT in the pack (first: %d)\n", len(skipped), skipped[0])
++	}
++	return nil
++}
++
++func findMsu(dir string) []string {
++	m, _ := filepath.Glob(filepath.Join(dir, "*.msu"))
++	return m
++}
++
++func main() {
++	fmt.Println("MSU Pack Maker for Moongom SNES MSU-1 core")
++	// Optional test aid: a file "maxtrack.txt" next to the exe with a number N packs only tracks 1..N.
++	if exe, e := os.Executable(); e == nil {
++		if b, e := os.ReadFile(filepath.Join(filepath.Dir(exe), "maxtrack.txt")); e == nil {
++			var v int
++			if _, e := fmt.Sscanf(strings.TrimSpace(string(b)), "%d", &v); e == nil && v >= 1 && v <= maxTrack {
++				maxN = v
++				fmt.Println("maxtrack.txt: packing only tracks 1 ..", v)
++			}
++		}
++	}
++	var files []string
++	if len(os.Args) > 1 {
++		for _, a := range os.Args[1:] {
++			if st, err := os.Stat(a); err == nil && st.IsDir() {
++				files = append(files, findMsu(a)...)
++			} else {
++				files = append(files, a)
++			}
++		}
++	} else {
++		dir, err := os.Getwd()
++		if exe, e2 := os.Executable(); e2 == nil {
++			dir = filepath.Dir(exe)
++		} else if err != nil {
++			dir = "."
++		}
++		files = findMsu(dir)
++		fmt.Println("Folder:", dir)
++	}
++	if len(files) == 0 {
++		fmt.Println("No .msu file found. Put this program in the folder that contains your .msu and -N.pcm files.")
++	}
++	for _, f := range files {
++		fmt.Println("Game:", filepath.Base(f))
++		if err := build(f); err != nil {
++			fmt.Println("  error:", err)
++		}
++	}
++	fmt.Print("\nDone. Press Enter to close.")
++	bufio.NewReader(os.Stdin).ReadString('\n')
++}
 diff -ruN a/tools/rbf_to_rev.py b/tools/rbf_to_rev.py
 --- a/tools/rbf_to_rev.py	1970-01-01 09:00:00.000000000 +0900
 +++ b/tools/rbf_to_rev.py	2026-11-01 10:05:37.000000000 +0900

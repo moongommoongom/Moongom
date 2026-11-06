@@ -107,9 +107,19 @@ module main #(
     input         MSU_TRACK_MISSING,
     output [ 7:0] MSU_VOLUME,
     input         MSU_AUDIO_STOP,
+    input         MSU_AUDIO_READY,
+    input         MSU_HEAD_HIT,
     output        MSU_AUDIO_REPEAT,
     output        MSU_AUDIO_PLAYING,
     output        MSU_AUDIO_RESUME,
+    input         MSU_V_EN,
+    output [15:0] MSU_V_NUM,
+    output        MSU_V_REQUEST,
+    input         MSU_V_MOUNTING,
+    input         MSU_V_NOT_READY,
+    input         MSU_V_MISSING,
+    output        MSU_V_PLAY,
+    input         MSU_V_STOP,
     input  [21:0] MSU_AUDIO_SECTOR,
     output [21:0] MSU_RESUME_SECTOR,
     output [31:0] MSU_DATA_ADDR,
@@ -268,7 +278,17 @@ module main #(
           .status_audio_repeat(MSU_AUDIO_REPEAT),
           .status_audio_playing(MSU_AUDIO_PLAYING),
           .audio_stop(MSU_AUDIO_STOP),
+          .AUDIO_READY(MSU_AUDIO_READY),
+          .HEAD_HIT(MSU_HEAD_HIT),
           .audio_resume(MSU_AUDIO_RESUME),
+          .v_en(MSU_V_EN),
+          .v_track_num(MSU_V_NUM),
+          .v_track_request(MSU_V_REQUEST),
+          .v_mounting(MSU_V_MOUNTING),
+          .v_not_ready(MSU_V_NOT_READY),
+          .v_missing(MSU_V_MISSING),
+          .v_play(MSU_V_PLAY),
+          .v_audio_stop(MSU_V_STOP),
           .audio_sector(MSU_AUDIO_SECTOR),
           .resume_sector(MSU_RESUME_SECTOR),
 
@@ -283,6 +303,9 @@ module main #(
       assign MSU_AUDIO_REPEAT = 0;
       assign MSU_AUDIO_PLAYING = 0;
       assign MSU_AUDIO_RESUME = 0;
+      assign MSU_V_NUM = 0;
+      assign MSU_V_REQUEST = 0;
+      assign MSU_V_PLAY = 0;
       assign MSU_RESUME_SECTOR = 0;
       assign MSU_DATA_ADDR = 0;
       assign MSU_DATA_SEEK = 0;

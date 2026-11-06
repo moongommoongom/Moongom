@@ -142,6 +142,17 @@ and r4,#0xF0 // Get only the high nibble
 ld r8,#0
 core r8 // Default to the main core
 
+cmp r4,#0x40 // Check if CX4
+jp z, cx4dsp_core
+cmp r4,#0x80 // Check if DSP-1 / DSP-1B / ST010
+jp z, cx4dsp_core
+cmp r4,#0x90 // Check if DSP-2
+jp z, cx4dsp_core
+cmp r4,#0xA0 // Check if DSP-3
+jp z, cx4dsp_core
+cmp r4,#0xB0 // Check if DSP-4
+jp z, cx4dsp_core
+
 cmp r4,#0xD0 // Check if SPC7110
 jp nz, bit_sdd1
 log_string("Using SPC7110")
@@ -162,6 +173,16 @@ log_string("Using BSX")
 expansion_core:
 ld r8,#1
 core r8 // Boot SPC7110/SDD1/BSX core
+jp send_chip
+
+cx4dsp_core:
+log_string("Using CX4/DSP core")
+ld r8,#3 // NTSC CX4/DSP-n core
+cmp r3,#1 // Check if PAL
+jp nz, cx4dsp_boot
+ld r8,#4 // PAL CX4/DSP-n core
+cx4dsp_boot:
+core r8
 jp send_chip
 
 check_pal:

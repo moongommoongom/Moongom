@@ -20,6 +20,7 @@ module msu_bridge #(
 	parameter [15:0] SLOT_ROM = 16'd0,
 	parameter [15:0] SLOT_MSU = 16'd20,
 	parameter [15:0] SLOT_PCM = 16'd21,
+	parameter [15:0] SLOT_VOICE = 16'd22,
 	parameter  [7:0] IDX_MSU  = 8'd2,      // position of the slot in data.json
 	parameter  [7:0] IDX_PCM  = 8'd3
 ) (
@@ -54,6 +55,7 @@ module msu_bridge #(
 	output wire        msu_enable,
 	output wire        track_mounting,
 	output wire        track_missing,
+	output wire        hd_missing,       // the heads file (.msh) does not exist
 	output wire [31:0] audio_size,
 	output wire [31:0] data_size,
 	output wire        init_hold,
@@ -64,6 +66,19 @@ module msu_bridge #(
 	input  wire [15:0] a_fetch_len,
 	output wire        a_done_tgl,
 	output wire        a_err,
+
+	// voice stream (tracks >= 1000 from the pack file, second data slot)
+	input  wire        v_req,
+	input  wire [15:0] v_num,
+	output wire        voice_en,
+	output wire        v_mounting,
+	output wire        v_missing,
+	output wire [31:0] v_size,
+	input  wire        v_fetch_tgl,
+	input  wire [31:0] v_fetch_off,
+	input  wire [15:0] v_fetch_len,
+	output wire        v_done_tgl,
+	output wire        v_err,
 
 	input  wire        d_fill_tgl,
 	input  wire [31:0] d_fill_off,
@@ -76,6 +91,7 @@ module msu_bridge #(
 localparam [31:0] PB_BASE  = 32'h5000_0000;
 localparam [31:0] PCM_BASE = 32'h3000_0000;
 localparam [31:0] DAT_BASE = 32'h4000_0000;
+localparam [31:0] VOI_BASE = 32'h6000_0000;
 
 // ---------------------------------------------------------------------------
 // Status registers (clk domain) and their clk_sys views
@@ -83,6 +99,7 @@ localparam [31:0] DAT_BASE = 32'h4000_0000;
 reg        enable_r = 0;
 reg        mounting_r = 0;
 reg        missing_r = 0;
+reg        hd_miss_r = 0, hd_req = 0;
 reg [31:0] asize_r = 0;
 reg [31:0] dsize_r = 0;
 reg        hold_r = 0;
@@ -97,6 +114,7 @@ reg        d_done_r = 0, d_err_r = 0;
 synch_3 s_en   (.i(enable_r),   .o(msu_enable),     .clk(clk_sys), .rise(), .fall());
 synch_3 s_mnt  (.i(mounting_r), .o(track_mounting), .clk(clk_sys), .rise(), .fall());
 synch_3 s_mis  (.i(missing_r),  .o(track_missing),  .clk(clk_sys), .rise(), .fall());
+synch_3 s_hdm  (.i(hd_miss_r),  .o(hd_missing),     .clk(clk_sys), .rise(), .fall());
 synch_3 s_hold (.i(hold_r),     .o(init_hold),      .clk(clk_sys), .rise(), .fall());
 synch_3 s_adn  (.i(a_done_r),   .o(a_done_tgl),     .clk(clk_sys), .rise(), .fall());
 synch_3 s_ddn  (.i(d_done_r),   .o(d_done_tgl),     .clk(clk_sys), .rise(), .fall());
@@ -108,6 +126,18 @@ assign d_err      = d_err_r;
 
 wire req_s, a_s, d_s;
 synch_3 s_req (.i(track_request), .o(req_s), .clk(clk), .rise(), .fall());
+wire vreq_s, vf_s;
+synch_3 s_vrq (.i(v_req),       .o(vreq_s), .clk(clk), .rise(), .fall());
+synch_3 s_vft (.i(v_fetch_tgl), .o(vf_s),   .clk(clk), .rise(), .fall());
+reg        voice_ok = 0, vmode = 0, vmount_r = 0, vmiss_r = 0, vdone_r = 0, verr_r = 0;
+reg        vreq_seen = 0, vf_ack = 0;
+reg [31:0] vbase = 0, vsize_r = 0;
+synch_3 s_ven (.i(voice_ok),  .o(voice_en),   .clk(clk_sys), .rise(), .fall());
+synch_3 s_vmn (.i(vmount_r),  .o(v_mounting), .clk(clk_sys), .rise(), .fall());
+synch_3 s_vms (.i(vmiss_r),   .o(v_missing),  .clk(clk_sys), .rise(), .fall());
+synch_3 s_vdn (.i(vdone_r),   .o(v_done_tgl), .clk(clk_sys), .rise(), .fall());
+assign v_size = vsize_r;
+assign v_err  = verr_r;
 synch_3 s_atg (.i(a_fetch_tgl),   .o(a_s),   .clk(clk), .rise(), .fall());
 synch_3 s_dtg (.i(d_fill_tgl),    .o(d_s),   .clk(clk), .rise(), .fall());
 
@@ -116,7 +146,7 @@ synch_3 s_dtg (.i(d_fill_tgl),    .o(d_s),   .clk(clk), .rise(), .fall());
 // ---------------------------------------------------------------------------
 // digits are produced by a registered pipeline (see sfx_pipe below), so no
 // divider ends up in the clk_74a critical path.
-function [7:0] sfx_char(input mode, input [3:0] nd, input [19:0] dg, input [3:0] j);
+function [7:0] sfx_char(input mode, input hd, input pk, input [1:0] pkd, input [3:0] nd, input [19:0] dg, input [3:0] j);
 	reg [3:0] k;
 	reg [3:0] e;
 	begin
@@ -126,7 +156,7 @@ function [7:0] sfx_char(input mode, input [3:0] nd, input [19:0] dg, input [3:0]
 				4'd0: sfx_char = ".";
 				4'd1: sfx_char = "m";
 				4'd2: sfx_char = "s";
-				4'd3: sfx_char = "u";
+				4'd3: sfx_char = pk ? ((pkd == 2'd0) ? "p" : (8'h30 + {6'd0, pkd})) : hd ? "h" : "u";
 				default: sfx_char = 8'h00;
 			endcase
 		end
@@ -194,7 +224,28 @@ localparam [5:0]
 	// data slot table scan by slot id (as the reference core does)
 	ST_SCN_S    = 6'd36,
 	ST_SCN_C    = 6'd37,
-	ST_SCN_D    = 6'd38;
+	ST_SCN_D    = 6'd38,
+	// pack file (.msp): all tracks in one file, opened once
+	ST_K_P0     = 6'd40,
+	ST_K_OPEN   = 6'd41,
+	ST_K_OR     = 6'd42,
+	ST_K_MG     = 6'd43,
+	ST_K_ME     = 6'd44,
+	ST_K_MW     = 6'd45,
+	ST_K_RES    = 6'd46,
+	ST_K_A0     = 6'd47,
+	ST_K_W0     = 6'd48,
+	ST_K_E0     = 6'd49,
+	ST_K_A1     = 6'd50,
+	ST_K_W1     = 6'd51,
+	ST_K_E1     = 6'd52,
+	ST_K_VO     = 6'd53,
+	ST_K_VR     = 6'd54,
+	ST_V_FIN    = 6'd55,
+	ST_K_Q0     = 6'd57,
+	ST_K_QO     = 6'd58,
+	ST_K_QR     = 6'd59,
+	ST_VF_FIN   = 6'd56;
 
 initial begin
 	tc_req = 0; tc_code = 0; tc_p0 = 0; tc_p1 = 0; tc_p2 = 0; tc_p3 = 0;
@@ -210,7 +261,7 @@ reg [15:0] res = 0;
 reg        rn_d = 0;
 reg        init_done = 0;
 reg        path_ok = 0;
-reg [27:0] init_to = 0;
+reg [29:0] init_to = 0;          // init watchdog (clk_74a cycles)
 reg        req_seen = 0;
 reg        a_ack = 0, d_ack = 0;
 
@@ -219,7 +270,9 @@ reg  [7:0] dot_pos = 0;
 reg        dot_valid = 0;
 reg  [7:0] dpos = 0;              // index where the suffix starts
 
-reg        sfx_mode = 0;          // 0: track pcm, 1: data msu
+reg        sfx_mode = 0;          // 0: track pcm, 1: data msu (or heads file when sfx_hd)
+reg        sfx_pk = 0;            // ".msp" pack file
+reg        sfx_hd = 0;            // ".msh" instead of ".msu" (track number 0xFFFF)
 reg [15:0] sfx_track = 0;
 reg  [3:0] wr_j = 0;
 reg  [3:0] sfx_nd = 4'd1;
@@ -280,6 +333,18 @@ reg  [5:0] lj = 0;
 localparam [8*44-1:0] LIT = "/Assets/snes/common/FF6/FF6_Enhanced(ko).msu";
 wire [7:0] lit_ch = (lj < 6'd44) ? LIT[8*(43-lj) +: 8] : 8'h00;
 reg        retried = 0;
+reg        msu_failed = 0;         // the .msu data file could not be opened (e.g. empty file): try the pack before giving up
+reg        pack_ok = 0;            // a valid .msp pack file is open in the PCM slot
+reg        pk_le = 0;              // pack data arrives with byte 0 in bits [7:0]
+reg  [1:0] wpart = 0;             // part number written into the pack suffix (.msp .ms1 .ms2 .ms3)
+reg  [3:0] parts_ok = 4'b0001;   // which pack parts are open
+reg  [1:0] pk_part = 0, vpart = 0;
+wire [31:0] w1d = pk_le ? pk_w1 : bsw(pk_w1);
+wire [31:0] w0d = pk_le ? pk_w0 : bsw(pk_w0);
+reg [31:0] pk_base = 0;            // offset of the current track inside the pack
+reg [31:0] pk_w0 = 0, pk_w1 = 0;
+reg  [5:0] pk_tn = 0;
+function [31:0] bsw(input [31:0] w); bsw = {w[7:0], w[15:8], w[23:16], w[31:24]}; endfunction
 reg        ord_r = 0;      // 1: first path byte arrives in bits [7:0] (little endian)
 wire       first_big = (pb_q[31:24] == 8'h2F);
 wire       first_lit = (pb_q[7:0]   == 8'h2F);
@@ -302,6 +367,7 @@ always @(posedge clk) begin
 	else        init_to <= 0;
 
 	if (!(req_s)) req_seen <= 0;
+	if (!vreq_s) vreq_seen <= 0;
 
 	if (!reset_n) begin
 		// Pocket holds the core in reset: forget everything
@@ -312,6 +378,12 @@ always @(posedge clk) begin
 		path_ok    <= 0;
 		hold_r     <= 0;
 		enable_r   <= 0;
+		pack_ok    <= 0;
+		voice_ok   <= 0;
+		vmode      <= 0;
+		vmount_r   <= 0;
+		vmiss_r    <= 0;
+		vf_ack     <= vf_s;
 		diag_r     <= 0;
 		retried    <= 0;
 		mounting_r <= 0;
@@ -327,7 +399,7 @@ always @(posedge clk) begin
 		init_done <= 0;
 		state     <= ST_IDLE;
 	end
-	else if (hold_r && init_to == 28'h8F0_0000) begin
+	else if (hold_r && init_to == 30'd1113750000) begin   // about 15 s: a big folder makes every file open slow
 		// Pocket never answered: give up, run without MSU-1
 		diag_r    <= 4'd7;
 		hold_r    <= 0;
@@ -353,28 +425,75 @@ always @(posedge clk) begin
 						req_seen   <= 1;
 						mounting_r <= 1;
 						missing_r  <= 0;
+						hd_miss_r  <= 0;
+						hd_req     <= (track_num == 16'hFFFF);
 						asize_r    <= 0;
 						wcnt       <= 0;
-						if (!path_ok || !enable_r) begin
+						if (!path_ok || !enable_r || (pack_ok && (track_num == 16'hFFFF || track_num >= 16'd4096))) begin
 							missing_r <= 1;
+							hd_miss_r <= (track_num == 16'hFFFF);
 							state     <= ST_T_FIN;
+						end
+						else if (pack_ok) begin
+							// pack file: read the 8 byte index entry (offset, size) of the track into the path buffer
+							tc_code <= 16'h0180;
+							tc_p0   <= {16'b0, SLOT_PCM};
+							tc_p1   <= {16'b0, track_num[11:4], 7'b0};       // 128 byte aligned block of the index (16 entries)
+							tc_p2   <= PB_BASE + 32'h180;                    // upper end of the path buffer: the path string stays intact
+							tc_p3   <= 32'd128;
+							pk_tn   <= track_num[5:0];
+							ret_cmd <= ST_K_RES;
+							state   <= ST_CMD_GO;
 						end
 						else begin
 							diag_r    <= 4'd0;             // silent while mounting
-							sfx_mode  <= 0;
-							sfx_track <= track_num;
+							sfx_hd    <= (track_num == 16'hFFFF);
+							sfx_mode  <= (track_num == 16'hFFFF);
+							sfx_track <= (track_num == 16'hFFFF) ? 16'd0 : track_num;
 							ret_wr    <= ST_T_OPEN;
 							state     <= ST_WR_START;
+						end
+					end
+					else if (vreq_s && !vreq_seen && voice_ok) begin
+						vreq_seen <= 1;
+						vmount_r  <= 1;
+						vmiss_r   <= 0;
+						vsize_r   <= 0;
+						vmode     <= 1;
+						wcnt      <= 0;
+						if (v_num >= 16'd4096) begin
+							vmiss_r <= 1;
+							state   <= ST_V_FIN;
+						end
+						else begin
+							tc_code <= 16'h0180;
+							tc_p0   <= {16'b0, SLOT_VOICE};
+							tc_p1   <= {16'b0, v_num[11:4], 7'b0};
+							tc_p2   <= PB_BASE + 32'h180;
+							tc_p3   <= 32'd128;
+							pk_tn   <= v_num[5:0];
+							ret_cmd <= ST_K_RES;
+							state   <= ST_CMD_GO;
 						end
 					end
 					else if (a_s != a_ack) begin
 						a_ack   <= a_s;
 						tc_code <= 16'h0180;
-						tc_p0   <= {16'b0, SLOT_PCM};
-						tc_p1   <= a_fetch_off;
+						tc_p0   <= (pack_ok && pk_part != 2'd0) ? (SLOT_VOICE + {14'b0, pk_part}) : {16'b0, SLOT_PCM};
+						tc_p1   <= pack_ok ? (a_fetch_off + pk_base) : a_fetch_off;
 						tc_p2   <= PCM_BASE;
 						tc_p3   <= {16'b0, a_fetch_len};
 						ret_cmd <= ST_A_FIN;
+						state   <= ST_CMD_GO;
+					end
+					else if (vf_s != vf_ack && voice_ok) begin
+						vf_ack  <= vf_s;
+						tc_code <= 16'h0180;
+						tc_p0   <= (vpart != 2'd0) ? (SLOT_VOICE + {14'b0, vpart}) : {16'b0, SLOT_VOICE};
+						tc_p1   <= v_fetch_off + vbase;
+						tc_p2   <= VOI_BASE;
+						tc_p3   <= {16'b0, v_fetch_len};
+						ret_cmd <= ST_VF_FIN;
 						state   <= ST_CMD_GO;
 					end
 					else if (d_s != d_ack) begin
@@ -503,6 +622,7 @@ always @(posedge clk) begin
 					pb_we     <= 4'h0;
 					path_ok   <= 1;
 					sfx_mode  <= 1;                  // ".msu"
+					sfx_hd    <= 0;
 					sfx_track <= 16'd0;
 					state     <= ST_P_OPEN;
 				end
@@ -540,10 +660,12 @@ always @(posedge clk) begin
 						state   <= ST_WR_START;
 					end
 					else if (res > 16'd1) begin
-						// derived path rejected: remember why, then probe a literal path
-						res_fin <= res;
-						lj      <= 6'd0;
-						state   <= ST_L_CH;
+						// derived path rejected: remember why, try the pack file (an empty .msu cannot be opened),
+						// then probe a literal path
+						res_fin    <= res;
+						lj         <= 6'd0;
+						msu_failed <= 1'b1;
+						state      <= ST_K_P0;
 					end
 					else begin
 						diag_r   <= 4'd0;                 // init OK: silent
@@ -598,8 +720,189 @@ always @(posedge clk) begin
 				begin
 					// size table may not be refreshed by the open: fall back to "large"
 					dsize_r  <= (scan_sz != 32'd0) ? scan_sz : 32'h0FFF_FFFF;
-					state    <= ST_I_END;
+					state    <= ST_K_P0;
 				end
+			// ---- optional pack file "<rom>.msp" (all PCM tracks in one file; no per-track open) ----
+			ST_K_P0:
+				begin
+					sfx_mode  <= 1;
+					sfx_hd    <= 0;
+					sfx_pk    <= 1;
+					sfx_track <= 16'd0;
+					ret_wr    <= ST_K_OPEN;
+					state     <= ST_WR_START;
+				end
+			ST_K_OPEN:
+				begin
+					tc_code <= 16'h0192;
+					tc_p0   <= {16'b0, SLOT_PCM};
+					tc_p1   <= PB_BASE;
+					ret_cmd <= ST_K_OR;
+					state   <= ST_CMD_GO;
+				end
+			ST_K_OR:
+				begin
+					sfx_pk <= 0;
+					if (res > 16'd1) begin                   // no pack file: per-track files as before
+						if (msu_failed) begin msu_failed <= 1'b0; lj <= 6'd0; state <= ST_L_CH; end
+						else state <= ST_I_END;
+					end
+					else begin
+						tc_code <= 16'h0180;                   // read the 8 byte pack header (index entry 0)
+						tc_p0   <= {16'b0, SLOT_PCM};
+						tc_p1   <= 32'd0;
+						tc_p2   <= PB_BASE + 32'h180;
+						tc_p3   <= 32'd128;
+						ret_cmd <= ST_K_MG;
+						state   <= ST_CMD_GO;
+					end
+				end
+			ST_K_MG:
+				begin
+					if (res != 16'd0) begin
+						if (msu_failed) begin msu_failed <= 1'b0; lj <= 6'd0; state <= ST_L_CH; end
+						else state <= ST_I_END;
+					end
+					else begin
+						pb_addr <= 7'd96;
+						state   <= ST_K_MW;
+					end
+				end
+			ST_K_MW: state <= ST_K_ME;
+			ST_K_ME:
+				begin
+					if (msu_failed) begin msu_failed <= 1'b0; lj <= 6'd0; state <= ST_L_CH; end
+					else state <= ST_I_END;
+					if (pb_q == 32'h4D53_5550)      begin pack_ok <= 1; pk_le <= 0; enable_r <= 1'b1; diag_r <= 4'd0; msu_failed <= 1'b0; state <= ST_K_VO; end   // "MSUP", byte 0 in [31:24]
+					else if (pb_q == 32'h5055_534D) begin pack_ok <= 1; pk_le <= 1; enable_r <= 1'b1; diag_r <= 4'd0; msu_failed <= 1'b0; state <= ST_K_VO; end   // byte 0 in [7:0]
+				end
+
+			// open the pack a second time for the voice stream
+			ST_K_VO:
+				begin
+					tc_code <= 16'h0192;
+					tc_p0   <= {16'b0, SLOT_VOICE};
+					tc_p1   <= PB_BASE;
+					ret_cmd <= ST_K_VR;
+					state   <= ST_CMD_GO;
+				end
+			ST_K_VR:
+				begin
+					if (res <= 16'd1) voice_ok <= 1;
+					wpart <= 2'd1;
+					state <= ST_K_Q0;
+				end
+			// further pack parts "<rom>.ms1" .. ".ms3" (each below 2 GiB) in slots SLOT_VOICE+1 ..
+			ST_K_Q0:
+				begin
+					sfx_mode  <= 1;
+					sfx_hd    <= 0;
+					sfx_pk    <= 1;
+					sfx_track <= 16'd0;
+					ret_wr    <= ST_K_QO;
+					state     <= ST_WR_START;
+				end
+			ST_K_QO:
+				begin
+					tc_code <= 16'h0192;
+					tc_p0   <= SLOT_VOICE + {14'b0, wpart};
+					tc_p1   <= PB_BASE;
+					ret_cmd <= ST_K_QR;
+					state   <= ST_CMD_GO;
+				end
+			ST_K_QR:
+				begin
+					if (res <= 16'd1) begin
+						parts_ok[wpart] <= 1'b1;
+						if (wpart != 2'd3) begin
+							wpart <= wpart + 2'd1;
+							state <= ST_K_Q0;
+						end
+						else begin
+							sfx_pk <= 0; wpart <= 0;
+							state  <= ST_I_END;
+						end
+					end
+					else begin
+						sfx_pk <= 0; wpart <= 0;
+						state  <= ST_I_END;
+					end
+				end
+			ST_V_FIN:
+				begin
+					wcnt <= wcnt + 1'd1;
+					if (wcnt == 8'd255) begin
+						vmount_r <= 0;
+						vmode    <= 0;
+						state    <= ST_IDLE;
+					end
+				end
+			ST_VF_FIN:
+				begin
+					verr_r  <= (res != 16'd0);
+					vdone_r <= ~vdone_r;
+					state   <= ST_IDLE;
+				end
+
+			// ---- pack: index entry of the requested track has been read ----
+			ST_K_RES:
+				begin
+					if (vmode && res != 16'd0) begin
+						vmiss_r <= 1; wcnt <= 0; state <= ST_V_FIN;
+					end
+					else if (res != 16'd0) begin
+						// pack read failed: give up the pack, use the per-track .pcm files from now on
+						pack_ok   <= 0;
+						sfx_hd    <= 0;
+						sfx_mode  <= 0;
+						sfx_pk    <= 0;
+						sfx_track <= track_num;
+						ret_wr    <= ST_T_OPEN;
+						state     <= ST_WR_START;
+					end
+					else begin
+						pb_addr <= 7'd96 + {2'b0, pk_tn[3:0], 1'b0};
+						state   <= ST_K_W0;
+					end
+				end
+			ST_K_W0: state <= ST_K_E0;
+			ST_K_E0:
+				begin
+					pk_w0   <= pb_q;
+					pb_addr <= pb_addr + 7'd1;
+					state   <= ST_K_W1;
+				end
+			ST_K_W1: state <= ST_K_E1;
+			ST_K_E1:
+				begin
+					pk_w1 <= pb_q;
+					state <= ST_K_A1;
+				end
+			ST_K_A1:
+				begin
+					wcnt <= 0;
+					if (vmode) begin
+						if (w1d[29:0] == 30'd0 || !parts_ok[w1d[31:30]]) vmiss_r <= 1;
+						else begin
+							vbase   <= w0d;
+							vsize_r <= {2'b00, w1d[29:0]};
+							vpart   <= w1d[31:30];
+						end
+						state <= ST_V_FIN;
+					end
+					else begin
+						if (w1d[29:0] == 30'd0 || !parts_ok[w1d[31:30]]) begin
+							missing_r <= 1;                        // track not in the pack
+						end
+						else begin
+							pk_base <= w0d;
+							asize_r <= {2'b00, w1d[29:0]};
+							pk_part <= w1d[31:30];
+						end
+						state <= ST_T_FIN;
+					end
+				end
+
 			ST_I_END:
 				begin
 					init_done <= 1;
@@ -625,7 +928,7 @@ always @(posedge clk) begin
 			ST_WR_CH:
 				begin
 					pb_addr <= wr_idx[8:2];
-					pb_din  <= sfx_char(sfx_mode, sfx_nd, sfx_dg, wr_j);
+					pb_din  <= sfx_char(sfx_mode, sfx_hd, sfx_pk, wpart, sfx_nd, sfx_dg, wr_j);
 					pb_we   <= 4'b0001 << (wr_idx[1:0] ^ {2{ord_r}});
 					state   <= ST_WR_COMMIT;
 				end
@@ -653,6 +956,7 @@ always @(posedge clk) begin
 					if (res > 16'd1) begin
 						diag_r    <= (res == 16'd3) ? 4'd5 : (res == 16'd4) ? 4'd8 : 4'd9;
 						missing_r <= 1;
+						hd_miss_r <= hd_req;
 						wcnt      <= 0;
 						state     <= ST_T_FIN;
 					end
@@ -674,6 +978,7 @@ always @(posedge clk) begin
 					wcnt <= wcnt + 1'd1;
 					if (wcnt == 8'd255) begin
 						mounting_r <= 0;
+						if (hd_req) missing_r <= 0;              // the heads file is not a game track: no "track missing" status
 						state      <= ST_IDLE;
 					end
 				end

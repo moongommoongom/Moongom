@@ -65,6 +65,16 @@ module psram #(
 
     output reg busy,
 
+    // Second (low priority) port used by the MSU-1 head cache; clk_mem side of a toggle handshake.
+    // The other port's repeated re-reads/re-writes of an unchanged request are the only thing it displaces.
+    input wire m_req_tgl,
+    input wire m_we,
+    input wire m_bank,
+    input wire [21:0] m_addr,
+    input wire [15:0] m_wdata,
+    output reg m_ack_tgl = 0,
+    output reg [15:0] m_rdata = 0,
+
     // PSRAM signals
     output reg [21:16] cram_a,
     inout wire [15:0] cram_dq,
@@ -240,7 +250,27 @@ module psram #(
 
   assign cram_dq = data_out_en ? cram_data : 16'hZZ;
 
+  // ---- arbitration with the second port ----
+  reg m_s1 = 0, m_s2 = 0;
   always @(posedge clk) begin
+    m_s1 <= m_req_tgl;
+    m_s2 <= m_s1;
+  end
+  wire m_pend = (m_s2 != m_ack_tgl);
+  reg m_active = 0;
+
+  wire snes_req = write_en | read_en;
+  wire [42:0] snes_sig = {write_en, read_en, bank_sel, addr, write_high_byte, write_low_byte, data_in};
+  reg [42:0] snes_sig_q = 0;
+  reg sig_same_q = 0;   // registered (1 cycle late) 'request unchanged' flag: keeps the wide compare off the state logic
+  reg first_done = 0;  // the current (unchanged) request has already been served once; repeats may yield
+  wire do_snes = snes_req && !(first_done && m_pend);
+
+  always @(posedge clk) begin
+    snes_sig_q <= snes_sig;
+    sig_same_q <= (snes_sig == snes_sig_q);
+    if (!snes_req || !sig_same_q) first_done <= 0;
+
     if (state != STATE_NONE) begin
       // If we are not at STATE_NONE, increment state
       state <= state + 1;
@@ -267,8 +297,9 @@ module psram #(
         cram_ub_n  <= 1;
         cram_lb_n  <= 1;
 
-        if (write_en) begin
+        if (do_snes && write_en) begin
           // Enter write_init
+          m_active <= 0;
           state <= WRITE_INITIAL_COUNT;
 
           if (bank_sel) cram_ce1_n <= 0;
@@ -292,8 +323,9 @@ module psram #(
 
           // Set busy now instead of waiting for the state change
           busy <= 1;
-        end else if (read_en) begin
+        end else if (do_snes && read_en) begin
           state <= READ_INITIAL_COUNT;
+          m_active <= 0;
 
           // Activate chip
           if (bank_sel) cram_ce1_n <= 0;
@@ -311,6 +343,27 @@ module psram #(
 
           // Set busy now instead of waiting for the state change
           busy <= 1;
+        end else if (m_pend) begin
+          // MSU-1 head cache access
+          m_active <= 1;
+          if (m_bank) cram_ce1_n <= 0;
+          else cram_ce0_n <= 0;
+
+          cram_a <= m_addr[21:16];
+          cram_data <= m_addr[15:0];
+          data_out_en <= 1;
+          cram_adv_n <= 0;
+          cram_ub_n <= 0;
+          cram_lb_n <= 0;
+          busy <= 1;
+
+          if (m_we) begin
+            state <= WRITE_INITIAL_COUNT;
+            cram_we_n <= 0;
+            latched_data_in <= m_wdata;
+          end else begin
+            state <= READ_INITIAL_COUNT;
+          end
         end
       end
 
@@ -344,6 +397,11 @@ module psram #(
 
         // Clear busy now, so we don't have to wait for the state change
         busy <= 0;
+
+        if (m_active) begin
+          m_active <= 0;
+          m_ack_tgl <= ~m_ack_tgl;
+        end else first_done <= snes_req && sig_same_q;
       end
 
       // Reads
@@ -363,8 +421,15 @@ module psram #(
         state <= STATE_NONE;
 
         // Actually read data
-        read_avail <= 1;
-        data_out <= cram_dq;
+        if (m_active) begin
+          m_rdata <= cram_dq;
+          m_active <= 0;
+          m_ack_tgl <= ~m_ack_tgl;
+        end else begin
+          read_avail <= 1;
+          data_out <= cram_dq;
+          first_done <= snes_req && sig_same_q;
+        end
 
         // We're done reading, clean up
         cram_ce0_n <= 1;

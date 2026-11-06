@@ -293,12 +293,12 @@ module core_top (
   //   assign dram_cas_n              = 'h1;
   //   assign dram_we_n               = 'h1;
 
-  assign sram_a                  = 'h0;
-  assign sram_dq                 = {16{1'bZ}};
-  assign sram_oe_n               = 1;
-  assign sram_we_n               = 1;
-  assign sram_ub_n               = 1;
-  assign sram_lb_n               = 1;
+  // external SRAM: MSU-1 track-head cache
+  wire [15:0] msu_sram_do;
+  wire        msu_sram_oe;
+  assign sram_dq                 = msu_sram_oe ? msu_sram_do : {16{1'bZ}};
+  assign sram_ub_n               = 0;
+  assign sram_lb_n               = 0;
 
   assign dbg_tx                  = 1'bZ;
   assign user1                   = 1'bZ;
@@ -358,10 +358,13 @@ module core_top (
           reset_delay <= 32'h100000;
         end
         32'h80: begin
-          cpu_turbo_enabled <= bridge_wr_data[1:0];
+          cpu_turbo_enabled <= {1'b0, bridge_wr_data[0]}; // Off/On only
         end
         32'h84: begin
           gsu_turbo_enabled <= bridge_wr_data[0];
+        end
+        32'h88: begin
+          msu_preload_en <= bridge_wr_data[0];
         end
         32'h100: begin
           multitap_enabled <= bridge_wr_data[0];
@@ -694,6 +697,30 @@ module core_top (
       .write_data(pcm_data)
   );
 
+  // Voice stream data (bridge address 0x6xxxxxxx) -> second msu_audio
+  wire        vpcm_wr;
+  wire [15:0] vpcm_waddr;
+  wire [15:0] vpcm_data;
+
+  data_loader #(
+      .ADDRESS_MASK_UPPER_4(4'h6),
+      .ADDRESS_SIZE(15),
+      .WRITE_MEM_CLOCK_DELAY(7),
+      .OUTPUT_WORD_SIZE(2)
+  ) vpcm_loader (
+      .clk_74a(clk_74a),
+      .clk_memory(clk_sys_21_48),
+
+      .bridge_wr(bridge_wr),
+      .bridge_endian_little(bridge_endian_little),
+      .bridge_addr(bridge_addr),
+      .bridge_wr_data(bridge_wr_data),
+
+      .write_en  (vpcm_wr),
+      .write_addr(vpcm_waddr),
+      .write_data(vpcm_data)
+  );
+
   // MSU data file blocks (bridge address 0x4xxxxxxx, 16KB window) -> msu_data_store
   wire        dw_wr;
   wire [13:0] dw_addr;
@@ -725,9 +752,16 @@ module core_top (
   wire        msu_enable;
   wire        msu_track_mounting;
   wire        msu_track_missing;
+  wire        msu_hd_missing;
   wire [31:0] msu_audio_size;
   wire [31:0] msu_data_size;
+  reg msu_preload_en = 1;   // preload the head of every MSU-1 track at boot
   wire        msu_init_hold;
+  wire        msu_pre_req;
+  wire [15:0] msu_pre_num;
+  wire        msu_pre_flush;
+  wire        msu_pre_active;
+  wire        msu_pre_done;
   wire  [3:0] msu_diag;
   wire [15:0] msu_track_num;
   wire        msu_track_request;
@@ -737,6 +771,15 @@ module core_top (
   wire [15:0] a_fetch_len;
   wire        a_done_tgl;
   wire        a_err;
+
+  wire        v_en, v_mounting, v_missing;
+  wire [31:0] v_size;
+  wire        v_fetch_tgl;
+  wire [31:0] v_fetch_off;
+  wire [15:0] v_fetch_len;
+  wire        v_done_tgl, v_err;
+  wire        v_track_request;
+  wire [15:0] v_track_num;
 
   wire        d_fill_tgl;
   wire [31:0] d_fill_off;
@@ -749,6 +792,7 @@ module core_top (
       .SLOT_ROM(16'd0),
       .SLOT_MSU(16'd20),  // data.json: "MSU Data"
       .SLOT_PCM(16'd21),  // data.json: "MSU Audio"
+      .SLOT_VOICE(16'd22),  // data.json: "MSU Voice"
       .IDX_MSU(8'd2),  // position inside data_slots[]
       .IDX_PCM(8'd3)
   ) msu_bridge (
@@ -774,11 +818,12 @@ module core_top (
       .pb_din(pb_b_din),
       .pb_q(pb_b_q),
 
-      .track_request(msu_track_request),
-      .track_num(msu_track_num),
+      .track_request(msu_track_request | msu_pre_req),
+      .track_num(msu_pre_req ? msu_pre_num : msu_track_num),
       .msu_enable(msu_enable),
       .track_mounting(msu_track_mounting),
       .track_missing(msu_track_missing),
+      .hd_missing(msu_hd_missing),
       .audio_size(msu_audio_size),
       .data_size(msu_data_size),
       .init_hold(msu_init_hold),
@@ -795,10 +840,41 @@ module core_top (
       .d_fill_len(d_fill_len),
       .d_fill_slot(d_fill_slot),
       .d_done_tgl(d_done_tgl),
-      .d_err(d_err)
+      .d_err(d_err),
+
+      .v_req(v_track_request),
+      .v_num(v_track_num),
+      .voice_en(v_en),
+      .v_mounting(v_mounting),
+      .v_missing(v_missing),
+      .v_size(v_size),
+      .v_fetch_tgl(v_fetch_tgl),
+      .v_fetch_off(v_fetch_off),
+      .v_fetch_len(v_fetch_len),
+      .v_done_tgl(v_done_tgl),
+      .v_err(v_err)
   );
 
-  wire msu_hold = msu_init_hold;
+  // ---- MSU-1 boot preload: fill the SRAM head cache before the game starts ----
+  wire msu_preload_en_s;
+  synch_3 msu_pl_s (msu_preload_en, msu_preload_en_s, clk_sys_21_48);
+
+
+  msu_preload msu_preload (
+      .clk(clk_sys_21_48),
+      .init_hold(msu_init_hold),
+      .enable(1'b0),   // boot preload of track heads removed (pack file mode)
+      .mounting(msu_track_mounting),
+      .missing(msu_hd_missing),
+      .done(msu_pre_done),
+      .req(msu_pre_req),
+      .num(msu_pre_num),
+      .flush(msu_pre_flush),
+      .active(msu_pre_active),
+      .pre_mode()
+  );
+
+  wire msu_hold = msu_init_hold | msu_pre_active;
 
   // Port A alternates: even cycles write the save RAM size (data slot index 1),
   // odd cycles present the address msu_bridge wants to read. dt_valid marks the
@@ -1127,6 +1203,17 @@ module core_top (
       .msu_data_size(msu_data_size),
       .msu_track_num(msu_track_num),
       .msu_track_request(msu_track_request),
+      .msu_pre_req(msu_pre_req),
+      .msu_pre_num(msu_pre_num),
+      .msu_pre_flush(msu_pre_flush),
+      .msu_pre_active(msu_pre_active),
+      .msu_pre_done(msu_pre_done),
+      .sram_a(sram_a),
+      .sram_do(msu_sram_do),
+      .sram_oe(msu_sram_oe),
+      .sram_di(sram_dq),
+      .sram_we_n(sram_we_n),
+      .sram_oe_n(sram_oe_n),
 
       .pcm_wr(pcm_wr),
       .pcm_data(pcm_data),
@@ -1135,6 +1222,20 @@ module core_top (
       .a_fetch_len(a_fetch_len),
       .a_done_tgl(a_done_tgl),
       .a_err(a_err),
+
+      .v_en(v_en),
+      .v_mounting(v_mounting),
+      .v_missing(v_missing),
+      .v_size(v_size),
+      .v_pcm_wr(vpcm_wr),
+      .v_pcm_data(vpcm_data),
+      .v_fetch_tgl(v_fetch_tgl),
+      .v_fetch_off(v_fetch_off),
+      .v_fetch_len(v_fetch_len),
+      .v_done_tgl(v_done_tgl),
+      .v_err(v_err),
+      .v_track_request(v_track_request),
+      .v_track_num(v_track_num),
 
       .dw_wr(dw_wr),
       .dw_addr(dw_addr),

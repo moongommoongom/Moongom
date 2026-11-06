@@ -37,6 +37,54 @@ if { [lindex $argv 0] == "ntsc" } {
   set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
   set_parameter -name USE_BSX -entity MAIN_SNES '0
   set_parameter -name USE_MSU -entity MAIN_SNES '1
+} elseif { [lindex $argv 0] == "ntsc_sdd1" } {
+  puts "ntsc_sdd1"
+  set_parameter -name PAL_PLL -entity core_top '0
+
+  set_parameter -name USE_CX4 -entity MAIN_SNES '1
+  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
+  set_parameter -name USE_GSU -entity MAIN_SNES '1
+  set_parameter -name USE_SA1 -entity MAIN_SNES '0
+  set_parameter -name USE_DSPn -entity MAIN_SNES '1
+  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
+  set_parameter -name USE_BSX -entity MAIN_SNES '0
+  set_parameter -name USE_MSU -entity MAIN_SNES '1
+} elseif { [lindex $argv 0] == "pal_sdd1" } {
+  puts "pal_sdd1"
+  set_parameter -name PAL_PLL -entity core_top '1
+
+  set_parameter -name USE_CX4 -entity MAIN_SNES '1
+  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
+  set_parameter -name USE_GSU -entity MAIN_SNES '1
+  set_parameter -name USE_SA1 -entity MAIN_SNES '0
+  set_parameter -name USE_DSPn -entity MAIN_SNES '1
+  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
+  set_parameter -name USE_BSX -entity MAIN_SNES '0
+  set_parameter -name USE_MSU -entity MAIN_SNES '1
+} elseif { [lindex $argv 0] == "ntsc_sa1gsu" } {
+  puts "ntsc_sa1gsu"
+  set_parameter -name PAL_PLL -entity core_top '0
+
+  set_parameter -name USE_CX4 -entity MAIN_SNES '0
+  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
+  set_parameter -name USE_GSU -entity MAIN_SNES '1
+  set_parameter -name USE_SA1 -entity MAIN_SNES '1
+  set_parameter -name USE_DSPn -entity MAIN_SNES '0
+  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
+  set_parameter -name USE_BSX -entity MAIN_SNES '0
+  set_parameter -name USE_MSU -entity MAIN_SNES '1
+} elseif { [lindex $argv 0] == "pal_sa1gsu" } {
+  puts "pal_sa1gsu"
+  set_parameter -name PAL_PLL -entity core_top '1
+
+  set_parameter -name USE_CX4 -entity MAIN_SNES '0
+  set_parameter -name USE_SDD1 -entity MAIN_SNES '1
+  set_parameter -name USE_GSU -entity MAIN_SNES '1
+  set_parameter -name USE_SA1 -entity MAIN_SNES '1
+  set_parameter -name USE_DSPn -entity MAIN_SNES '0
+  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
+  set_parameter -name USE_BSX -entity MAIN_SNES '0
+  set_parameter -name USE_MSU -entity MAIN_SNES '1
 } elseif { [lindex $argv 0] == "ntsc_spc" } {
   puts "NTSC SPC"
   set_parameter -name PAL_PLL -entity core_top '0

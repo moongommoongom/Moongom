@@ -247,12 +247,8 @@ begin
 	begin		
 		-- Turbo should only occur when the cpu is ONLY accessing ram/rom, in otherwords during the main game loop	
 		if TURBO /= "00" and P65_ACCESSED_PERIPHERAL_CNT = x"0" then	
-			-- TURBO = "01": normal turbo (FastROM speed), "10"/"11": max turbo (original, 5 master clocks)
-			if TURBO(1) = '1' then
-				CPU_LAST_CLOCK <= x"4";
-			else
-				CPU_LAST_CLOCK <= x"5";
-			end if;	
+			-- Turbo (On): FastROM speed (6 master clocks). The old "Max" level was removed.
+			CPU_LAST_CLOCK <= x"5";
 		elsif REFRESHED = '1' and CPU_ACTIVEr = '1' then	
 			CPU_LAST_CLOCK <= x"7";	
 		elsif SPEED = FAST or (SPEED = SLOWFAST and MEMSEL = '1') then	
