@@ -25,7 +25,7 @@ one file instead of searching a huge folder. The pack is optional: plain `.pcm` 
 - Tracks are aligned to 4096 bytes. Format v2: 4096 × 8-byte index entries `{offset, size | part<<30}`, entry 0 = `MSUP`, version 2.
 - The summary printed at the end lists music/voice track counts and sizes; a `WARNING` means some tracks did not
   fit and are **not** in the pack (they will not play).
-- The `game.msu` file is not modified. A 0-byte `.msu` is fine.
+- The `game.msu` file is not modified. A 0-byte `.msu` is fine for games that only use the audio tracks; games whose patch streams data from the `.msu` (for example the Chrono Trigger FMV intro patch) need the real `.msu` file.
 
 ## Notes / 참고
 - Test aid: a `maxtrack.txt` next to the exe containing a number N packs only tracks 1..N.

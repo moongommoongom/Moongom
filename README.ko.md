@@ -1,7 +1,7 @@
 # Analogue Pocket용 SNES (MSU-1) — 비공식 수정 빌드
 
 agg23의 openFPGA SNES 코어(openfpga-snes 0.4.4)에 **MSU-1**(CD 음질 음악 트랙과 데이터 스트리밍), CPU 터보(Off/On),
-비프음 제거를 추가한 **비공식 실험용** 수정판입니다. agg23, srg320, MiSTer 프로젝트가 만들었거나 보증하거나 지원하는
+비프음 제거를 추가한 **비공식 실험용** 수정판입니다. **현재 버전: Moongom 0.5** (이전 19번 빌드 계열). agg23, srg320, MiSTer 프로젝트가 만들었거나 보증하거나 지원하는
 것이 아닙니다. 이 빌드의 문제를 그들에게 보고하지 마세요. 이 수정판은 AI의 도움을 받아 제작되었습니다.
 ([English](README.md))
 

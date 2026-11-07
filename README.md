@@ -1,6 +1,7 @@
 # SNES (MSU-1) for Analogue Pocket — unofficial modified build
 
 An **unofficial, experimental, personal fork** of agg23's openFPGA SNES core (openfpga-snes 0.4.4).
+**Current version: Moongom 0.5** (the former build 19 line).
 It is **not** made, endorsed or supported by agg23, srg320 or the MiSTer project, and it is **not** a
 pull request or proposal to upstream. Please do **not** report problems with this build to them;
 open an issue here instead.
