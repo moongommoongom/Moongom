@@ -47,7 +47,7 @@ You must supply your own game files. Put them next to the ROM, with matching nam
 
 or, packed with MSUPackMaker:  `game.sfc   game.msp   game.ms1 ...`
 
-### Pack files (optional)
+### Pack files
 For games with thousands of `.pcm` files use [MSUPackMaker](docs/MSUPackMaker.md) to build `game.msp` (music) and `game.ms1`… (voice). No 4 GiB limit; music and voice play in parallel.
 
 PCM format: header `MSU1`, 32-bit loop point, then 16-bit little-endian stereo at 44.1 kHz.
