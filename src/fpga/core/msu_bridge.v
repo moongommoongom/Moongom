@@ -261,7 +261,7 @@ reg [15:0] res = 0;
 reg        rn_d = 0;
 reg        init_done = 0;
 reg        path_ok = 0;
-reg [29:0] init_to = 0;          // init watchdog (clk_74a cycles)
+reg [30:0] init_to = 0;          // init watchdog (clk_74a cycles)
 reg        req_seen = 0;
 reg        a_ack = 0, d_ack = 0;
 
@@ -399,7 +399,7 @@ always @(posedge clk) begin
 		init_done <= 0;
 		state     <= ST_IDLE;
 	end
-	else if (hold_r && init_to == 30'd1113750000) begin   // about 15 s: a big folder makes every file open slow
+	else if (hold_r && init_to == 31'd1113750000) begin   // about 15 s: a big folder makes every file open slow
 		// Pocket never answered: give up, run without MSU-1
 		diag_r    <= 4'd7;
 		hold_r    <= 0;

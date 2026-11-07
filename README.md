@@ -60,7 +60,7 @@ for SA-1 and S-DD1 games. Some games may freeze with turbo enabled; leave it Off
 - Experimental. Tested mainly on Tales of Phantasia and Final Fantasy VI MSU-1 packs; not every game is tested.
 - The CPU Turbo freezing issue has not been fully root-caused.
 - SA-1 + GSU + S-DD1 and CX4 + DSP-n cannot share one bitstream (they do not fit the FPGA together), so they are separate bitstreams in the same core folder.
-- Timing is not clean in the latest builds: main-clock setup slack is slightly negative (about −0.1 to −0.9 ns, worst in the CX4/DSP PAL build); hold is met. Not all variants are verified on hardware.
+- Timing is not fully clean in the latest builds: main-clock setup slack is slightly negative in NTSC main (−0.14 ns), CX4/DSP NTSC (−0.81), CX4/DSP PAL (−0.27) and SPC (−0.69); PAL main meets timing (+0.17). Hold is met everywhere. Not all variants are verified on hardware.
 - In some folders with thousands of files MSU-1 did not start while the same files worked elsewhere (cause not found). Packs (`.msp`) or a separate folder helped.
 
 ## License and source
