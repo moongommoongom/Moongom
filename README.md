@@ -45,7 +45,7 @@ You must supply your own game files. Put them next to the ROM, with matching nam
 
     game.sfc   game.msu (may be empty)   game-1.pcm   game-2.pcm ...
 
-or, packed with MSUPackMaker:  `game.sfc   game.msp   game.ms1 ...`
+and, packed with MSUPackMaker:  `game.sfc   game.msp   game.ms1 ...`
 
 ### Pack files
 For games with thousands of `.pcm` files use [MSUPackMaker](docs/MSUPackMaker.md) to build `game.msp` (music) and `game.ms1`… (voice). No 4 GiB limit; music and voice play in parallel.
