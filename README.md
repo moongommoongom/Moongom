@@ -34,7 +34,7 @@ picks one (all chips do not fit the FPGA together, ~96% ALM full):
 NTSC and PAL variants are chosen from the ROM region. The automatic selection (`loader.bin`) is not yet verified on all games.
 
 ## Download / Install
-Download `Moongom_SNES_MSU1_core_r1.zip` from the [Releases](https://github.com/moongommoongom/Moongom/releases) page (the repository holds source only, no `.rev` bitstreams). Copy the `Cores/Moongom.SNES_MSU` folder (and remove any older `Moongom.SNES_MSU*` folders) to the `Cores/` folder of your Pocket SD card. You may remove the
+Download `Moongom_SNES_MSU1_core_r1.zip` from the [Releases](https://github.com/moongommoongom/Moongom/releases) page (the repository holds source only, no `.rev` bitstreams). Copy the `Cores/Moongom.SNES_MSU` folder (and remove any older `Moongom.SNES_MSU*` folders) to the root of your Pocket SD card. You may remove the
 original `agg23.SNES` core or keep it side by side.
 
 See also: [한국어 README](README.ko.md).
