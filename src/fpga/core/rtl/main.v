@@ -128,6 +128,7 @@ module main #(
     output        MSU_DATA_SEEK,
     output        MSU_DATA_REQ,
     input         MSU_ENABLE,
+    input         MSU_STALL,      // pause the whole SNES until the data block is cached
 
     output [15:0] AUDIO_L,
     output [15:0] AUDIO_R
@@ -157,7 +158,7 @@ module main #(
       .dspclk(ACLK),
 
       .rst_n (RESET_N),
-      .enable(1),
+      .enable(~MSU_STALL),
 
       .ca(CA),
       .cpurd_n(CPURD_N),

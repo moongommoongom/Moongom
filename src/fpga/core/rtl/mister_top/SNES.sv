@@ -375,6 +375,7 @@ module MAIN_SNES (
   wire        msu_data_ack;
   wire        msu_data_seek;
   wire        msu_data_req;
+  wire        msu_stall;
   wire [15:0] msu_l;
   wire [15:0] msu_r;
   wire [15:0] msu_vl;
@@ -533,6 +534,7 @@ module MAIN_SNES (
       .MSU_DATA_ACK(msu_data_ack),
       .MSU_DATA_SEEK(msu_data_seek),
       .MSU_DATA_REQ(msu_data_req),
+      .MSU_STALL(msu_stall),
       .MSU_ENABLE(msu_enable),
 
       .AUDIO_L(main_audio_l),
@@ -1193,6 +1195,7 @@ module MAIN_SNES (
           .data_size(msu_data_size),
 
           .rd_next(msu_data_req),
+          .stall(msu_stall),
           .rd_seek(msu_data_seek),
           .rd_seek_done(msu_data_ack),
           .rd_addr(msu_data_addr),
@@ -1246,6 +1249,7 @@ module MAIN_SNES (
       assign d_fill_off = 32'd0;
       assign d_fill_len = 16'd0;
       assign d_fill_slot = 2'd0;
+      assign msu_stall = 1'b0;
     end
   endgenerate
 

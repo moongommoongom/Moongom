@@ -21,6 +21,7 @@ module msu_data_store
 	input      [31:0] data_size,       // bytes, 0 = unknown
 
 	input             rd_next,         // unused: look-ahead is automatic
+	output            stall,           // 1 = pause the SNES until the read block is resident
 	input             rd_seek,
 	output reg        rd_seek_done,
 	input      [31:0] rd_addr,
@@ -93,6 +94,44 @@ wire [19:0] sel_blk  = need0 ? b0 : (need1 ? b1 : b2);
 wire  [1:0] sel_slot = sel_blk[1:0];
 wire [31:0] sel_off  = {sel_blk, 12'b0};
 wire [31:0] sel_left = data_size - sel_off;
+
+// ---------------------------------------------------------------------------
+// Stall: once the game has completed a seek (it is streaming from the data file),
+// pause the SNES whenever the block holding the read pointer is not resident yet,
+// instead of returning stale cache bytes.  A time-out (~0.4 s at 21.48 MHz) releases
+// the pause if the SD card never delivers the block (fill error), so the game cannot
+// hang; the release is held until the pointer moves to another block.
+// ---------------------------------------------------------------------------
+reg        armed = 0;
+reg        stall_r = 0;
+reg        gave_up = 0;
+reg [23:0] stall_cnt = 0;
+reg [19:0] b0_prev = 0;
+
+wire stall_raw = enable && armed && !pending && in0 && !v0 && !gave_up;
+assign stall = stall_r;
+
+always @(posedge clk_sys) begin
+	stall_r <= stall_raw;
+	b0_prev <= b0;
+
+	if (reset | ~enable) begin
+		armed     <= 0;
+		gave_up   <= 0;
+		stall_cnt <= 0;
+	end
+	else begin
+		if (pending && cur_ok) armed <= 1;
+
+		if (b0 != b0_prev) gave_up <= 0;
+
+		if (!stall_raw) stall_cnt <= 0;
+		else begin
+			stall_cnt <= stall_cnt + 1'd1;
+			if (stall_cnt[23]) gave_up <= 1;
+		end
+	end
+end
 
 initial begin
 	rd_seek_done = 1;
