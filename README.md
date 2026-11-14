@@ -4,6 +4,7 @@
 
 - **Save states:** save with the Analogue button + Up; load from the Memories menu. MSU-1 music state (track, position, volume, repeat) is stored in the save state.
 - **Not included in 0.8:** Super Scope / Justifier (light gun), BSX, SPC7110, Analogizer, beeper.
+- **MSUPackMaker:** `tools/MSUPackMaker.exe` (source in `tools/msupack/`) packs thousands of `.pcm` tracks into one `.msp` (music) and `.ms1` (voice) pack. No 4 GiB limit; music and voice play in parallel. Usage: [`docs/MSUPackMaker.md`](docs/MSUPackMaker.md) ([한국어](docs/MSUPackMaker.ko.md)).
 - 7 bitstreams in one core folder (NTSC/PAL × main, S-DD1, SA-1, Cx4) chosen automatically by the loader from the ROM header.
 - Unofficial; not made or supported by the upstream authors. Developed with heavy help from an AI assistant (Claude, Anthropic) and directed/tested by the owner. Hardware-tested mainly on the NTSC build; the others are less tested.
 - **No ROMs, BIOS, DSP firmware dumps or MSU-1 audio are included; supply your own game files.** (`.mif` chip data under `rtl/upstream/chip/` is carried over unchanged from upstream.)
