@@ -1,3 +1,16 @@
+# SNES MSU-1 + Save States 0.8 (`Moongom.SNES_MSU_SS`)
+
+**Version 0.8** is a new line based on the experimental save-state SNES core (drizzt/openfpga-snes, `agg23.SNES_experimental`) with MSU-1 BGM and voice packs added. Source: [`snes_msu_ss/`](snes_msu_ss/). Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only. The older 0.5 text below describes the previous line (`src/`).
+
+- **Save states:** save with the Analogue button + Up; load from the Memories menu. MSU-1 music state (track, position, volume, repeat) is stored in the save state.
+- **Not included in 0.8:** Super Scope / Justifier (light gun), BSX, SPC7110, Analogizer, beeper.
+- 7 bitstreams in one core folder (NTSC/PAL × main, S-DD1, SA-1, Cx4) chosen automatically by the loader from the ROM header.
+- Unofficial; not made or supported by the upstream authors. Developed with heavy help from an AI assistant (Claude, Anthropic) and directed/tested by the owner. Hardware-tested mainly on the NTSC build; the others are less tested.
+- **No ROMs, BIOS, DSP firmware dumps or MSU-1 audio are included; supply your own game files.** (`.mif` chip data under `rtl/upstream/chip/` is carried over unchanged from upstream.)
+- GPLv3, see `LICENSE` and `CREDITS.md`. Build: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>` inside `snes_msu_ss/`, then bit-reverse the `.rbf` to `.rev`.
+
+---
+
 # SNES (MSU-1) for Analogue Pocket — unofficial modified build
 
 An **unofficial, experimental, personal fork** of agg23's openFPGA SNES core (openfpga-snes 0.4.4).

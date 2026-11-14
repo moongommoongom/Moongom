@@ -1,0 +1,227 @@
+{
+  "interact": {
+    "magic": "APF_VER_1",
+    "variables": [
+      {
+        "name": "Reset Core",
+        "id": 10,
+        "type": "action",
+        "enabled": true,
+        "address": "0x50",
+        "value": 1
+      },
+      {
+        "name": "CPU Turbo",
+        "id": 15,
+        "type": "check",
+        "enabled": true,
+        "address": "0x80",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "SuperFX Turbo",
+        "id": 16,
+        "type": "check",
+        "enabled": true,
+        "address": "0x84",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Swap P1 & P2",
+        "id": 18,
+        "type": "check",
+        "enabled": true,
+        "address": "0x90",
+        "persist": false,
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Use Multitap",
+        "id": 20,
+        "type": "check",
+        "enabled": true,
+        "address": "0x100",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Controller Options",
+        "id": 30,
+        "type": "list",
+        "enabled": true,
+        "address": "0x104",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "options": [
+          {
+            "name": "Gamepad",
+            "value": 0
+          },
+          {
+            "name": "Super Scope",
+            "value": 1
+          },
+          {
+            "name": "Justifier",
+            "value": 3
+          },
+          {
+            "name": "Mouse",
+            "value": 4
+          }
+        ]
+      },
+      {
+        "name": "D-Pad Aim Speed",
+        "id": 34,
+        "type": "slider_u32",
+        "enabled": true,
+        "address": "0x108",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 3,
+        "graphical": {
+          "signed": false,
+          "min": 1,
+          "max": 10,
+          "adjust_small": 1,
+          "adjust_large": 4
+        }
+      },
+      {
+        "name": "Joy Deadzone",
+        "id": 35,
+        "type": "slider_u32",
+        "enabled": true,
+        "address": "0x0000010C",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "graphical": {
+          "signed": false,
+          "min": 0,
+          "max": 64,
+          "adjust_small": 1,
+          "adjust_large": 10
+        }
+      },
+      {
+        "name": "Square Pixels",
+        "id": 42,
+        "type": "check",
+        "enabled": true,
+        "address": "0x200",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Pseudo Transparency",
+        "id": 41,
+        "type": "check",
+        "enabled": true,
+        "address": "0x204",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 1,
+        "value": 1
+      },
+      {
+        "name": "Sync dejitter",
+        "id": 53,
+        "type": "check",
+        "enabled": true,
+        "address": "0x208",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "SNAC Adapter",
+        "id": 50,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF7000000",
+        "defaultval": "0x00",
+        "mask": "0xFFFFFFE0",
+        "options": [
+          { "value": "0x00", "name": "None" },
+          { "value": "0x01", "name": "DB15 Normal" },
+          { "value": "0x02", "name": "NES" },
+          { "value": "0x03", "name": "SNES" },
+          { "value": "0x04", "name": "PCE 2BTN" },
+          { "value": "0x05", "name": "PCE 6BTN" },
+          { "value": "0x06", "name": "PCE Multitap" },
+          { "value": "0x09", "name": "DB15 Fast" },
+          { "value": "0x0B", "name": "SNES A,B<->X,Y" },
+          { "value": "0x11", "name": "PSX (Digital DPAD)" },
+          { "value": "0x13", "name": "PSX (Analog DPAD)" },
+          { "value": "0x14", "name": "PSX (P1 Lightgun)" }
+        ]
+      },
+      {
+        "name": "SNAC Controller Assignment",
+        "id": 51,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF7000000",
+        "defaultval": "0x00",
+        "mask": "0xFFFFFC3F",
+        "options": [
+          { "value": "0x0", "name": "SNAC -> P1" },
+          { "value": "0x40", "name": "SNAC -> P2" },
+          { "value": "0x80", "name": "SNAC P1,P2->P1,P2" },
+          { "value": "0xC0", "name": "SNAC P1,P2->P2,P1" },
+          { "value": "0x200", "name": "SNAC P1,P2->P3,P4" },
+          { "value": "0x100", "name": "SNAC P1-P4->P1-P4" },
+          { "value": "0x140", "name": "SNAC P1-P2->P1-P2" },
+          { "value": "0x180", "name": "SNAC P1-P2->P3-P4" }
+        ]
+      },
+      {
+        "name": "Analogizer Video Out",
+        "id": 52,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF7000000",
+        "defaultval": "0x0",
+        "mask": "0xFFFFC3FF",
+        "options": [
+          { "value": "0x0", "name": "RGBS" },
+          { "value": "0x0400", "name": "RGsB" },
+          { "value": "0x0800", "name": "YPbPr" },
+          { "value": "0x0C00", "name": "Y/C NTSC" },
+          { "value": "0x1000", "name": "Y/C PAL" },
+          { "value": "0x1400", "name": "SC 0% RGBHV" },
+          { "value": "0x1800", "name": "SC 50% RGBHV" },
+          { "value": "0x1C00", "name": "SC HQ2x RGBHV" },
+          { "value": "0x2000", "name": "RGBS,Pocket OFF" },
+          { "value": "0x2400", "name": "RGsB,Pocket OFF" },
+          { "value": "0x2800", "name": "YPbPr,Pocket OFF" },
+          { "value": "0x2C00", "name": "Y/C NTSC,Pocket OFF" },
+          { "value": "0x3000", "name": "Y/C PAL,Pocket OFF" },
+          { "value": "0x3400", "name": "SC 0% RGBHV,Pocket OFF" },
+          { "value": "0x3800", "name": "SC 50% RGBHV,Pocket OFF" },
+          { "value": "0x3C00", "name": "SC HQ2x RGBHV,Pocket OFF" }
+        ]
+      }
+    ],
+    "messages": []
+  }
+}

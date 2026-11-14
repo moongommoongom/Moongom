@@ -1,0 +1,1810 @@
+//
+// User core top-level
+//
+// Instantiated by the real top-level: apf_top
+//
+
+`default_nettype none
+
+module core_top (
+
+    //
+    // physical connections
+    //
+
+    ///////////////////////////////////////////////////
+    // clock inputs 74.25mhz. not phase aligned, so treat these domains as asynchronous
+
+    input wire clk_74a,  // mainclk1
+    input wire clk_74b,  // mainclk1 
+
+    ///////////////////////////////////////////////////
+    // cartridge interface
+    // switches between 3.3v and 5v mechanically
+    // output enable for multibit translators controlled by pic32
+
+    // GBA AD[15:8]
+    inout  wire [7:0] cart_tran_bank2,
+    output wire       cart_tran_bank2_dir,
+
+    // GBA AD[7:0]
+    inout  wire [7:0] cart_tran_bank3,
+    output wire       cart_tran_bank3_dir,
+
+    // GBA A[23:16]
+    inout  wire [7:0] cart_tran_bank1,
+    output wire       cart_tran_bank1_dir,
+
+    // GBA [7] PHI#
+    // GBA [6] WR#
+    // GBA [5] RD#
+    // GBA [4] CS1#/CS#
+    //     [3:0] unwired
+    inout  wire [7:4] cart_tran_bank0,
+    output wire       cart_tran_bank0_dir,
+
+    // GBA CS2#/RES#
+    inout  wire cart_tran_pin30,
+    output wire cart_tran_pin30_dir,
+    // when GBC cart is inserted, this signal when low or weak will pull GBC /RES low with a special circuit
+    // the goal is that when unconfigured, the FPGA weak pullups won't interfere.
+    // thus, if GBC cart is inserted, FPGA must drive this high in order to let the level translators
+    // and general IO drive this pin.
+    output wire cart_pin30_pwroff_reset,
+
+    // GBA IRQ/DRQ
+    inout  wire cart_tran_pin31,
+    output wire cart_tran_pin31_dir,
+
+    // infrared
+    input  wire port_ir_rx,
+    output wire port_ir_tx,
+    output wire port_ir_rx_disable,
+
+    // GBA link port
+    inout  wire port_tran_si,
+    output wire port_tran_si_dir,
+    inout  wire port_tran_so,
+    output wire port_tran_so_dir,
+    inout  wire port_tran_sck,
+    output wire port_tran_sck_dir,
+    inout  wire port_tran_sd,
+    output wire port_tran_sd_dir,
+
+    ///////////////////////////////////////////////////
+    // cellular psram 0 and 1, two chips (64mbit x2 dual die per chip)
+
+    output wire [21:16] cram0_a,
+    inout  wire [ 15:0] cram0_dq,
+    input  wire         cram0_wait,
+    output wire         cram0_clk,
+    output wire         cram0_adv_n,
+    output wire         cram0_cre,
+    output wire         cram0_ce0_n,
+    output wire         cram0_ce1_n,
+    output wire         cram0_oe_n,
+    output wire         cram0_we_n,
+    output wire         cram0_ub_n,
+    output wire         cram0_lb_n,
+
+    output wire [21:16] cram1_a,
+    inout  wire [ 15:0] cram1_dq,
+    input  wire         cram1_wait,
+    output wire         cram1_clk,
+    output wire         cram1_adv_n,
+    output wire         cram1_cre,
+    output wire         cram1_ce0_n,
+    output wire         cram1_ce1_n,
+    output wire         cram1_oe_n,
+    output wire         cram1_we_n,
+    output wire         cram1_ub_n,
+    output wire         cram1_lb_n,
+
+    ///////////////////////////////////////////////////
+    // sdram, 512mbit 16bit
+
+    output wire [12:0] dram_a,
+    output wire [ 1:0] dram_ba,
+    inout  wire [15:0] dram_dq,
+    output wire [ 1:0] dram_dqm,
+    output wire        dram_clk,
+    output wire        dram_cke,
+    output wire        dram_ras_n,
+    output wire        dram_cas_n,
+    output wire        dram_we_n,
+
+    ///////////////////////////////////////////////////
+    // sram, 1mbit 16bit
+
+    output wire [16:0] sram_a,
+    inout  wire [15:0] sram_dq,
+    output wire        sram_oe_n,
+    output wire        sram_we_n,
+    output wire        sram_ub_n,
+    output wire        sram_lb_n,
+
+    ///////////////////////////////////////////////////
+    // vblank driven by dock for sync in a certain mode
+
+    input wire vblank,
+
+    ///////////////////////////////////////////////////
+    // i/o to 6515D breakout usb uart
+
+    output wire dbg_tx,
+    input  wire dbg_rx,
+
+    ///////////////////////////////////////////////////
+    // i/o pads near jtag connector user can solder to
+
+    output wire user1,
+    input  wire user2,
+
+    ///////////////////////////////////////////////////
+    // RFU internal i2c bus 
+
+    inout  wire aux_sda,
+    output wire aux_scl,
+
+    ///////////////////////////////////////////////////
+    // RFU, do not use
+    output wire vpll_feed,
+
+
+    //
+    // logical connections
+    //
+
+    ///////////////////////////////////////////////////
+    // video, audio output to scaler
+    output wire [23:0] video_rgb,
+    output wire        video_rgb_clock,
+    output wire        video_rgb_clock_90,
+    output wire        video_de,
+    output wire        video_skip,
+    output wire        video_vs,
+    output wire        video_hs,
+
+    output wire audio_mclk,
+    input  wire audio_adc,
+    output wire audio_dac,
+    output wire audio_lrck,
+
+    ///////////////////////////////////////////////////
+    // bridge bus connection
+    // synchronous to clk_74a
+    output wire        bridge_endian_little,
+    input  wire [31:0] bridge_addr,
+    input  wire        bridge_rd,
+    output reg  [31:0] bridge_rd_data,
+    input  wire        bridge_wr,
+    input  wire [31:0] bridge_wr_data,
+
+    ///////////////////////////////////////////////////
+    // controller data
+    // 
+    // key bitmap:
+    //   [0]    dpad_up
+    //   [1]    dpad_down
+    //   [2]    dpad_left
+    //   [3]    dpad_right
+    //   [4]    face_a
+    //   [5]    face_b
+    //   [6]    face_x
+    //   [7]    face_y
+    //   [8]    trig_l1
+    //   [9]    trig_r1
+    //   [10]   trig_l2
+    //   [11]   trig_r2
+    //   [12]   trig_l3
+    //   [13]   trig_r3
+    //   [14]   face_select
+    //   [15]   face_start
+    // joy values - unsigned
+    //   [ 7: 0] lstick_x
+    //   [15: 8] lstick_y
+    //   [23:16] rstick_x
+    //   [31:24] rstick_y
+    // trigger values - unsigned
+    //   [ 7: 0] ltrig
+    //   [15: 8] rtrig
+    //
+    input wire [15:0] cont1_key,
+    input wire [15:0] cont2_key,
+    input wire [15:0] cont3_key,
+    input wire [15:0] cont4_key,
+    input wire [31:0] cont1_joy,
+    input wire [31:0] cont2_joy,
+    input wire [31:0] cont3_joy,
+    input wire [31:0] cont4_joy,
+    input wire [15:0] cont1_trig,
+    input wire [15:0] cont2_trig,
+    input wire [15:0] cont3_trig,
+    input wire [15:0] cont4_trig
+
+);
+
+  parameter USE_SS = 1'b0;
+  parameter USE_ANALOGIZER = 1'b1;
+
+  // Bridge region carrying the savestate blob
+  localparam [3:0] SS_REGION = 4'h4;
+
+  // not using the IR port, so turn off both the LED, and
+  // disable the receive circuit to save power
+  assign port_ir_tx              = 0;
+  assign port_ir_rx_disable      = 1;
+
+  // bridge endianness
+  assign bridge_endian_little    = 0;
+
+  // The cart port is either driven by the Analogizer adapter (USE_ANALOGIZER)
+  // or tied off as unused; see the analogizer generate block below.
+
+  // link port is input only
+  assign port_tran_so            = 1'bz;
+  assign port_tran_so_dir        = 1'b0;  // SO is output only
+  assign port_tran_si            = 1'bz;
+  assign port_tran_si_dir        = 1'b0;  // SI is input only
+  assign port_tran_sck           = 1'bz;
+  assign port_tran_sck_dir       = 1'b0;  // clock direction can change
+  assign port_tran_sd            = 1'bz;
+  assign port_tran_sd_dir        = 1'b0;  // SD is input and not used
+
+  // tie off the rest of the pins we are not using
+  //   assign cram0_a                 = 'h0;
+  //   assign cram0_dq                = {16{1'bZ}};
+  //   assign cram0_clk               = 0;
+  //   assign cram0_adv_n             = 1;
+  //   assign cram0_cre               = 0;
+  //   assign cram0_ce0_n             = 1;
+  //   assign cram0_ce1_n             = 1;
+  //   assign cram0_oe_n              = 1;
+  //   assign cram0_we_n              = 1;
+  //   assign cram0_ub_n              = 1;
+  //   assign cram0_lb_n              = 1;
+
+  //   assign cram1_a                 = 'h0;
+  //   assign cram1_dq                = {16{1'bZ}};
+  //   assign cram1_clk               = 0;
+  //   assign cram1_adv_n             = 1;
+  //   assign cram1_cre               = 0;
+  //   assign cram1_ce0_n             = 1;
+  //   assign cram1_ce1_n             = 1;
+  //   assign cram1_oe_n              = 1;
+  //   assign cram1_we_n              = 1;
+  //   assign cram1_ub_n              = 1;
+  //   assign cram1_lb_n              = 1;
+
+  //   assign dram_a                  = 'h0;
+  //   assign dram_ba                 = 'h0;
+  //   assign dram_dq                 = {16{1'bZ}};
+  //   assign dram_dqm                = 'h0;
+  //   assign dram_clk                = 'h0;
+  //   assign dram_cke                = 'h0;
+  //   assign dram_ras_n              = 'h1;
+  //   assign dram_cas_n              = 'h1;
+  //   assign dram_we_n               = 'h1;
+
+  assign dbg_tx                  = 1'bZ;
+  assign user1                   = 1'bZ;
+  assign aux_scl                 = 1'bZ;
+  assign vpll_feed               = 1'bZ;
+
+
+  // for bridge write data, we just broadcast it to all bus devices
+  // for bridge read data, we have to mux it
+  // add your own devices here
+  always @(*) begin
+    casex (bridge_addr)
+      default: begin
+        bridge_rd_data <= 0;
+      end
+      32'h10xxxxxx: begin
+        // example
+        bridge_rd_data <= 0;
+      end
+      32'hF7000000: begin
+        bridge_rd_data <= {18'h0, analogizer_settings};
+      end
+      32'hF8xxxxxx: begin
+        bridge_rd_data <= cmd_bridge_rd_data;
+      end
+    endcase
+
+    if (bridge_addr[31:28] == 4'h2) begin
+      bridge_rd_data <= sd_read_data;
+    end
+
+    if (bridge_addr[31:28] == SS_REGION) begin
+      bridge_rd_data <= ss_read_data;
+    end
+
+    if (bridge_addr[31:28] == 4'h5) begin
+      bridge_rd_data <= pb_a_q;
+    end
+  end
+
+  always @(posedge clk_74a) begin
+    if (reset_delay > 0) begin
+      reset_delay <= reset_delay - 1;
+    end
+
+    if (bridge_wr) begin
+      casex (bridge_addr)
+        32'h0: begin
+          ioctl_download <= bridge_wr_data[0];
+        end
+        32'h4: begin
+          rom_size <= bridge_wr_data[3:0];
+        end
+        32'h8: begin
+          rom_type <= bridge_wr_data[7:0];
+        end
+        32'hC: begin
+          ram_size <= bridge_wr_data[3:0];
+        end
+        32'h10: begin
+          PAL <= bridge_wr_data[0];
+        end
+        32'h50: begin
+          reset_delay <= 32'h100000;
+        end
+        32'h80: begin
+          cpu_turbo_enabled <= bridge_wr_data[0];
+        end
+        32'h84: begin
+          gsu_turbo_enabled <= bridge_wr_data[0];
+        end
+        32'h90: begin
+          swap_controllers <= bridge_wr_data[0];
+        end
+        32'h100: begin
+          multitap_enabled <= bridge_wr_data[0];
+        end
+        32'h104: begin
+          lightgun_enabled <= bridge_wr_data[0];
+          lightgun_type    <= bridge_wr_data[1];
+          mouse_enabled    <= bridge_wr_data[2];
+        end
+        32'h00000108: begin
+          dpad_aim_speed <= bridge_wr_data[7:0];
+        end
+        32'h0000010C: begin
+          joystick_deadzone <= bridge_wr_data[7:0];
+        end
+        32'h200: begin
+          use_square_pixels <= bridge_wr_data[0];
+        end
+        32'h204: begin
+          blend_enabled <= bridge_wr_data[0];
+        end
+        32'h208: begin
+          sync_dejitter <= bridge_wr_data[0];
+        end
+        32'hF7000000: begin
+          analogizer_settings <= bridge_wr_data[13:0];
+        end
+      endcase
+    end
+  end
+
+
+  //
+  // host/target command handler
+  //
+  wire reset_n;  // driven by host commands, can be used as core-wide reset
+  wire [31:0] cmd_bridge_rd_data;
+
+  // bridge host commands
+  // synchronous to clk_74a
+  wire status_boot_done = pll_core_locked;
+  wire status_setup_done = pll_core_locked;  // rising edge triggers a target command
+  wire status_running = reset_n;  // we are running as soon as reset_n goes high
+
+  wire dataslot_requestread;
+  wire [15:0] dataslot_requestread_id;
+  wire dataslot_requestread_ack = 1;
+  wire dataslot_requestread_ok = 1;
+
+  wire dataslot_requestwrite;
+  wire [15:0] dataslot_requestwrite_id;
+  wire dataslot_requestwrite_ack = 1;
+  wire dataslot_requestwrite_ok = 1;
+
+  wire dataslot_allcomplete;
+
+  // Blob = fixed sections (0x44000) + cart RAM (1KB << RAMSZ), RAMSZ clamped so
+  // a bad header cannot oversize it
+  localparam [31:0] SS_BLOB_FIXED = 32'h44000;
+  localparam [3:0] SS_RAMSZ_MAX = 4'd8;  // SA-1 BWRAM 256KB, largest cart RAM
+
+  wire [3:0] ss_ramsz = ram_size > SS_RAMSZ_MAX ? SS_RAMSZ_MAX : ram_size;
+  wire [31:0] ss_blob_size = SS_BLOB_FIXED + (ss_ramsz != 0 ? (32'd1024 << ss_ramsz) : 32'd0);
+
+  // ss_avail is low for carts without savestates (e.g. CX4 on the SA-1 build)
+  wire savestate_supported = USE_SS & ss_avail;
+  wire [31:0] savestate_addr = {SS_REGION, 28'h0};
+  wire [31:0] savestate_size = ss_blob_size;
+  wire [31:0] savestate_maxloadsize = ss_blob_size;
+
+  wire savestate_start;
+  wire savestate_start_ack;
+  wire savestate_start_busy;
+  wire savestate_start_ok;
+  wire savestate_start_err;
+
+  wire savestate_load;
+  wire savestate_load_ack;
+  wire savestate_load_busy;
+  wire savestate_load_ok;
+  wire savestate_load_err;
+
+  wire osnotify_inmenu;
+
+  wire [31:0] rtc_date;
+  wire [31:0] rtc_time;
+
+  // bridge target commands
+  // synchronous to clk_74a
+
+
+  // user target command channel (msu_bridge -> core_bridge_cmd)
+  wire        tc_req;
+  wire [15:0] tc_code;
+  wire [31:0] tc_p0, tc_p1, tc_p2, tc_p3;
+  wire        tc_done;
+  wire [15:0] tc_result;
+
+  // bridge data slot access
+
+  reg [9:0] datatable_addr;
+  reg datatable_wren;
+  reg [31:0] datatable_data;
+  wire [31:0] datatable_q;
+
+  core_bridge_cmd icb (
+
+      .clk    (clk_74a),
+      .reset_n(reset_n),
+
+      .bridge_endian_little(bridge_endian_little),
+      .bridge_addr         (bridge_addr),
+      .bridge_rd           (bridge_rd),
+      .bridge_rd_data      (cmd_bridge_rd_data),
+      .bridge_wr           (bridge_wr),
+      .bridge_wr_data      (bridge_wr_data),
+
+      .status_boot_done (status_boot_done),
+      .status_setup_done(status_setup_done),
+      .status_running   (status_running),
+
+      .dataslot_requestread    (dataslot_requestread),
+      .dataslot_requestread_id (dataslot_requestread_id),
+      .dataslot_requestread_ack(dataslot_requestread_ack),
+      .dataslot_requestread_ok (dataslot_requestread_ok),
+
+      .dataslot_requestwrite    (dataslot_requestwrite),
+      .dataslot_requestwrite_id (dataslot_requestwrite_id),
+      .dataslot_requestwrite_ack(dataslot_requestwrite_ack),
+      .dataslot_requestwrite_ok (dataslot_requestwrite_ok),
+
+      .dataslot_allcomplete(dataslot_allcomplete),
+
+      .rtc_date_bcd(rtc_date),
+      .rtc_time_bcd(rtc_time),
+
+      .savestate_supported  (savestate_supported),
+      .savestate_addr       (savestate_addr),
+      .savestate_size       (savestate_size),
+      .savestate_maxloadsize(savestate_maxloadsize),
+
+      .savestate_start     (savestate_start),
+      .savestate_start_ack (savestate_start_ack),
+      .savestate_start_busy(savestate_start_busy),
+      .savestate_start_ok  (savestate_start_ok),
+      .savestate_start_err (savestate_start_err),
+
+      .savestate_load     (savestate_load),
+      .savestate_load_ack (savestate_load_ack),
+      .savestate_load_busy(savestate_load_busy),
+      .savestate_load_ok  (savestate_load_ok),
+      .savestate_load_err (savestate_load_err),
+
+      .osnotify_inmenu(osnotify_inmenu),
+
+      .datatable_addr(datatable_addr),
+      .datatable_wren(datatable_wren),
+      .datatable_data(datatable_data),
+      .datatable_q   (datatable_q),
+
+      .tc_req   (tc_req),
+      .tc_code  (tc_code),
+      .tc_p0    (tc_p0),
+      .tc_p1    (tc_p1),
+      .tc_p2    (tc_p2),
+      .tc_p3    (tc_p3),
+      .tc_done  (tc_done),
+      .tc_result(tc_result)
+  );
+
+  reg ioctl_download = 0;
+  wire ioctl_wr;
+  wire [24:0] ioctl_addr;
+  wire [15:0] ioctl_dout;
+
+  reg save_download = 0;
+  reg dataslot_allcomplete_prev;
+
+  always @(posedge clk_74a) begin
+    dataslot_allcomplete_prev <= dataslot_allcomplete;
+
+    // if (dataslot_requestwrite) ioctl_download <= 1;
+    // else if (dataslot_allcomplete) ioctl_download <= 0;
+
+    if (dataslot_requestread || dataslot_requestwrite) save_download <= 1;
+    else if (dataslot_allcomplete && ~dataslot_allcomplete_prev) save_download <= 0;
+  end
+
+  reg [7:0] rom_type;
+  reg [3:0] rom_size;
+  // ram_size also sizes the blob; init so the size is sane before the loader runs
+  reg [3:0] ram_size = 0;
+  reg PAL;
+
+  wire save_download_s;
+
+  synch_3 save_s (
+      save_download,
+      save_download_s,
+      clk_sys_21_48
+  );
+
+  data_loader #(
+      .ADDRESS_MASK_UPPER_4(4'h1),
+      .ADDRESS_SIZE(25),
+      .WRITE_MEM_CLOCK_DELAY(7),
+      .OUTPUT_WORD_SIZE(2)
+  ) data_loader (
+      .clk_74a(clk_74a),
+      .clk_memory(clk_sys_21_48),
+
+      .bridge_wr(bridge_wr),
+      .bridge_endian_little(bridge_endian_little),
+      .bridge_addr(bridge_addr),
+      .bridge_wr_data(bridge_wr_data),
+
+      .write_en  (ioctl_wr),
+      .write_addr(ioctl_addr),
+      .write_data(ioctl_dout)
+  );
+
+  data_loader #(
+      .ADDRESS_MASK_UPPER_4(4'h2),
+      .ADDRESS_SIZE(17),
+      .WRITE_MEM_CLOCK_DELAY(7),
+      .OUTPUT_WORD_SIZE(2)
+  ) save_data_loader (
+      .clk_74a(clk_74a),
+      .clk_memory(clk_sys_21_48),
+
+      .bridge_wr(bridge_wr),
+      .bridge_endian_little(bridge_endian_little),
+      .bridge_addr(bridge_addr),
+      .bridge_wr_data(bridge_wr_data),
+
+      .write_en  (sd_wr),
+      .write_addr(sd_buff_addr_in),
+      .write_data(sd_buff_dout)
+  );
+
+  wire [31:0] sd_read_data;
+
+  wire sd_rd;
+  wire sd_wr;
+
+  wire [16:0] sd_buff_addr_in;
+  wire [16:0] sd_buff_addr_out;
+
+  // Lowest bit is for byte addressing
+  wire [15:0] sd_buff_addr = sd_wr ? sd_buff_addr_in[16:1] : sd_buff_addr_out[16:1];
+
+  wire [15:0] sd_buff_din;
+  wire [15:0] sd_buff_dout;
+
+  data_unloader #(
+      .ADDRESS_MASK_UPPER_4(4'h2),
+      .ADDRESS_SIZE(17),
+      .READ_MEM_CLOCK_DELAY(7),
+      .INPUT_WORD_SIZE(2)
+  ) data_unloader (
+      .clk_74a(clk_74a),
+      .clk_memory(clk_sys_21_48),
+
+      .bridge_rd(bridge_rd),
+      .bridge_endian_little(bridge_endian_little),
+      .bridge_addr(bridge_addr),
+      .bridge_rd_data(sd_read_data),
+
+      .read_en  (sd_rd),
+      .read_addr(sd_buff_addr_out),
+      .read_data(sd_buff_din)
+  );
+
+  //
+  // savestates
+  //
+
+  wire [31:0] ss_read_data;
+
+  wire ss_save;
+  wire ss_load;
+  wire ss_busy;
+  wire ss_load_reject;
+  wire ss_avail;
+  wire ss_ctrl_idle;
+  wire ss_stage_lost;
+  wire ss_active_74;
+
+  wire ss_stage_wr;
+  wire [19:0] ss_stage_addr;
+  wire [15:0] ss_stage_data;
+
+  wire ss_blob_rd;
+  wire [19:0] ss_blob_addr;
+  wire [15:0] ss_blob_q;
+
+  generate
+    if (USE_SS == 1'b1) begin
+      data_loader #(
+          .ADDRESS_MASK_UPPER_4(SS_REGION),
+          .ADDRESS_SIZE(20),
+          .WRITE_MEM_CLOCK_DELAY(16),
+          .OUTPUT_WORD_SIZE(2)
+      ) ss_data_loader (
+          .clk_74a(clk_74a),
+          .clk_memory(clk_mem_85_9),
+
+          .bridge_wr(bridge_wr),
+          .bridge_endian_little(bridge_endian_little),
+          .bridge_addr(bridge_addr),
+          .bridge_wr_data(bridge_wr_data),
+
+          .write_en  (ss_stage_wr),
+          .write_addr(ss_stage_addr),
+          .write_data(ss_stage_data)
+      );
+
+      // READ_MEM_CLOCK_DELAY: one psram read is ~15 clk_mem in tb, 24 for margin
+      data_unloader #(
+          .ADDRESS_MASK_UPPER_4(SS_REGION),
+          .ADDRESS_SIZE(20),
+          .READ_MEM_CLOCK_DELAY(24),
+          .INPUT_WORD_SIZE(2)
+      ) ss_data_unloader (
+          .clk_74a(clk_74a),
+          .clk_memory(clk_mem_85_9),
+
+          .bridge_rd(bridge_rd),
+          .bridge_endian_little(bridge_endian_little),
+          .bridge_addr(bridge_addr),
+          .bridge_rd_data(ss_read_data),
+
+          .read_en  (ss_blob_rd),
+          .read_addr(ss_blob_addr),
+          .read_data(ss_blob_q)
+      );
+
+      wire ss_ready_s;
+
+      synch_3 ss_ready_sync (
+          pll_core_locked && ~ioctl_download,
+          ss_ready_s,
+          clk_sys_21_48
+      );
+
+      wire ss_allow = ss_avail && ss_ready_s && ~reset_button_s;
+
+      savestate_controller #(
+          .SS_REGION(SS_REGION)
+      ) savestate_controller (
+          .clk_74a(clk_74a),
+          .clk_sys_21_48(clk_sys_21_48),
+
+          .bridge_rd  (bridge_rd),
+          .bridge_wr  (bridge_wr),
+          .bridge_addr(bridge_addr),
+          .ss_size    (ss_blob_size),
+          .dataslot_allcomplete(dataslot_allcomplete),
+
+          .savestate_load(savestate_load),
+          .savestate_load_ack_s(savestate_load_ack),
+          .savestate_load_busy_s(savestate_load_busy),
+          .savestate_load_ok_s(savestate_load_ok),
+          .savestate_load_err_s(savestate_load_err),
+
+          .savestate_start(savestate_start),
+          .savestate_start_ack_s(savestate_start_ack),
+          .savestate_start_busy_s(savestate_start_busy),
+          .savestate_start_ok_s(savestate_start_ok),
+          .savestate_start_err_s(savestate_start_err),
+
+          .ss_allow(ss_allow),
+          .ss_busy (ss_busy),
+          .ss_load_reject(ss_load_reject),
+          .stage_lost(ss_stage_lost),
+          .ss_active_74(ss_active_74),
+
+          .ss_save (ss_save),
+          .ss_load (ss_load),
+          .ss_idle (ss_ctrl_idle)
+      );
+    end else begin
+      assign ss_read_data = 32'd0;
+      assign ss_save = 1'b0;
+      assign ss_load = 1'b0;
+      assign ss_ctrl_idle = 1'b1;
+      assign ss_active_74 = 1'b0;
+      assign ss_stage_wr = 1'b0;
+      assign ss_stage_addr = 20'd0;
+      assign ss_stage_data = 16'd0;
+      assign ss_blob_rd = 1'b0;
+      assign ss_blob_addr = 20'd0;
+      assign savestate_start_ack = 1'b0;
+      assign savestate_start_busy = 1'b0;
+      assign savestate_start_ok = 1'b0;
+      assign savestate_start_err = 1'b0;
+      assign savestate_load_ack = 1'b0;
+      assign savestate_load_busy = 1'b0;
+      assign savestate_load_ok = 1'b0;
+      assign savestate_load_err = 1'b0;
+    end
+  endgenerate
+
+  ///////////////////////////////////////////////
+  // MSU-1
+  ///////////////////////////////////////////////
+
+  // Path buffer: 512 bytes at bridge address 0x5xxxxxxx. Pocket writes the ROM
+  // path here (cmd 0190) and reads the derived file path from here (cmd 0192).
+  // Port A = bridge (clk_74a), port B = msu_bridge. Byte lane k <-> bits [31-8k -: 8].
+  wire        pb_a_wr   = bridge_wr && (bridge_addr[31:28] == 4'h5);
+  // APF samples read data late: latch the address at the read strobe (as data_unloader does)
+  reg  [6:0] pb_rd_addr = 7'd0;
+  reg        pb_prev_rd = 1'b0;
+  always @(posedge clk_74a) begin
+    pb_prev_rd <= bridge_rd;
+    if (bridge_rd && !pb_prev_rd && bridge_addr[31:28] == 4'h5) pb_rd_addr <= bridge_addr[8:2];
+  end
+  wire  [6:0] pb_a_addr = pb_a_wr ? bridge_addr[8:2] : pb_rd_addr;
+  wire [31:0] pb_a_q;
+  reg  [31:0] pb_rd_q1, pb_rd_q2;
+
+  wire  [6:0] pb_b_addr;
+  wire  [3:0] pb_b_we;
+  wire  [7:0] pb_b_din;
+  wire [31:0] pb_b_q;
+
+  always @(posedge clk_74a) begin
+    pb_rd_q1 <= pb_a_q;
+    pb_rd_q2 <= pb_rd_q1;
+  end
+
+  genvar gi;
+  generate
+    for (gi = 0; gi < 4; gi = gi + 1) begin : g_pathbuf
+      bram_block_dp #(
+          .DATA(8),
+          .ADDR(7)
+      ) lane (
+          .a_clk (clk_74a),
+          .a_wr  (pb_a_wr),
+          .a_addr(pb_a_addr),
+          .a_din (bridge_wr_data[31-8*gi-:8]),
+          .a_dout(pb_a_q[31-8*gi-:8]),
+
+          .b_clk (clk_74a),
+          .b_wr  (pb_b_we[gi]),
+          .b_addr(pb_b_addr),
+          .b_din (pb_b_din),
+          .b_dout(pb_b_q[31-8*gi-:8])
+      );
+    end
+  endgenerate
+
+  // PCM track data (bridge address 0x3xxxxxxx) -> msu_audio
+  wire        pcm_wr;
+  wire [15:0] pcm_waddr;
+  wire [15:0] pcm_data;
+
+  data_loader #(
+      .ADDRESS_MASK_UPPER_4(4'h3),
+      .ADDRESS_SIZE(15),
+      .WRITE_MEM_CLOCK_DELAY(7),
+      .OUTPUT_WORD_SIZE(2)
+  ) pcm_loader (
+      .clk_74a(clk_74a),
+      .clk_memory(clk_sys_21_48),
+
+      .bridge_wr(bridge_wr),
+      .bridge_endian_little(bridge_endian_little),
+      .bridge_addr(bridge_addr),
+      .bridge_wr_data(bridge_wr_data),
+
+      .write_en  (pcm_wr),
+      .write_addr(pcm_waddr),
+      .write_data(pcm_data)
+  );
+
+  // Voice stream data (bridge address 0x6xxxxxxx) -> second msu_audio
+  wire        vpcm_wr;
+  wire [15:0] vpcm_waddr;
+  wire [15:0] vpcm_data;
+
+  data_loader #(
+      .ADDRESS_MASK_UPPER_4(4'h6),
+      .ADDRESS_SIZE(15),
+      .WRITE_MEM_CLOCK_DELAY(7),
+      .OUTPUT_WORD_SIZE(2)
+  ) vpcm_loader (
+      .clk_74a(clk_74a),
+      .clk_memory(clk_sys_21_48),
+
+      .bridge_wr(bridge_wr),
+      .bridge_endian_little(bridge_endian_little),
+      .bridge_addr(bridge_addr),
+      .bridge_wr_data(bridge_wr_data),
+
+      .write_en  (vpcm_wr),
+      .write_addr(vpcm_waddr),
+      .write_data(vpcm_data)
+  );
+
+  reg         dt_phase = 0;
+  reg         dt_valid = 0;
+  wire  [7:0] msu_dt_addr;
+
+  wire        msu_enable;
+  wire        msu_track_mounting;
+  wire        msu_track_missing;
+  wire        msu_hd_missing;
+  wire [31:0] msu_audio_size;
+  wire [31:0] msu_data_size;
+  wire        msu_init_hold;
+  wire  [3:0] msu_diag;
+  wire [15:0] msu_track_num;
+  wire        msu_track_request;
+
+  wire        a_fetch_tgl;
+  wire [31:0] a_fetch_off;
+  wire [31:0] a_fetch_len;
+  wire        a_done_tgl;
+  wire        a_err;
+
+  wire        v_en, v_mounting, v_missing;
+  wire [31:0] v_size;
+  wire        v_fetch_tgl;
+  wire [31:0] v_fetch_off;
+  wire [31:0] v_fetch_len;
+  wire        v_done_tgl, v_err;
+  wire        v_track_request;
+  wire [15:0] v_track_num;
+
+  // MSU data store (FMV streaming) is not in this build: no data fill requests
+  wire        d_fill_tgl = 1'b0;
+  wire [31:0] d_fill_off = 32'd0;
+  wire [16:0] d_fill_len = 17'd0;
+  wire  [1:0] d_fill_slot = 2'd0;
+  wire        d_done_tgl;
+  wire        d_err;
+
+  msu_bridge #(
+      .SLOT_ROM(16'd0),
+      .SLOT_MSU(16'd20),  // data.json: "MSU Data"
+      .SLOT_PCM(16'd21),  // data.json: "MSU Audio"
+      .SLOT_VOICE(16'd22),  // data.json: "MSU Voice"
+      .IDX_MSU(8'd2),  // position inside data_slots[]
+      .IDX_PCM(8'd3)
+  ) msu_bridge (
+      .clk(clk_74a),
+      .clk_sys(clk_sys_21_48),
+      .reset_n(reset_n),
+      .ss_pause(ss_active_74),
+
+      .tc_req(tc_req),
+      .tc_code(tc_code),
+      .tc_p0(tc_p0),
+      .tc_p1(tc_p1),
+      .tc_p2(tc_p2),
+      .tc_p3(tc_p3),
+      .tc_done(tc_done),
+      .tc_result(tc_result),
+
+      .dt_addr(msu_dt_addr),
+      .dt_q(datatable_q),
+      .dt_valid(dt_valid),
+
+      .pb_addr(pb_b_addr),
+      .pb_we(pb_b_we),
+      .pb_din(pb_b_din),
+      .pb_q(pb_b_q),
+
+      .track_request(msu_track_request),
+      .track_num(msu_track_num),
+      .msu_enable(msu_enable),
+      .track_mounting(msu_track_mounting),
+      .track_missing(msu_track_missing),
+      .hd_missing(msu_hd_missing),
+      .audio_size(msu_audio_size),
+      .data_size(msu_data_size),
+      .init_hold(msu_init_hold),
+      .diag_sys(msu_diag),
+
+      .a_fetch_tgl(a_fetch_tgl),
+      .a_fetch_off(a_fetch_off),
+      .a_fetch_len(a_fetch_len),
+      .a_done_tgl(a_done_tgl),
+      .a_err(a_err),
+
+      .d_fill_tgl(d_fill_tgl),
+      .d_fill_off(d_fill_off),
+      .d_fill_len(d_fill_len),
+      .d_fill_slot(d_fill_slot),
+      .d_done_tgl(d_done_tgl),
+      .d_err(d_err),
+
+      .v_req(v_track_request),
+      .v_num(v_track_num),
+      .voice_en(v_en),
+      .v_mounting(v_mounting),
+      .v_missing(v_missing),
+      .v_size(v_size),
+      .v_fetch_tgl(v_fetch_tgl),
+      .v_fetch_off(v_fetch_off),
+      .v_fetch_len(v_fetch_len),
+      .v_done_tgl(v_done_tgl),
+      .v_err(v_err)
+  );
+
+  wire msu_hold = msu_init_hold;
+
+  // Port A alternates: even cycles write the save RAM size (data slot index 1),
+  // odd cycles present the address msu_bridge wants to read. dt_valid marks the
+  // cycle in which datatable_q holds the data of that read address.
+  always @(posedge clk_74a or negedge pll_core_locked) begin
+    if (~pll_core_locked) begin
+      datatable_addr <= 0;
+      datatable_data <= 0;
+      datatable_wren <= 0;
+      dt_phase <= 0;
+      dt_valid <= 0;
+    end else begin
+      dt_phase <= ~dt_phase;
+      // the address presented in the previous cycle was a read -> q is valid now
+      dt_valid <= ~datatable_wren & dt_phase;
+      if (dt_phase) begin
+        datatable_wren <= 1;
+        // sram_size is the size of the config value in the ROM. Convert to actual size
+        datatable_data <= sram_size ? 32'd1024 << sram_size : 32'h0;
+        // Data slot index 1, not id 1
+        datatable_addr <= 1 * 2 + 1;
+      end else begin
+        datatable_wren <= 0;
+        datatable_addr <= {2'b00, msu_dt_addr};
+      end
+    end
+  end
+
+  wire [15:0] audio_l;
+  wire [15:0] audio_r;
+
+  wire [3:0] sram_size;
+
+  wire [15:0] cont1_key_s;
+  wire [15:0] cont2_key_s;
+  wire [15:0] cont3_key_s;
+  wire [15:0] cont4_key_s;
+  wire [31:0] cont1_joy_s;
+
+  wire [15:0] cont1_joy_x = cont1_joy_s[7:0];
+  wire [15:0] cont1_joy_y = cont1_joy_s[15:8];
+  wire [15:0] cont1_joy_dx = cont1_joy_x[7] ? cont1_joy_x[6:0] : 8'd128 - cont1_joy_x[6:0];
+  wire [15:0] cont1_joy_dy = cont1_joy_y[7] ? cont1_joy_y[6:0] : 8'd128 - cont1_joy_y[6:0];
+  wire [16:0] cont1_joy_total = cont1_joy_dx + cont1_joy_dy;
+  wire [15:0] cont1_joy_x_calibrated = cont1_joy_total > joystick_deadzone ? cont1_joy_x : 8'd128;
+  wire [15:0] cont1_joy_y_calibrated = cont1_joy_total > joystick_deadzone ? cont1_joy_y : 8'd128;
+
+  synch_3 #(
+      .WIDTH(32)
+  ) cont1_s (
+      cont1_key,
+      cont1_key_s,
+      clk_sys_21_48
+  );
+
+  synch_3 #(
+      .WIDTH(32)
+  ) cont2_s (
+      cont2_key,
+      cont2_key_s,
+      clk_sys_21_48
+  );
+
+  synch_3 #(
+      .WIDTH(32)
+  ) cont3_s (
+      cont3_key,
+      cont3_key_s,
+      clk_sys_21_48
+  );
+
+  synch_3 #(
+      .WIDTH(32)
+  ) cont4_s (
+      cont4_key,
+      cont4_key_s,
+      clk_sys_21_48
+  );
+
+  synch_3 #(
+      .WIDTH(32)
+  ) joy1_s (
+      cont1_joy,
+      cont1_joy_s,
+      clk_sys_21_48
+  );
+
+  // Settings
+  reg [31:0] reset_delay = 0;
+  wire reset_button = reset_delay > 0;
+
+  reg cpu_turbo_enabled = 0;
+  reg gsu_turbo_enabled = 0;
+
+  reg swap_controllers = 0;
+  reg multitap_enabled = 0;
+  reg lightgun_enabled = 0;
+  reg lightgun_type = 0;
+  reg [7:0] dpad_aim_speed = 0;
+  reg [7:0] joystick_deadzone;
+  reg mouse_enabled;
+
+  reg use_square_pixels = 0;
+  reg blend_enabled = 0;
+  reg sync_dejitter = 0;
+
+  // Analogizer menu settings (SNAC type, controller assignment, video out)
+  reg [13:0] analogizer_settings = 0;
+
+  // Settings sync
+  wire reset_button_s;
+
+  wire cpu_turbo_enabled_s;
+  wire gsu_turbo_enabled_s;
+
+  wire swap_controllers_s;
+  wire multitap_enabled_s;
+  wire lightgun_enabled_s;
+  wire lightgun_type_s;
+  wire [7:0] dpad_aim_speed_s;
+  wire [7:0] joystick_deadzone_s;
+  wire mouse_enabled_s;
+
+  wire use_square_pixels_s;
+  wire blend_enabled_s;
+  wire sync_dejitter_s;
+
+  synch_3 #(
+      .WIDTH(27)
+  ) settings_s (
+      {
+        reset_button,
+        cpu_turbo_enabled,
+        gsu_turbo_enabled,
+        swap_controllers,
+        multitap_enabled,
+        lightgun_enabled,
+        lightgun_type,
+        dpad_aim_speed,
+        joystick_deadzone,
+        mouse_enabled,
+        use_square_pixels,
+        blend_enabled,
+        sync_dejitter
+      },
+      {
+        reset_button_s,
+        cpu_turbo_enabled_s,
+        gsu_turbo_enabled_s,
+        swap_controllers_s,
+        multitap_enabled_s,
+        lightgun_enabled_s,
+        lightgun_type_s,
+        dpad_aim_speed_s,
+        joystick_deadzone_s,
+        mouse_enabled_s,
+        use_square_pixels_s,
+        blend_enabled_s,
+        sync_dejitter_s
+      },
+      clk_sys_21_48
+  );
+
+  reg new_rtc = 0;
+  reg [31:0] prev_time = 0;
+
+  always @(posedge clk_74a) begin
+    if (rtc_time != prev_time) begin
+      prev_time <= rtc_time;
+      new_rtc   <= ~new_rtc;
+    end
+  end
+
+  wire [64:0] rtc = {
+    new_rtc,
+    8'b0,  // Empty
+    8'b1,  // Week day (not supported)
+    rtc_date[23:16],  // Year (lower byte)
+    rtc_date[15:8],  // Month
+    rtc_date[7:0],  // Day
+    rtc_time[23:16],  // Hour
+    rtc_time[15:8],  // Minute
+    rtc_time[7:0]  // Second
+  };
+
+  // Controller inputs to the core, muxed between the Pocket pads and the
+  // Analogizer SNAC adapter in the analogizer generate block below.
+  reg [15:0] p1_controls, p2_controls, p3_controls, p4_controls;
+  reg [15:0] p1_stick_x, p1_stick_y;
+
+  // Raw video status from the core, consumed by the Analogizer resampler.
+  wire field_snes, interlace_snes, high_res_snes, dotclk_snes;
+
+  // Pocket LCD feed, optionally blanked for the "Pocket OFF" Analogizer modes.
+  wire [23:0] video_rgb_pocket;
+
+  MAIN_SNES snes (
+      .clk_mem_85_9 (clk_mem_85_9),
+      .clk_sys_21_48(clk_sys_21_48),
+
+      .core_reset(~pll_core_locked || reset_button_s || msu_hold),
+
+      .rtc(rtc),
+
+      // Settings
+      .cpu_turbo_enabled(cpu_turbo_enabled_s),
+      .gsu_turbo_enabled(gsu_turbo_enabled_s),
+
+      .swap_controllers(swap_controllers_s),
+      .multitap_enabled(multitap_enabled_s),
+      .lightgun_enabled(lightgun_enabled_s),
+      .lightgun_type(lightgun_type_s),
+      .dpad_aim_speed(dpad_aim_speed_s),
+      .mouse_enabled(mouse_enabled_s),
+
+      .blend_enabled(blend_enabled_s),
+      .dis_shortline(sync_dejitter_s),
+
+      // Input (muxed Pocket pads / Analogizer SNAC)
+      .p1_button_a(p1_controls[4]),
+      .p1_button_b(p1_controls[5]),
+      .p1_button_x(p1_controls[6]),
+      .p1_button_y(p1_controls[7]),
+      .p1_button_trig_l(p1_controls[8]),
+      .p1_button_trig_r(p1_controls[9]),
+      .p1_button_start(p1_controls[15]),
+      .p1_button_select(p1_controls[14]),
+      .p1_dpad_up(p1_controls[0]),
+      .p1_dpad_down(p1_controls[1]),
+      .p1_dpad_left(p1_controls[2]),
+      .p1_dpad_right(p1_controls[3]),
+
+      .p1_lstick_x(p1_stick_x),
+      .p1_lstick_y(p1_stick_y),
+
+      .p2_button_a(p2_controls[4]),
+      .p2_button_b(p2_controls[5]),
+      .p2_button_x(p2_controls[6]),
+      .p2_button_y(p2_controls[7]),
+      .p2_button_trig_l(p2_controls[8]),
+      .p2_button_trig_r(p2_controls[9]),
+      .p2_button_start(p2_controls[15]),
+      .p2_button_select(p2_controls[14]),
+      .p2_dpad_up(p2_controls[0]),
+      .p2_dpad_down(p2_controls[1]),
+      .p2_dpad_left(p2_controls[2]),
+      .p2_dpad_right(p2_controls[3]),
+
+      .p3_button_a(p3_controls[4]),
+      .p3_button_b(p3_controls[5]),
+      .p3_button_x(p3_controls[6]),
+      .p3_button_y(p3_controls[7]),
+      .p3_button_trig_l(p3_controls[8]),
+      .p3_button_trig_r(p3_controls[9]),
+      .p3_button_start(p3_controls[15]),
+      .p3_button_select(p3_controls[14]),
+      .p3_dpad_up(p3_controls[0]),
+      .p3_dpad_down(p3_controls[1]),
+      .p3_dpad_left(p3_controls[2]),
+      .p3_dpad_right(p3_controls[3]),
+
+      .p4_button_a(p4_controls[4]),
+      .p4_button_b(p4_controls[5]),
+      .p4_button_x(p4_controls[6]),
+      .p4_button_y(p4_controls[7]),
+      .p4_button_trig_l(p4_controls[8]),
+      .p4_button_trig_r(p4_controls[9]),
+      .p4_button_start(p4_controls[15]),
+      .p4_button_select(p4_controls[14]),
+      .p4_dpad_up(p4_controls[0]),
+      .p4_dpad_down(p4_controls[1]),
+      .p4_dpad_left(p4_controls[2]),
+      .p4_dpad_right(p4_controls[3]),
+
+      // ROM loading
+      .ioctl_download(ioctl_download),
+      .ioctl_wr(ioctl_wr),
+      .ioctl_addr(ioctl_addr),
+      .ioctl_dout(ioctl_dout),
+
+      .rom_type(rom_type),
+      .rom_size(rom_size),
+      .ram_size(ram_size),
+      .PAL(PAL),
+
+      // Save input/output
+      .save_download(save_download_s),
+      .sd_rd(sd_rd),
+      .sd_wr(sd_wr),
+      .sd_buff_addr(sd_buff_addr),
+      .sd_buff_din(sd_buff_din),
+      .sd_buff_dout(sd_buff_dout),
+
+      .sram_size(sram_size),
+
+      // Savestates
+      .ss_save (ss_save),
+      .ss_load (ss_load),
+      .ss_ctrl_idle(ss_ctrl_idle),
+      .ss_busy (ss_busy),
+      .ss_load_reject(ss_load_reject),
+      .ss_avail(ss_avail),
+      .ss_stage_lost(ss_stage_lost),
+
+      .ss_stage_wr(ss_stage_wr),
+      .ss_stage_addr(ss_stage_addr),
+      .ss_stage_data(ss_stage_data),
+
+      .ss_blob_rd(ss_blob_rd),
+      .ss_blob_addr(ss_blob_addr),
+      .ss_blob_q(ss_blob_q),
+
+      // SDRAM
+      .dram_a(dram_a),
+      .dram_ba(dram_ba),
+      .dram_dq(dram_dq),
+      .dram_dqm(dram_dqm),
+      .dram_clk(dram_clk),
+      .dram_cke(dram_cke),
+      .dram_ras_n(dram_ras_n),
+      .dram_cas_n(dram_cas_n),
+      .dram_we_n(dram_we_n),
+
+      // PSRAM
+      .cram0_a(cram0_a),
+      .cram0_dq(cram0_dq),
+      .cram0_wait(cram0_wait),
+      .cram0_clk(cram0_clk),
+      .cram0_adv_n(cram0_adv_n),
+      .cram0_cre(cram0_cre),
+      .cram0_ce0_n(cram0_ce0_n),
+      .cram0_ce1_n(cram0_ce1_n),
+      .cram0_oe_n(cram0_oe_n),
+      .cram0_we_n(cram0_we_n),
+      .cram0_ub_n(cram0_ub_n),
+      .cram0_lb_n(cram0_lb_n),
+
+      .cram1_a(cram1_a),
+      .cram1_dq(cram1_dq),
+      .cram1_wait(cram1_wait),
+      .cram1_clk(cram1_clk),
+      .cram1_adv_n(cram1_adv_n),
+      .cram1_cre(cram1_cre),
+      .cram1_ce0_n(cram1_ce0_n),
+      .cram1_ce1_n(cram1_ce1_n),
+      .cram1_oe_n(cram1_oe_n),
+      .cram1_we_n(cram1_we_n),
+      .cram1_ub_n(cram1_ub_n),
+      .cram1_lb_n(cram1_lb_n),
+
+      // Async SRAM (ARAM)
+      .sram_a(sram_a),
+      .sram_dq(sram_dq),
+      .sram_oe_n(sram_oe_n),
+      .sram_we_n(sram_we_n),
+      .sram_ub_n(sram_ub_n),
+      .sram_lb_n(sram_lb_n),
+
+      // Video
+      .FIELD    (field_snes),
+      .INTERLACE(interlace_snes),
+      .HIGH_RES (high_res_snes),
+      .DOTCLK   (dotclk_snes),
+      .hblank (h_blank),
+      .vblank (v_blank),
+      .hsync  (video_hs_snes),
+      .vsync  (video_vs_snes),
+      .video_r(video_rgb_snes[23:16]),
+      .video_g(video_rgb_snes[15:8]),
+      .video_b(video_rgb_snes[7:0]),
+
+      // MSU-1
+      .msu_enable(msu_enable),
+      .msu_diag(msu_diag),
+      .msu_track_mounting(msu_track_mounting),
+      .msu_track_missing(msu_track_missing),
+      .msu_audio_size(msu_audio_size),
+      .msu_track_num(msu_track_num),
+      .msu_track_request(msu_track_request),
+      .pcm_wr(pcm_wr),
+      .pcm_data(pcm_data),
+      .a_fetch_tgl(a_fetch_tgl),
+      .a_fetch_off(a_fetch_off),
+      .a_fetch_len(a_fetch_len),
+      .a_done_tgl(a_done_tgl),
+      .a_err(a_err),
+      .v_en(v_en),
+      .v_mounting(v_mounting),
+      .v_missing(v_missing),
+      .v_size(v_size),
+      .v_pcm_wr(vpcm_wr),
+      .v_pcm_data(vpcm_data),
+      .v_fetch_tgl(v_fetch_tgl),
+      .v_fetch_off(v_fetch_off),
+      .v_fetch_len(v_fetch_len),
+      .v_done_tgl(v_done_tgl),
+      .v_err(v_err),
+      .v_track_request(v_track_request),
+      .v_track_num(v_track_num),
+
+      // Audio
+      .audio_l(audio_l),
+      .audio_r(audio_r)
+  );
+
+  // ------------------------------------------------------------------
+  // Analogizer: analog video out (RGBS/RGsB/YPbPr/Y-C/scandoubler) plus
+  // the SNAC real-controller adapter, both over the Pocket cart port.
+  // Runtime-gated by the Pocket menu, compile-gated by USE_ANALOGIZER.
+  // ------------------------------------------------------------------
+  generate
+    if (USE_ANALOGIZER == 1'b1) begin : gen_analogizer
+      wire [13:0] analogizer_settings_s;
+      synch_3 #(.WIDTH(14)) sync_analogizer (
+          analogizer_settings, analogizer_settings_s, clk_sys_21_48
+      );
+
+      reg [3:0] analogizer_video_type;
+      reg [4:0] snac_game_cont_type /* synthesis keep */;
+      reg [3:0] snac_cont_assignment /* synthesis keep */;
+      always @(*) begin
+        snac_game_cont_type   = analogizer_settings_s[4:0];
+        snac_cont_assignment  = analogizer_settings_s[9:6];
+        analogizer_video_type = analogizer_settings_s[13:10];
+      end
+
+      // Blank the Pocket LCD for the "Pocket OFF" video modes
+      assign video_rgb_pocket = analogizer_video_type[3] ? 24'h000000 : video_rgb_latched;
+
+      // SNAC controller state from the adapter
+      wire [15:0] p1_btn, p2_btn, p3_btn, p4_btn;
+      wire [31:0] p1_joy, p2_joy;
+
+      // PSX DualShock left stick as dpad / as lightgun aim
+      wire is_analog_input   = (snac_game_cont_type == 5'h13);
+      wire is_lightgun_input = (snac_game_cont_type == 5'h14);
+
+      // SNAC P1 stick calibrated for lightgun aiming (reuses joystick_deadzone)
+      wire [15:0] snac1_joy_x = p1_joy[7:0];
+      wire [15:0] snac1_joy_y = p1_joy[15:8];
+      wire [15:0] snac1_joy_dx = snac1_joy_x[7] ? snac1_joy_x[6:0] : 8'd128 - snac1_joy_x[6:0];
+      wire [15:0] snac1_joy_dy = snac1_joy_y[7] ? snac1_joy_y[6:0] : 8'd128 - snac1_joy_y[6:0];
+      wire [16:0] snac1_joy_total = snac1_joy_dx + snac1_joy_dy;
+      wire [15:0] snac1_joy_x_calibrated = snac1_joy_total > joystick_deadzone ? snac1_joy_x : 8'd128;
+      wire [15:0] snac1_joy_y_calibrated = snac1_joy_total > joystick_deadzone ? snac1_joy_y : 8'd128;
+
+      // P1 dpad synthesised from the analog stick
+      reg p1_up, p1_down, p1_left, p1_right;
+      wire p1_up_analog    = (p1_joy[15:8] < 8'h40);
+      wire p1_down_analog  = (p1_joy[15:8] > 8'hC0);
+      wire p1_left_analog  = (p1_joy[7:0]  < 8'h40);
+      wire p1_right_analog = (p1_joy[7:0]  > 8'hC0);
+      always @(posedge clk_sys_21_48) begin
+        p1_up    <= is_analog_input ? p1_up_analog    : p1_btn[0];
+        p1_down  <= is_analog_input ? p1_down_analog  : p1_btn[1];
+        p1_left  <= is_analog_input ? p1_left_analog  : p1_btn[2];
+        p1_right <= is_analog_input ? p1_right_analog : p1_btn[3];
+      end
+
+      // P2 dpad synthesised from the analog stick
+      reg p2_up, p2_down, p2_left, p2_right;
+      wire p2_up_analog    = (p2_joy[15:8] < 8'h40);
+      wire p2_down_analog  = (p2_joy[15:8] > 8'hC0);
+      wire p2_left_analog  = (p2_joy[7:0]  < 8'h40);
+      wire p2_right_analog = (p2_joy[7:0]  > 8'hC0);
+      always @(posedge clk_sys_21_48) begin
+        p2_up    <= (is_analog_input || is_lightgun_input) ? p2_up_analog    : p2_btn[0];
+        p2_down  <= (is_analog_input || is_lightgun_input) ? p2_down_analog  : p2_btn[1];
+        p2_left  <= (is_analog_input || is_lightgun_input) ? p2_left_analog  : p2_btn[2];
+        p2_right <= (is_analog_input || is_lightgun_input) ? p2_right_analog : p2_btn[3];
+      end
+
+      // Route SNAC controllers (or the Pocket pads) to the core
+      always @(posedge clk_sys_21_48) begin
+        if (snac_game_cont_type == 5'h0) begin  // SNAC disabled
+          p1_controls <= cont1_key_s;
+          p1_stick_x  <= cont1_joy_x_calibrated;
+          p1_stick_y  <= cont1_joy_y_calibrated;
+          p2_controls <= cont2_key_s;
+          p3_controls <= cont3_key_s;
+          p4_controls <= cont4_key_s;
+        end else begin
+          case (snac_cont_assignment)
+            4'h0: begin
+              p1_controls <= {p1_btn[15:4], p1_right, p1_left, p1_down, p1_up};
+              p1_stick_x  <= is_lightgun_input ? snac1_joy_x_calibrated : 16'd0;
+              p1_stick_y  <= is_lightgun_input ? snac1_joy_y_calibrated : 16'd0;
+              p2_controls <= cont2_key_s;
+              p3_controls <= cont3_key_s;
+              p4_controls <= cont4_key_s;
+            end
+            4'h1: begin
+              p1_controls <= cont1_key_s;
+              p1_stick_x  <= cont1_joy_x_calibrated;
+              p1_stick_y  <= cont1_joy_y_calibrated;
+              p2_controls <= {p1_btn[15:4], p1_right, p1_left, p1_down, p1_up};
+              p3_controls <= cont3_key_s;
+              p4_controls <= cont4_key_s;
+            end
+            4'h2: begin
+              p1_controls <= {p1_btn[15:4], p1_right, p1_left, p1_down, p1_up};
+              p1_stick_x  <= is_lightgun_input ? snac1_joy_x_calibrated : 16'd0;
+              p1_stick_y  <= is_lightgun_input ? snac1_joy_y_calibrated : 16'd0;
+              p2_controls <= {p2_btn[15:4], p2_right, p2_left, p2_down, p2_up};
+              p3_controls <= cont3_key_s;
+              p4_controls <= cont4_key_s;
+            end
+            4'h3: begin
+              p1_controls <= {p2_btn[15:4], p2_right, p2_left, p2_down, p2_up};
+              p1_stick_x  <= 16'd0;
+              p1_stick_y  <= 16'd0;
+              p2_controls <= {p1_btn[15:4], p1_right, p1_left, p1_down, p1_up};
+              p3_controls <= cont3_key_s;
+              p4_controls <= cont4_key_s;
+            end
+            4'h4: begin
+              p1_controls <= {p1_btn[15:4], p1_right, p1_left, p1_down, p1_up};
+              p1_stick_x  <= is_lightgun_input ? snac1_joy_x_calibrated : 16'd0;
+              p1_stick_y  <= is_lightgun_input ? snac1_joy_y_calibrated : 16'd0;
+              p2_controls <= {p2_btn[15:4], p2_right, p2_left, p2_down, p2_up};
+              p3_controls <= p3_btn;
+              p4_controls <= p4_btn;
+            end
+            4'h5: begin
+              p1_controls <= p4_btn;
+              p1_stick_x  <= 16'd0;
+              p1_stick_y  <= 16'd0;
+              p2_controls <= p3_btn;
+              p3_controls <= {p2_btn[15:4], p2_right, p2_left, p2_down, p2_up};
+              p4_controls <= {p1_btn[15:4], p1_right, p1_left, p1_down, p1_up};
+            end
+            4'h6: begin
+              p1_controls <= cont1_key_s;
+              p2_controls <= cont2_key_s;
+              p3_controls <= {p1_btn[15:4], p1_right, p1_left, p1_down, p1_up};
+              p4_controls <= {p2_btn[15:4], p2_right, p2_left, p2_down, p2_up};
+            end
+            default: begin
+              p1_controls <= cont1_key_s;
+              p1_stick_x  <= cont1_joy_x_calibrated;
+              p1_stick_y  <= cont1_joy_y_calibrated;
+              p2_controls <= cont2_key_s;
+              p3_controls <= cont3_key_s;
+              p4_controls <= cont4_key_s;
+            end
+          endcase
+        end
+      end
+
+      // Dot-latched video renamed to the active-low blanks the encoders expect
+      wire [7:0] R = video_rgb_latched[23:16];
+      wire [7:0] G = video_rgb_latched[15:8];
+      wire [7:0] B = video_rgb_latched[7:0];
+      wire HSYNC = video_hs_latched;
+      wire VSYNC = video_vs_latched;
+      wire HBlank = ~h_blank_latched;
+      wire VBlank = ~v_blank_latched;
+      wire DOTCLK = prev_dotclk;
+      reg  HSync = 0;
+      reg  VSync = 0;
+      reg  interlace;
+      reg  ce_pix;
+
+      always @(posedge clk_sys_42_56) begin
+        reg [2:0] pcnt;
+        reg old_vsync;
+        reg tmp_hres, frame_hres;
+        reg old_dotclk;
+
+        if (~HBlank & ~VBlank) tmp_hres <= tmp_hres | high_res_snes;
+
+        old_vsync <= VSync;
+        if (~old_vsync & VSync) begin
+          frame_hres <= (tmp_hres | ~scandoubler);
+          tmp_hres   <= 0;
+          interlace  <= interlace_snes;
+        end
+
+        pcnt <= pcnt + 1'd1;
+        old_dotclk <= DOTCLK;
+        if (~old_dotclk & DOTCLK & ~HBlank & ~VBlank) pcnt <= 1;
+
+        ce_pix <= !pcnt[1:0] & (frame_hres | ~pcnt[2]);
+
+        if (pcnt == 3) {HSync, VSync} <= {HSYNC, VSYNC};
+      end
+
+      reg [2:0] fx /* synthesis preserve */;
+      reg sd_ena;
+      always @(posedge clk_sys_42_56) begin
+        case (analogizer_video_type)
+          4'd5, 4'd13: begin sd_ena <= 1'b1; fx <= 3'd0; end  // SC 0% / 25%
+          4'd6, 4'd14: begin sd_ena <= 1'b1; fx <= 3'd2; end  // SC 50% / 75%
+          4'd7, 4'd15: begin sd_ena <= 1'b1; fx <= 3'd4; end  // hq2x
+          default:     begin sd_ena <= 1'b0; fx <= 3'd0; end
+        endcase
+      end
+
+      wire scandoubler   = ~interlace && sd_ena;
+      wire SYNC          = ~^{HSync, VSync};
+      wire ANALOGIZER_DE = ~(~HBlank || ~VBlank);
+
+      // Y/C encoder subcarrier phase increment (Mike Simone Y/C encoder),
+      // computed for the 42.95 MHz master clock.
+      localparam [39:0] NTSC_PHASE_INC = 40'd91625968981;
+      localparam [39:0] PAL_PHASE_INC  = 40'd114532461227;
+      wire [39:0] CHROMA_PHASE_INC =
+          ((analogizer_video_type == 4'h4) || (analogizer_video_type == 4'hC))
+              ? PAL_PHASE_INC : NTSC_PHASE_INC;
+      wire PALFLAG = (analogizer_video_type == 4'h4) || (analogizer_video_type == 4'hC);
+
+      localparam MASTER_CLK_FREQ = PAL_PLL ? 42_562_740 : 42_954_540;
+
+      openFPGA_Pocket_Analogizer #(
+          .MASTER_CLK_FREQ(MASTER_CLK_FREQ),
+          .LINE_LENGTH(520)
+      ) analogizer (
+          .i_clk(clk_sys_42_56),
+          .i_rst(~pll_core_locked || reset_button_s),  // active high
+          .i_ena(1'b1),
+          // Video
+          .video_clk(clk_sys_42_56),
+          .analog_video_type(analogizer_video_type),
+          .R(R),
+          .G(G),
+          .B(B),
+          .Hblank(h_blank),
+          .Vblank(v_blank),
+          .BLANKn(ANALOGIZER_DE),
+          .Hsync(HSync),
+          .Vsync(VSync),
+          .Csync(SYNC),
+          // Y/C encoder
+          .PALFLAG(PALFLAG | PAL_PLL),
+          .CHROMA_PHASE_INC(CHROMA_PHASE_INC),
+          // Scandoubler
+          .ce_pix(ce_pix),
+          .scandoubler(scandoubler),
+          .fx(fx),
+          // SNAC
+          .conf_AB(snac_game_cont_type >= 5'd16),
+          .game_cont_type(snac_game_cont_type),
+          .p1_btn_state(p1_btn),
+          .p1_joy_state(p1_joy),
+          .p2_btn_state(p2_btn),
+          .p2_joy_state(p2_joy),
+          .p3_btn_state(p3_btn),
+          .p4_btn_state(p4_btn),
+          // PSX rumble unused
+          .i_VIB_SW1(2'b0),
+          .i_VIB_DAT1(8'b0),
+          .i_VIB_SW2(2'b0),
+          .i_VIB_DAT2(8'b0),
+          // Cart port
+          .cart_tran_bank2(cart_tran_bank2),
+          .cart_tran_bank2_dir(cart_tran_bank2_dir),
+          .cart_tran_bank3(cart_tran_bank3),
+          .cart_tran_bank3_dir(cart_tran_bank3_dir),
+          .cart_tran_bank1(cart_tran_bank1),
+          .cart_tran_bank1_dir(cart_tran_bank1_dir),
+          .cart_tran_bank0(cart_tran_bank0),
+          .cart_tran_bank0_dir(cart_tran_bank0_dir),
+          .cart_tran_pin30(cart_tran_pin30),
+          .cart_tran_pin30_dir(cart_tran_pin30_dir),
+          .cart_pin30_pwroff_reset(cart_pin30_pwroff_reset),
+          .cart_tran_pin31(cart_tran_pin31),
+          .cart_tran_pin31_dir(cart_tran_pin31_dir),
+          .o_stb()
+      );
+    end else begin : gen_stock
+      // Pocket controls straight through
+      always @(*) begin
+        p1_controls = cont1_key_s;
+        p2_controls = cont2_key_s;
+        p3_controls = cont3_key_s;
+        p4_controls = cont4_key_s;
+        p1_stick_x  = cont1_joy_x_calibrated;
+        p1_stick_y  = cont1_joy_y_calibrated;
+      end
+
+      assign video_rgb_pocket = video_rgb_latched;
+
+      // Cart port unused; set level translators accordingly (0:IN, 1:OUT)
+      assign cart_tran_bank3         = 8'hzz;
+      assign cart_tran_bank3_dir     = 1'b0;
+      assign cart_tran_bank2         = 8'hzz;
+      assign cart_tran_bank2_dir     = 1'b0;
+      assign cart_tran_bank1         = 8'hzz;
+      assign cart_tran_bank1_dir     = 1'b0;
+      assign cart_tran_bank0         = 4'hf;
+      assign cart_tran_bank0_dir     = 1'b1;
+      assign cart_tran_pin30         = 1'b0;
+      assign cart_tran_pin30_dir     = 1'bz;
+      assign cart_pin30_pwroff_reset = 1'b0;
+      assign cart_tran_pin31         = 1'bz;
+      assign cart_tran_pin31_dir     = 1'b0;
+    end
+  endgenerate
+
+  // Video
+
+  wire h_blank;
+  wire v_blank;
+  wire video_hs_snes;
+  wire video_vs_snes;
+  wire [23:0] video_rgb_snes;
+
+  // Latch the video outputs on dot clock toggles (as the MiSTer top does)
+  // so every consumer samples color and blanking as one aligned pixel
+  reg [23:0] video_rgb_latched = 0;
+  reg video_hs_latched = 0;
+  reg video_vs_latched = 0;
+  reg h_blank_latched = 0;
+  reg v_blank_latched = 0;
+  reg prev_dotclk = 0;
+
+  always @(posedge clk_sys_21_48) begin
+    prev_dotclk <= dotclk_snes;
+
+    if (prev_dotclk ^ dotclk_snes) begin
+      video_rgb_latched <= video_rgb_snes;
+      video_hs_latched  <= video_hs_snes;
+      video_vs_latched  <= video_vs_snes;
+      h_blank_latched   <= h_blank;
+      v_blank_latched   <= v_blank;
+    end
+  end
+
+  assign video_rgb_clock = clk_video_5_37;
+  assign video_rgb_clock_90 = clk_video_5_37_90deg;
+  assign video_rgb = rgb;
+  assign video_de = de;
+
+  reg de;
+  reg [23:0] rgb;
+  wire [7:0] snap_index;
+  wire [23:0] rgb_out;
+  wire de_out;
+
+  scanline_filler #(
+      .SNAP_COUNT (2),
+      .SNAP_POINTS('{240, 224}),
+      .HSYNC_DELAY(1)
+  ) scanline_filler (
+      .clk(clk_video_5_37),
+
+      .hsync_in(video_hs_latched),
+      .vsync_in(video_vs_latched),
+
+      .vblank_in(v_blank_latched),
+      .hblank_in(h_blank_latched),
+      .rgb_in(video_rgb_pocket),
+
+      .hsync(video_hs),
+      .vsync(video_vs),
+
+      .de (de_out),
+      .rgb(rgb_out),
+
+      .snap_index(snap_index)
+  );
+
+  reg prev_de;
+  reg prev_vs;
+  reg [7:0] latched_snap_index;
+
+  always @(posedge clk_video_5_37) begin
+    prev_de <= de_out;
+    prev_vs <= video_vs;
+
+    de <= 0;
+
+    if (video_vs && ~prev_vs) begin
+      latched_snap_index <= snap_index;
+    end
+
+    if (~de_out && prev_de) begin
+      // Write video slot
+      rgb <= {9'b0, ~latched_snap_index[0], use_square_pixels_s, 10'b0, 3'b0};
+    end else if (de_out) begin
+      de  <= 1;
+      rgb <= rgb_out;
+    end
+  end
+
+  sound_i2s #(
+      .CHANNEL_WIDTH(16),
+      .SIGNED_INPUT (1)
+  ) sound_i2s (
+      .clk_74a  (clk_74a),
+      .clk_audio(clk_sys_21_48),
+
+      .audio_l(audio_l),
+      .audio_r(audio_r),
+
+      .audio_mclk(audio_mclk),
+      .audio_lrck(audio_lrck),
+      .audio_dac (audio_dac)
+  );
+
+  ///////////////////////////////////////////////
+
+  wire clk_mem_85_9;
+  wire clk_sys_42_56;  // Analogizer video/encoder master clock
+  wire clk_sys_21_48;
+  wire clk_video_5_37;
+  wire clk_video_5_37_90deg;
+
+  wire pll_core_locked;
+
+  parameter PAL_PLL = 1'b0;
+
+  generate
+    if (PAL_PLL) begin
+      mf_pllbase_pal mp1 (
+          .refclk(clk_74a),
+
+          .outclk_0(clk_mem_85_9),
+          .outclk_1(clk_sys_42_56),
+          .outclk_2(clk_sys_21_48),
+          .outclk_3(clk_video_5_37),
+          .outclk_4(clk_video_5_37_90deg),
+
+          .locked(pll_core_locked)
+      );
+    end else begin
+      mf_pllbase mp1 (
+          .refclk(clk_74a),
+
+          .outclk_0(clk_mem_85_9),
+          .outclk_1(clk_sys_42_56),
+          .outclk_2(clk_sys_21_48),
+          .outclk_3(clk_video_5_37),
+          .outclk_4(clk_video_5_37_90deg),
+
+          .locked(pll_core_locked)
+      );
+    end
+  endgenerate
+
+endmodule
