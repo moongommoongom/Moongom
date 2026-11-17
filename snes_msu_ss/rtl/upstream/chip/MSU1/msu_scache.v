@@ -95,12 +95,13 @@ wire [OW:0] lo_ring  = {1'b0, lo} + RING;
 
 (* ramstyle = "MLAB, no_rw_check" *) reg [15:0] wq [0:63];
 reg  [5:0] wq_w = 0, wq_r = 0;
-reg [15:0] wq_q = 0;
 wire       q_empty = (wq_w == wq_r);
 wire       q_full  = ((wq_w + 6'd1) == wq_r);
+wire [5:0] q_used  = wq_w - wq_r;
+wire       q_half  = q_used[5];                        // 32 or more of 64 words queued: writes keep priority
 
 // ---- PSRAM access engine ----
-localparam [2:0] M_IDLE = 3'd0, M_W1 = 3'd1, M_W = 3'd2, M_R = 3'd3;
+localparam [2:0] M_IDLE = 3'd0, M_W = 3'd2, M_R = 3'd3;
 reg  [2:0] ms = M_IDLE;
 reg        rd_req = 0, rd_vld = 0;
 reg [RW-1:0] rd_off = 0;
@@ -285,12 +286,22 @@ always @(posedge clk) begin
 		endcase
 
 		// ---------------- PSRAM access engine (queued writes first, then demand reads) ----------------
+		// A write takes 7 clk per word (the next queued word is chained on the done pulse while msu_pr_arb spends
+		// its gap cycle), which is the pcm data_loader's own maximum output rate (WRITE_MEM_CLOCK_DELAY 7): a transfer
+		// can no longer outrun the queue.  The old 9 clk per word (4.8 MB/s, ~4.3 MB/s with playback reads) was barely
+		// above the firmware's ~4 MB/s, so the queue overflowed (chunk retried, eventually pfail) and the demand reads
+		// of playback starved behind a long transfer (music cut out while a voice chunk was read, and vice versa).
 		case (ms)
 			M_IDLE:
 				begin
-					if (!q_empty) begin
-						wq_q <= wq[wq_r];
-						ms   <= M_W1;
+					if (!q_empty) begin                                          // issue the queue head directly (no extra latch cycle)
+						pr_we    <= 1'b1;
+						pr_addr  <= PS_BASE | {{(22-RW){1'b0}}, wa_off};
+						pr_wdata <= wq[wq_r];
+						pr_req   <= 1'b1;
+						wa_off   <= wa_off + 1'd1;
+						wq_r     <= wq_r + 1'd1;
+						ms       <= M_W;
 					end
 					else if (rd_req) begin
 						rd_req  <= 1'b0;
@@ -301,18 +312,27 @@ always @(posedge clk) begin
 					end
 				end
 
-			M_W1:
-				begin
-					pr_we    <= 1'b1;
-					pr_addr  <= PS_BASE | {{(22-RW){1'b0}}, wa_off};
-					pr_wdata <= wq_q;
-					pr_req   <= 1'b1;
-					wa_off   <= wa_off + 1'd1;
-					wq_r     <= wq_r + 1'd1;
-					ms       <= M_W;
+			// write done: chain the next queued word while the arbiter spends its gap cycle (7 instead of 9 clk per word).
+			// A pending demand read goes first when the queue is not about to overflow, so playback is never starved by a transfer.
+			M_W:
+				if (pr_done) begin
+					if (!q_empty && !(rd_req && !q_half)) begin
+						pr_addr  <= PS_BASE | {{(22-RW){1'b0}}, wa_off};
+						pr_wdata <= wq[wq_r];
+						wa_off   <= wa_off + 1'd1;
+						wq_r     <= wq_r + 1'd1;
+					end
+					else if (rd_req) begin
+						rd_req  <= 1'b0;
+						pr_we   <= 1'b0;
+						pr_addr <= PS_BASE | {{(22-RW){1'b0}}, rd_off};
+						ms      <= M_R;
+					end
+					else begin
+						pr_req <= 1'b0;
+						ms     <= M_IDLE;
+					end
 				end
-
-			M_W: if (pr_done) begin pr_req <= 1'b0; ms <= M_IDLE; end
 
 			M_R:
 				if (pr_done) begin

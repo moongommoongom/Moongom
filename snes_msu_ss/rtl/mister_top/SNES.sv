@@ -1448,7 +1448,7 @@ module MAIN_SNES (
       wire [15:0] mp_wd, vp_wd, mp_rd, vp_rd;
 
       // cram1 layout (word addresses): savestate blob 0x000000-0x0FFFFF, voice ring 2 MB at 0x100000, music ring 4 MB at 0x200000
-      msu_scache #(.PS_BASE(22'h100000), .FIXED(1), .OW(22), .RING_LOG2(21), .FIRST_BYTES(32'd16384), .CHUNK_BYTES(32'd131072)) msu_vcache (
+      msu_scache #(.PS_BASE(22'h100000), .FIXED(1), .OW(22), .RING_LOG2(21), .FIRST_BYTES(32'd65536), .CHUNK_BYTES(32'd131072)) msu_vcache (
           .clk(clk_sys),
           .reset(reset),
           .mounting(v_mounting),
@@ -1476,7 +1476,7 @@ module MAIN_SNES (
           .pr_rdata(vp_rd)
       );
 
-      msu_scache #(.PS_BASE(22'h200000), .RING_LOG2(22), .FIRST_BYTES(32'd32768), .CHUNK_BYTES(32'd262144)) msu_mcache (
+      msu_scache #(.PS_BASE(22'h200000), .RING_LOG2(22), .FIRST_BYTES(32'd262144), .CHUNK_BYTES(32'd262144)) msu_mcache (
           .clk(clk_sys),
           .reset(reset),
           .mounting(msu_track_mounting),
