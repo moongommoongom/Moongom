@@ -61,7 +61,6 @@ input   wire    [31:0]  savestate_size,
 input   wire    [31:0]  savestate_maxloadsize,
 
 output  reg             osnotify_inmenu,
-output  reg             ss_hostcmd,             // pulse: a Savestate Start/Load command or query (0x00A0/0x00A4) arrived
 
 output  reg             savestate_start,        // core should detect rising edge on this,
 input   wire            savestate_start_ack,    // and then assert ack for at least 1 cycle
@@ -208,7 +207,6 @@ initial begin
     savestate_start <= 0;
     savestate_load <= 0;
     osnotify_inmenu <= 0;
-    ss_hostcmd <= 0;
 
     status_setup_done_queue <= 0;
     target_dataslot_read_queue <= 0;
@@ -322,7 +320,6 @@ always @(posedge clk) begin
 
 
     // host > target command executer
-    ss_hostcmd <= (hstate == ST_PARSE) && (host_cmd == 16'h00A0 || host_cmd == 16'h00A4);
     case(hstate)
     ST_IDLE: begin
 

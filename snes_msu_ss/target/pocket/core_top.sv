@@ -441,7 +441,6 @@ module core_top (
   wire savestate_load_err;
 
   wire osnotify_inmenu;
-  wire ss_hostcmd;
 
   wire [31:0] rtc_date;
   wire [31:0] rtc_time;
@@ -513,7 +512,6 @@ module core_top (
       .savestate_load_err (savestate_load_err),
 
       .osnotify_inmenu(osnotify_inmenu),
-      .ss_hostcmd(ss_hostcmd),
 
       .datatable_addr(datatable_addr),
       .datatable_wren(datatable_wren),
@@ -892,26 +890,6 @@ module core_top (
   wire        v_track_request;
   wire [15:0] v_track_num;
 
-  // Savestate hotkeys: the firmware sends its Savestate Start/Load queries (0x00A0/0x00A4) before any blob
-  // traffic, and a hotkey that lands while an MSU-1 SD read holds the target command channel did not take
-  // (several presses needed, MSU-1 games only). Stop issuing new MSU-1 SD commands from the first such
-  // command so the channel is free; ss_active_74 then covers the blob transfer and the engine walk.
-  // Bounded (0.5 s pause, re-armed at most every 2.5 s) so a firmware that polls these cannot starve playback;
-  // the music ring holds ~23 s and the voice clip starts with 64 KB+, so a 0.5 s gap is inaudible.
-  localparam [25:0] SS_HOLD_CYC  = 26'd37_125_000;   // 0.5 s at 74.25 MHz
-  localparam [27:0] SS_REARM_CYC = 28'd185_625_000;  // 2.5 s
-  reg [25:0] ss_hold = 0;
-  reg [27:0] ss_rearm = 0;
-  always @(posedge clk_74a) begin
-    if (ss_hold != 0) ss_hold <= ss_hold - 1'd1;
-    if (ss_rearm != 0) ss_rearm <= ss_rearm - 1'd1;
-    if (ss_hostcmd && ss_rearm == 0) begin
-      ss_hold  <= SS_HOLD_CYC;
-      ss_rearm <= SS_REARM_CYC;
-    end
-  end
-  wire msu_ss_pause = ss_active_74 | (ss_hold != 0);
-
   // MSU data store (FMV streaming) is not in this build: no data fill requests
   wire        d_fill_tgl = 1'b0;
   wire [31:0] d_fill_off = 32'd0;
@@ -931,7 +909,7 @@ module core_top (
       .clk(clk_74a),
       .clk_sys(clk_sys_21_48),
       .reset_n(reset_n),
-      .ss_pause(msu_ss_pause),
+      .ss_pause(ss_active_74),
 
       .tc_req(tc_req),
       .tc_code(tc_code),
