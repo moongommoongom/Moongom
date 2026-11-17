@@ -420,6 +420,8 @@ module MAIN_SNES (
   wire        msu_pr_req, msu_pr_we, msu_pr_bank, msu_pr_ack;
   wire [21:0] msu_pr_addr;
   wire [15:0] msu_pr_wd, msu_pr_rd;
+  wire        msu_pr_two;
+  wire [15:0] msu_pr_wd2;
 
   wire vblank_n;
   wire hblank_n;
@@ -673,6 +675,8 @@ module MAIN_SNES (
           .m_bank(msu_pr_bank),
           .m_addr(msu_pr_addr),
           .m_wdata(msu_pr_wd),
+          .m_two(msu_pr_two),
+          .m_wdata2(msu_pr_wd2),
           .m_ack_tgl(msu_pr_ack),
           .m_rdata(msu_pr_rd),
 
@@ -733,6 +737,8 @@ module MAIN_SNES (
             .m_bank(msu_pr_bank),
             .m_addr(msu_pr_addr),
             .m_wdata(msu_pr_wd),
+            .m_two(msu_pr_two),
+            .m_wdata2(msu_pr_wd2),
             .m_ack_tgl(msu_pr_ack),
             .m_rdata(msu_pr_rd),
 
@@ -916,7 +922,7 @@ module MAIN_SNES (
       .read_en (clearing_ram ? 1'b0 : ~WRAM_CE_N & ~WRAM_OE_N),
       .data_out(wram_data_out),
 
-      .m_req_tgl(1'b0), .m_we(1'b0), .m_bank(1'b0), .m_addr(22'd0), .m_wdata(16'd0), .m_ack_tgl(), .m_rdata(),
+      .m_req_tgl(1'b0), .m_we(1'b0), .m_bank(1'b0), .m_addr(22'd0), .m_wdata(16'd0), .m_two(1'b0), .m_wdata2(16'd0), .m_ack_tgl(), .m_rdata(),
 
       // Actual PSRAM interface
       .cram_a(cram0_a),
@@ -1446,6 +1452,8 @@ module MAIN_SNES (
       wire        mp_req, mp_we, mp_done, vp_req, vp_we, vp_done;
       wire [21:0] mp_addr, vp_addr;
       wire [15:0] mp_wd, vp_wd, mp_rd, vp_rd;
+      wire        mp_two, vp_two;
+      wire [15:0] mp_wd2, vp_wd2;
 
       // cram1 layout (word addresses): savestate blob 0x000000-0x0FFFFF, voice ring 2 MB at 0x100000, music ring 4 MB at 0x200000
       msu_scache #(.PS_BASE(22'h100000), .FIXED(1), .OW(22), .RING_LOG2(21), .FIRST_BYTES(32'd65536), .CHUNK_BYTES(32'd131072)) msu_vcache (
@@ -1472,6 +1480,8 @@ module MAIN_SNES (
           .pr_we(vp_we),
           .pr_addr(vp_addr),
           .pr_wdata(vp_wd),
+          .pr_two(vp_two),
+          .pr_wdata2(vp_wd2),
           .pr_done(vp_done),
           .pr_rdata(vp_rd)
       );
@@ -1500,6 +1510,8 @@ module MAIN_SNES (
           .pr_we(mp_we),
           .pr_addr(mp_addr),
           .pr_wdata(mp_wd),
+          .pr_two(mp_two),
+          .pr_wdata2(mp_wd2),
           .pr_done(mp_done),
           .pr_rdata(mp_rd)
       );
@@ -1507,12 +1519,14 @@ module MAIN_SNES (
       msu_pr_arb msu_pr_arb (
           .clk(clk_sys),
           .reset(reset),
-          .c0_req(mp_req), .c0_we(mp_we), .c0_addr(mp_addr), .c0_wd(mp_wd), .c0_done(mp_done), .c0_rd(mp_rd),
-          .c1_req(vp_req), .c1_we(vp_we), .c1_addr(vp_addr), .c1_wd(vp_wd), .c1_done(vp_done), .c1_rd(vp_rd),
+          .c0_req(mp_req), .c0_we(mp_we), .c0_addr(mp_addr), .c0_wd(mp_wd), .c0_two(mp_two), .c0_wd2(mp_wd2), .c0_done(mp_done), .c0_rd(mp_rd),
+          .c1_req(vp_req), .c1_we(vp_we), .c1_addr(vp_addr), .c1_wd(vp_wd), .c1_two(vp_two), .c1_wd2(vp_wd2), .c1_done(vp_done), .c1_rd(vp_rd),
           .pr_req_tgl(msu_pr_req),
           .pr_we(msu_pr_we),
           .pr_addr(msu_pr_addr),
           .pr_wdata(msu_pr_wd),
+          .pr_two(msu_pr_two),
+          .pr_wdata2(msu_pr_wd2),
           .pr_ack_tgl(msu_pr_ack),
           .pr_rdata(msu_pr_rd)
       );
@@ -1539,6 +1553,8 @@ module MAIN_SNES (
       assign msu_pr_bank = 1'b0;
       assign msu_pr_addr = 22'd0;
       assign msu_pr_wd = 16'd0;
+      assign msu_pr_two = 1'b0;
+      assign msu_pr_wd2 = 16'd0;
       assign msu_audio_sector = 22'd0;
       assign a_fetch_tgl = 1'b0;
       assign a_fetch_off = 32'd0;

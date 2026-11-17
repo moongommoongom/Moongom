@@ -1,6 +1,8 @@
 // Two-client arbiter for the MSU PSRAM port (ARAM chip, toggle handshake).
 // Each client holds req/we/addr/wd until it sees a one-cycle done pulse (read data valid with it).
 // Writes are served before reads (the write queues of the stream caches must never overflow).
+// A write may carry a second word (two = 1: wd at addr, wd2 at addr+1, one handshake): with word pairs the
+// queues drain faster than the bridge fills them, so the gaps between pairs leave room for playback reads.
 module msu_pr_arb (
 	input             clk,
 	input             reset,
@@ -9,6 +11,8 @@ module msu_pr_arb (
 	input             c0_we,
 	input      [21:0] c0_addr,
 	input      [15:0] c0_wd,
+	input             c0_two,
+	input      [15:0] c0_wd2,
 	output reg        c0_done,
 	output reg [15:0] c0_rd,
 
@@ -16,6 +20,8 @@ module msu_pr_arb (
 	input             c1_we,
 	input      [21:0] c1_addr,
 	input      [15:0] c1_wd,
+	input             c1_two,
+	input      [15:0] c1_wd2,
 	output reg        c1_done,
 	output reg [15:0] c1_rd,
 
@@ -23,11 +29,13 @@ module msu_pr_arb (
 	output reg        pr_we,
 	output reg [21:0] pr_addr,
 	output reg [15:0] pr_wdata,
+	output reg        pr_two,
+	output reg [15:0] pr_wdata2,
 	input             pr_ack_tgl,
 	input      [15:0] pr_rdata
 );
 
-initial begin pr_req_tgl = 0; pr_we = 0; pr_addr = 0; pr_wdata = 0; c0_done = 0; c1_done = 0; c0_rd = 0; c1_rd = 0; end
+initial begin pr_req_tgl = 0; pr_we = 0; pr_addr = 0; pr_wdata = 0; pr_two = 0; pr_wdata2 = 0; c0_done = 0; c1_done = 0; c0_rd = 0; c1_rd = 0; end
 
 localparam [1:0] A_SYNC = 2'd0, A_IDLE = 2'd1, A_BUSY = 2'd2, A_GAP = 2'd3;
 reg [1:0] st = A_SYNC;
@@ -54,6 +62,8 @@ always @(posedge clk) begin
 				pr_we      <= pick1 ? c1_we   : c0_we;
 				pr_addr    <= pick1 ? c1_addr : c0_addr;
 				pr_wdata   <= pick1 ? c1_wd   : c0_wd;
+				pr_two     <= pick1 ? (c1_we & c1_two) : (c0_we & c0_two);
+				pr_wdata2  <= pick1 ? c1_wd2  : c0_wd2;
 				pr_req_tgl <= ~pr_req_tgl;
 				st         <= A_BUSY;
 			end

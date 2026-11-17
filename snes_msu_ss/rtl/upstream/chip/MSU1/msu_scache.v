@@ -50,6 +50,8 @@ module msu_scache #(
 	output reg        pr_we,
 	output reg [21:0] pr_addr,
 	output reg [15:0] pr_wdata,
+	output reg        pr_two,                          // write pr_wdata at pr_addr and pr_wdata2 at pr_addr+1 (one handshake)
+	output reg [15:0] pr_wdata2,
 	input             pr_done,
 	input      [15:0] pr_rdata
 );
@@ -61,7 +63,7 @@ localparam [OW:0] RING = {{OW{1'b0}},1'b1} << RING_LOG2;
 initial begin
 	a_done_tgl = 0; a_err = 0; a_pcm_wr = 0; a_pcm_data = 0;
 	b_fetch_tgl = 0; b_off = 0; b_len = 0;
-	pr_req = 0; pr_we = 0; pr_addr = 0; pr_wdata = 0;
+	pr_req = 0; pr_we = 0; pr_addr = 0; pr_wdata = 0; pr_two = 0; pr_wdata2 = 0;
 end
 
 // ---- stream bookkeeping ----
@@ -93,12 +95,16 @@ wire [OW-1:0] plen = (rem >= want) ? want : {rem[OW-1:2], 2'b00};
 wire [OW:0] hi_chunk = {1'b0, hi} + CHUNK_BYTES[OW:0];
 wire [OW:0] lo_ring  = {1'b0, lo} + RING;
 
-(* ramstyle = "MLAB, no_rw_check" *) reg [15:0] wq [0:63];
-reg  [5:0] wq_w = 0, wq_r = 0;
+// Word pairs: the bridge delivers 32-bit words (two pcm words) and chunks are whole dwords, so the queue holds
+// pairs and every PSRAM access writes two words with one handshake (wa_off stays even).
+(* ramstyle = "MLAB, no_rw_check" *) reg [31:0] wq [0:31];
+reg  [4:0] wq_w = 0, wq_r = 0;
+reg        wh_v = 0;                                   // first word of the next pair is held
+reg [15:0] wh_d = 0;
 wire       q_empty = (wq_w == wq_r);
-wire       q_full  = ((wq_w + 6'd1) == wq_r);
-wire [5:0] q_used  = wq_w - wq_r;
-wire       q_half  = q_used[5];                        // 32 or more of 64 words queued: writes keep priority
+wire       q_full  = ((wq_w + 5'd1) == wq_r);
+wire [4:0] q_used  = wq_w - wq_r;
+wire       q_half  = q_used[4];                        // 16 or more of 32 pairs queued: writes keep priority
 
 // ---- PSRAM access engine ----
 localparam [2:0] M_IDLE = 3'd0, M_W = 3'd2, M_R = 3'd3;
@@ -134,8 +140,9 @@ always @(posedge clk) begin
 		ds           <= D_IDLE;
 		ms           <= M_IDLE;
 		pr_req       <= 1'b0;
-		wq_w         <= 6'd0;
-		wq_r         <= 6'd0;
+		wq_w         <= 5'd0;
+		wq_r         <= 5'd0;
+		wh_v         <= 1'b0;
 		rd_req       <= 1'b0;
 		b_done_prev  <= b_done_tgl;
 		a_seen       <= a_fetch_tgl;
@@ -146,10 +153,17 @@ always @(posedge clk) begin
 		// ---------------- words from the bridge -> queue ----------------
 		if (b_pcm_wr && (ps == P_WAIT || ps == P_SETTLE)) begin
 			rxw <= rxw + 1'd1;
-			if (q_full) q_ovf <= 1'b1;
+			if (!wh_v) begin
+				wh_v <= 1'b1;
+				wh_d <= b_pcm_data;
+			end
 			else begin
-				wq[wq_w] <= b_pcm_data;
-				wq_w     <= wq_w + 1'd1;
+				wh_v <= 1'b0;
+				if (q_full) q_ovf <= 1'b1;
+				else begin
+					wq[wq_w] <= {b_pcm_data, wh_d};
+					wq_w     <= wq_w + 1'd1;
+				end
 			end
 		end
 
@@ -183,6 +197,7 @@ always @(posedge clk) begin
 					q_ovf       <= 1'b0;
 					perr        <= 1'b0;
 					wa_off      <= hi[RW:1];
+					wh_v        <= 1'b0;
 					b_fetch_tgl <= ~b_fetch_tgl;
 					ps          <= P_WAIT;
 				end
@@ -286,45 +301,49 @@ always @(posedge clk) begin
 		endcase
 
 		// ---------------- PSRAM access engine (queued writes first, then demand reads) ----------------
-		// A write takes 7 clk per word (the next queued word is chained on the done pulse while msu_pr_arb spends
-		// its gap cycle), which is the pcm data_loader's own maximum output rate (WRITE_MEM_CLOCK_DELAY 7): a transfer
-		// can no longer outrun the queue.  The old 9 clk per word (4.8 MB/s, ~4.3 MB/s with playback reads) was barely
-		// above the firmware's ~4 MB/s, so the queue overflowed (chunk retried, eventually pfail) and the demand reads
-		// of playback starved behind a long transfer (music cut out while a voice chunk was read, and vice versa).
+		// Every write access stores a word pair (one handshake, two PSRAM writes), and the next pair is chained on
+		// the done pulse while msu_pr_arb spends its gap cycle: ~4.5 clk per word, well above the pcm data_loader's
+		// maximum output rate (7 clk per word). The old single-word accesses (9 clk per word, 4.8 MB/s, ~4.3 MB/s
+		// with playback reads) were barely above the firmware's rate, so the write queue overflowed (chunk re-read,
+		// eventually pfail) and the playback reads starved behind a transfer (music cut out while a voice chunk was
+		// read, and vice versa). A pending demand read goes first while the queue is less than half full.
 		case (ms)
 			M_IDLE:
 				begin
-					if (!q_empty) begin                                          // issue the queue head directly (no extra latch cycle)
-						pr_we    <= 1'b1;
-						pr_addr  <= PS_BASE | {{(22-RW){1'b0}}, wa_off};
-						pr_wdata <= wq[wq_r];
-						pr_req   <= 1'b1;
-						wa_off   <= wa_off + 1'd1;
-						wq_r     <= wq_r + 1'd1;
-						ms       <= M_W;
+					if (!q_empty) begin
+						pr_we     <= 1'b1;
+						pr_two    <= 1'b1;
+						pr_addr   <= PS_BASE | {{(22-RW){1'b0}}, wa_off};
+						pr_wdata  <= wq[wq_r][15:0];
+						pr_wdata2 <= wq[wq_r][31:16];
+						pr_req    <= 1'b1;
+						wa_off    <= wa_off + 2'd2;
+						wq_r      <= wq_r + 1'd1;
+						ms        <= M_W;
 					end
 					else if (rd_req) begin
 						rd_req  <= 1'b0;
 						pr_we   <= 1'b0;
+						pr_two  <= 1'b0;
 						pr_addr <= PS_BASE | {{(22-RW){1'b0}}, rd_off};
 						pr_req  <= 1'b1;
 						ms      <= M_R;
 					end
 				end
 
-			// write done: chain the next queued word while the arbiter spends its gap cycle (7 instead of 9 clk per word).
-			// A pending demand read goes first when the queue is not about to overflow, so playback is never starved by a transfer.
 			M_W:
 				if (pr_done) begin
 					if (!q_empty && !(rd_req && !q_half)) begin
-						pr_addr  <= PS_BASE | {{(22-RW){1'b0}}, wa_off};
-						pr_wdata <= wq[wq_r];
-						wa_off   <= wa_off + 1'd1;
-						wq_r     <= wq_r + 1'd1;
+						pr_addr   <= PS_BASE | {{(22-RW){1'b0}}, wa_off};
+						pr_wdata  <= wq[wq_r][15:0];
+						pr_wdata2 <= wq[wq_r][31:16];
+						wa_off    <= wa_off + 2'd2;
+						wq_r      <= wq_r + 1'd1;
 					end
 					else if (rd_req) begin
 						rd_req  <= 1'b0;
 						pr_we   <= 1'b0;
+						pr_two  <= 1'b0;
 						pr_addr <= PS_BASE | {{(22-RW){1'b0}}, rd_off};
 						ms      <= M_R;
 					end

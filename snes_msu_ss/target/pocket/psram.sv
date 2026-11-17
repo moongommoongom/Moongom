@@ -73,6 +73,8 @@ module psram #(
     input wire m_bank,
     input wire [21:0] m_addr,
     input wire [15:0] m_wdata,
+    input wire m_two,                // write m_wdata at m_addr, then m_wdata2 at m_addr+1, then ack (one handshake per word pair)
+    input wire [15:0] m_wdata2,
     output reg m_ack_tgl = 0,
     output reg [15:0] m_rdata = 0,
 
@@ -259,6 +261,11 @@ module psram #(
   end
   wire m_pend = (m_s2 != m_ack_tgl);
   reg m_active = 0;
+  reg m_two_l = 0;        // the running MSU write has a second word
+  reg m_2nd = 0;          // ... which is due now (served before anything else, then ack)
+  reg m_bank_l = 0;
+  reg [21:0] m_addr2_l = 0;
+  reg [15:0] m_wdata2_l = 0;
 
   wire snes_req = write_en | read_en;
   wire [42:0] snes_sig = {write_en, read_en, bank_sel, addr, write_high_byte, write_low_byte, data_in};
@@ -299,7 +306,22 @@ module psram #(
         cram_ub_n  <= 1;
         cram_lb_n  <= 1;
 
-        if (do_snes && write_en) begin
+        if (m_2nd) begin
+          // second word of an MSU-1 write pair: m_active stays set, the ack follows this write
+          m_2nd <= 0;
+          state <= WRITE_INITIAL_COUNT;
+          if (m_bank_l) cram_ce1_n <= 0;
+          else cram_ce0_n <= 0;
+          cram_a <= m_addr2_l[21:16];
+          cram_data <= m_addr2_l[15:0];
+          data_out_en <= 1;
+          latched_data_in <= m_wdata2_l;
+          cram_we_n <= 0;
+          cram_adv_n <= 0;
+          cram_ub_n <= 0;
+          cram_lb_n <= 0;
+          busy <= 1;
+        end else if (do_snes && write_en) begin
           snes_acc <= 1;
           // Enter write_init
           m_active <= 0;
@@ -361,6 +383,10 @@ module psram #(
           cram_lb_n <= 0;
           busy <= 1;
 
+          m_bank_l <= m_bank;
+          m_addr2_l <= m_addr + 22'd1;
+          m_wdata2_l <= m_wdata2;
+          m_two_l <= m_we & m_two;
           if (m_we) begin
             state <= WRITE_INITIAL_COUNT;
             cram_we_n <= 0;
@@ -403,8 +429,13 @@ module psram #(
         busy <= 0;
 
         if (m_active) begin
-          m_active <= 0;
-          m_ack_tgl <= ~m_ack_tgl;
+          if (m_two_l) begin
+            m_two_l <= 0;
+            m_2nd <= 1;
+          end else begin
+            m_active <= 0;
+            m_ack_tgl <= ~m_ack_tgl;
+          end
         end else first_done <= snes_req && sig_same_q;
       end
 

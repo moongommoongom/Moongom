@@ -35,6 +35,8 @@ module savestate (
     input wire m_bank,
     input wire [21:0] m_addr,
     input wire [15:0] m_wdata,
+    input wire m_two,
+    input wire [15:0] m_wdata2,
     output wire m_ack_tgl,
     output wire [15:0] m_rdata,
 
@@ -412,6 +414,8 @@ module savestate (
       .m_bank(m_bank),
       .m_addr(m_addr),
       .m_wdata(m_wdata),
+      .m_two(m_two),
+      .m_wdata2(m_wdata2),
       .m_ack_tgl(m_ack_tgl),
       .m_rdata(m_rdata),
 

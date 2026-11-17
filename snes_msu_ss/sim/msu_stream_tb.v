@@ -6,7 +6,8 @@
 //   iverilog -g2012 -DBPERIOD=22 -o msu_stream msu_stream_tb.v ../rtl/upstream/chip/MSU1/msu_scache.v \
 //       ../rtl/upstream/chip/MSU1/msu_pr_arb.v ../target/pocket/psram.sv && vvp msu_stream | grep BPERIOD
 //
-// BPERIOD = clk_sys cycles per 32-bit bridge write (22 ~ 4 MB/s as measured for the firmware, 16 ~ 5.4 MB/s).
+// BPERIOD = clk_sys cycles per 32-bit bridge write (22 ~ 4 MB/s as measured for the firmware, 16 ~ 5.4 MB/s,
+// 14 = 6.1 MB/s, the pcm data_loader's maximum).
 `timescale 1ps/1ps
 `ifndef SC
  `define SC msu_scache
@@ -40,29 +41,30 @@ module tb;
   wire m_bf, v_bf; wire [31:0] m_boff, m_blen, v_boff, v_blen;
   reg  m_bd=0, v_bd=0; reg m_bw=0, v_bw=0; reg [15:0] m_bdat=0, v_bdat=0;
   wire mp_req, mp_we, mp_done, vp_req, vp_we, vp_done; wire [21:0] mp_addr, vp_addr; wire [15:0] mp_wd, vp_wd, mp_rd, vp_rd;
+  wire mp_two, vp_two; wire [15:0] mp_wd2, vp_wd2;
 
   `SC #(.PS_BASE(22'h100000), .FIXED(1), .OW(22), .RING_LOG2(21), .FIRST_BYTES(32'd65536), .CHUNK_BYTES(32'd131072)) vc (
     .clk(clk_sys),.reset(reset),.mounting(v_mnt),.missing(1'b0),.size(v_size),
     .a_fetch_tgl(v_af),.a_off(v_aoff),.a_len(v_alen),.a_done_tgl(v_ad),.a_err(v_ae),.a_pcm_wr(v_pw),.a_pcm_data(v_pd),
     .b_fetch_tgl(v_bf),.b_off(v_boff),.b_len(v_blen),.b_done_tgl(v_bd),.b_err(1'b0),.b_pcm_wr(v_bw),.b_pcm_data(v_bdat),
-    .pr_req(vp_req),.pr_we(vp_we),.pr_addr(vp_addr),.pr_wdata(vp_wd),.pr_done(vp_done),.pr_rdata(vp_rd));
+    .pr_req(vp_req),.pr_we(vp_we),.pr_addr(vp_addr),.pr_wdata(vp_wd),.pr_two(vp_two),.pr_wdata2(vp_wd2),.pr_done(vp_done),.pr_rdata(vp_rd));
   `SC #(.PS_BASE(22'h200000), .RING_LOG2(22), .FIRST_BYTES(32'd262144), .CHUNK_BYTES(32'd262144)) mc (
     .clk(clk_sys),.reset(reset),.mounting(m_mnt),.missing(1'b0),.size(m_size),
     .a_fetch_tgl(m_af),.a_off(m_aoff),.a_len(m_alen),.a_done_tgl(m_ad),.a_err(m_ae),.a_pcm_wr(m_pw),.a_pcm_data(m_pd),
     .b_fetch_tgl(m_bf),.b_off(m_boff),.b_len(m_blen),.b_done_tgl(m_bd),.b_err(1'b0),.b_pcm_wr(m_bw),.b_pcm_data(m_bdat),
-    .pr_req(mp_req),.pr_we(mp_we),.pr_addr(mp_addr),.pr_wdata(mp_wd),.pr_done(mp_done),.pr_rdata(mp_rd));
+    .pr_req(mp_req),.pr_we(mp_we),.pr_addr(mp_addr),.pr_wdata(mp_wd),.pr_two(mp_two),.pr_wdata2(mp_wd2),.pr_done(mp_done),.pr_rdata(mp_rd));
 
-  wire tgl, we; wire [21:0] a; wire [15:0] wd, rd; wire ack;
+  wire tgl, we, two; wire [21:0] a; wire [15:0] wd, wd2, rd; wire ack;
   msu_pr_arb arb(.clk(clk_sys),.reset(reset),
-    .c0_req(mp_req),.c0_we(mp_we),.c0_addr(mp_addr),.c0_wd(mp_wd),.c0_done(mp_done),.c0_rd(mp_rd),
-    .c1_req(vp_req),.c1_we(vp_we),.c1_addr(vp_addr),.c1_wd(vp_wd),.c1_done(vp_done),.c1_rd(vp_rd),
-    .pr_req_tgl(tgl),.pr_we(we),.pr_addr(a),.pr_wdata(wd),.pr_ack_tgl(ack),.pr_rdata(rd));
+    .c0_req(mp_req),.c0_we(mp_we),.c0_addr(mp_addr),.c0_wd(mp_wd),.c0_two(mp_two),.c0_wd2(mp_wd2),.c0_done(mp_done),.c0_rd(mp_rd),
+    .c1_req(vp_req),.c1_we(vp_we),.c1_addr(vp_addr),.c1_wd(vp_wd),.c1_two(vp_two),.c1_wd2(vp_wd2),.c1_done(vp_done),.c1_rd(vp_rd),
+    .pr_req_tgl(tgl),.pr_we(we),.pr_addr(a),.pr_wdata(wd),.pr_two(two),.pr_wdata2(wd2),.pr_ack_tgl(ack),.pr_rdata(rd));
 
   // ---------------- PSRAM: real controller timing + behavioural chip ----------------
   wire [15:0] dq; wire [21:16] ca; wire adv_n, ce0_n, oe_n, we_n;
   psram #(.CLOCK_SPEED(85.9)) ram(.clk(clk_mem),.bank_sel(1'b0),.addr(22'd0),.write_en(1'b0),.data_in(16'd0),
     .write_high_byte(1'b1),.write_low_byte(1'b1),.read_en(1'b0),.read_avail(),.data_out(),.busy(),.snes_acc(),
-    .m_req_tgl(tgl),.m_we(we),.m_bank(1'b0),.m_addr(a),.m_wdata(wd),.m_ack_tgl(ack),.m_rdata(rd),
+    .m_req_tgl(tgl),.m_we(we),.m_bank(1'b0),.m_addr(a),.m_wdata(wd),.m_two(two),.m_wdata2(wd2),.m_ack_tgl(ack),.m_rdata(rd),
     .cram_a(ca),.cram_dq(dq),.cram_wait(1'b0),.cram_clk(),.cram_adv_n(adv_n),.cram_cre(),.cram_ce0_n(ce0_n),.cram_ce1_n(),
     .cram_oe_n(oe_n),.cram_we_n(we_n),.cram_ub_n(),.cram_lb_n());
   reg [15:0] mem [0:22'h3FFFFF];
