@@ -95,6 +95,23 @@ module MAIN_SNES (
 
     output reg [3:0] sram_size,
 
+    // Savestates (USE_SS)
+    input wire ss_save,
+    input wire ss_load,
+    input wire ss_ctrl_idle,
+    output wire ss_busy,
+    output wire ss_load_reject,
+    output wire ss_avail,
+    output wire ss_stage_lost,
+
+    input wire ss_stage_wr,
+    input wire [19:0] ss_stage_addr,
+    input wire [15:0] ss_stage_data,
+
+    input wire ss_blob_rd,
+    input wire [19:0] ss_blob_addr,
+    output wire [15:0] ss_blob_q,
+
     // SDRAM
     output wire [12:0] dram_a,
     output wire [ 1:0] dram_ba,
@@ -213,6 +230,7 @@ module MAIN_SNES (
   parameter USE_SPC7110 = 1'b0;
   parameter USE_BSX = 1'b0;
   parameter USE_MSU = 1'b0;
+  parameter USE_SS = 1'b0;
 
   initial begin
     $info("Selected chips");
@@ -353,6 +371,20 @@ module MAIN_SNES (
     end
   end
 
+  // Per-ROM signature for savestate cross-load rejection (same hash as the savestate core)
+  reg [31:0] ss_game_id = 0;
+  always @(posedge clk_sys) begin
+    if (cart_download & ioctl_wr) begin
+      if (ioctl_addr == 0)
+        ss_game_id <= 32'h811C9DC5 ^ {16'd0, ioctl_dout};
+      else
+        ss_game_id <= {ss_game_id[30:0], ss_game_id[31]}
+                      ^ {16'd0, ioctl_dout}
+                      ^ {7'd0, ioctl_addr[1], ioctl_addr[8], ioctl_addr[16], 22'd0};
+    end
+  end
+  wire [31:0] ss_game_id_out = (ss_game_id == 0) ? 32'hFFFFFFFF : ss_game_id;
+
   ////////////////////////////  SYSTEM  ///////////////////////////////////
 
   wire turbo_allow;
@@ -405,7 +437,8 @@ module MAIN_SNES (
       .USE_DSPn(USE_DSPn),
       .USE_SPC7110(USE_SPC7110),
       .USE_BSX(USE_BSX),
-      .USE_MSU(USE_MSU)
+      .USE_MSU(USE_MSU),
+      .USE_SS(USE_SS)
   ) main (
       .RESET_N(RESET_N),
 
@@ -418,6 +451,7 @@ module MAIN_SNES (
       .ROM_TYPE(rom_type),
       .ROM_MASK(rom_mask),
       .RAM_MASK(ram_mask),
+      .RAM_SIZE(ram_size),
       .PAL(PAL),
       .BLEND(blend_enabled),
 
@@ -535,6 +569,22 @@ module MAIN_SNES (
       .MSU_DATA_REQ(msu_data_req),
       .MSU_ENABLE(msu_enable),
 
+      .SS_SAVE(ss_save),
+      .SS_TOSD(1'b1),
+      .SS_LOAD(ss_load),
+      .SS_SLOT(2'b0),
+      .SS_GAME_ID(ss_game_id_out),
+      .SS_AVAIL(ss_avail),
+      .SS_DDR_DI(ss_ddr_di),
+      .SS_DDR_ACK(ss_ddr_ack),
+      .SS_DDR_DO(ss_ddr_do),
+      .SS_DDR_ADDR(ss_ddr_addr),
+      .SS_DDR_WE(ss_ddr_we),
+      .SS_DDR_BE(ss_ddr_be),
+      .SS_DDR_REQ(ss_ddr_req),
+      .SS_BUSY(ss_busy),
+      .SS_LOAD_REJECT(ss_load_reject),
+
       .AUDIO_L(main_audio_l),
       .AUDIO_R(main_audio_r)
   );
@@ -604,6 +654,16 @@ module MAIN_SNES (
   wire ROM_WORD;
   wire [15:0] ROM_D;
   wire [15:0] ROM_Q;
+  wire [15:0] rom_sdram_q;
+
+  // savestate engine <-> blob store
+  wire [63:0] ss_ddr_di;
+  wire        ss_ddr_ack;
+  wire [63:0] ss_ddr_do;
+  wire [21:3] ss_ddr_addr;
+  wire [ 7:0] ss_ddr_be;
+  wire        ss_ddr_we;
+  wire        ss_ddr_req;
 
   sdram sdram (
       .init(0),  //~clock_locked),
@@ -611,7 +671,7 @@ module MAIN_SNES (
 
       .addr(cart_download ? ioctl_addr : ROM_ADDR),
       .din (cart_download ? ioctl_dout : ROM_D),
-      .dout(ROM_Q),
+      .dout(rom_sdram_q),
       .rd  (~cart_download & (RESET_N ? ~ROM_OE_N : RFSH)),
       .wr  (cart_download ? ioctl_wr : ~ROM_WE_N),
       .word(cart_download | ROM_WORD),
@@ -645,7 +705,8 @@ module MAIN_SNES (
   assign WRAM_Q = psram_wram_addr[0] ? wram_data_out[15:8] : wram_data_out[7:0];
 
   psram #(
-      .CLOCK_SPEED(85.9)
+      .CLOCK_SPEED(85.9),
+      .MSU_FORCE_EN(0)
   ) wram (
       .clk(clk_mem_85_9),
 
@@ -720,61 +781,152 @@ module MAIN_SNES (
   wire        ARAM_WE_N;
   wire [7:0] ARAM_Q, ARAM_D;
 
-  wire [15:0] aram_16_out;
-
-  // MSU-1 track-head cache port into the ARAM PSRAM chip (clk_sys -> clk_mem handshake)
+  // MSU-1 track-head cache port (clk_sys -> clk_mem toggle handshake) into a PSRAM die
   wire        msu_pr_req, msu_pr_we, msu_pr_bank, msu_pr_ack;
   wire [21:0] msu_pr_addr;
   wire [15:0] msu_pr_wd, msu_pr_rd;
 
-  assign ARAM_Q = psram_aram_addr[0] ? aram_16_out[15:8] : aram_16_out[7:0];
+  wire inject_savestate_rom;
 
-  wire [15:0] psram_aram_addr = clearing_ram ? mem_fill_addr[15:0] : ARAM_ADDR;
+  generate
+    if (USE_SS == 1'b1) begin : g_ss_mem
+      // Savestate build: ARAM lives in BRAM (as on MiSTer); the cram1 die holds the savestate blob
+      // and, through its second port, the MSU-1 track-head cache
+      dpram #(16) aram (
+          .clock(clk_sys),
+          .address_a(ARAM_ADDR),
+          .data_a(ARAM_D),
+          .wren_a(~ARAM_CE_N & ~ARAM_WE_N),
+          .q_a(ARAM_Q),
 
-  wire [ 7:0] aram_data = clearing_ram ? aram_fill_data : ARAM_D;
-  wire [15:0] aram_16_data = psram_aram_addr[0] ? {aram_data, 8'h0} : {8'h0, aram_data};
+          // fill on ROM load
+          .address_b(mem_fill_addr[15:0]),
+          .data_b(aram_fill_data),
+          .wren_b(clearing_ram)
+      );
 
-  psram #(
-      .CLOCK_SPEED(85.9)
-  ) aram (
-      .clk(clk_mem_85_9),
+      savestate ss_mem (
+          .clk_sys(clk_sys_21_48),
+          .clk_mem(clk_mem_85_9),
 
-      .bank_sel(0),
-      // Remove bottom most bit, since this is a 8bit address and the RAM wants a 16bit address
-      .addr(psram_aram_addr[15:1]),
+          .ss_ddr_do(ss_ddr_do),
+          .ss_ddr_addr(ss_ddr_addr),
+          .ss_ddr_be(ss_ddr_be),
+          .ss_ddr_we(ss_ddr_we),
+          .ss_ddr_req(ss_ddr_req),
+          .ss_ddr_di(ss_ddr_di),
+          .ss_ddr_ack(ss_ddr_ack),
 
-      .write_en(clearing_ram ? 1'b1 : ~ARAM_CE_N & ~ARAM_WE_N),
-      .data_in(aram_16_data),
-      .write_high_byte(psram_aram_addr[0]),
-      .write_low_byte(~psram_aram_addr[0]),
+          .ss_busy(ss_busy),
 
-      .read_en (~ARAM_CE_N & ~ARAM_OE_N),
-      .data_out(aram_16_out),
+          .blocked(cart_download),
+          .ctrl_idle(ss_ctrl_idle),
+          .stage_lost(ss_stage_lost),
 
-      .m_req_tgl(msu_pr_req),
-      .m_we(msu_pr_we),
-      .m_bank(msu_pr_bank),
-      .m_addr(msu_pr_addr),
-      .m_wdata(msu_pr_wd),
-      .m_ack_tgl(msu_pr_ack),
-      .m_rdata(msu_pr_rd),
+          .stage_wr(ss_stage_wr),
+          .stage_addr(ss_stage_addr),
+          .stage_data(ss_stage_data),
 
-      // Actual PSRAM interface
-      .cram_a(cram1_a),
-      .cram_dq(cram1_dq),
-      .cram_wait(cram1_wait),
-      .cram_clk(cram1_clk),
-      .cram_adv_n(cram1_adv_n),
-      .cram_cre(cram1_cre),
-      .cram_ce0_n(cram1_ce0_n),
-      .cram_ce1_n(cram1_ce1_n),
-      .cram_oe_n(cram1_oe_n),
-      .cram_we_n(cram1_we_n),
-      .cram_ub_n(cram1_ub_n),
-      .cram_lb_n(cram1_lb_n)
-  );
+          .blob_rd(ss_blob_rd),
+          .blob_addr(ss_blob_addr),
+          .blob_q(ss_blob_q),
 
-  localparam BSRAM_BITS = 17;  // 1Mbits
+          .m_req_tgl(msu_pr_req),
+          .m_we(msu_pr_we),
+          .m_bank(msu_pr_bank),
+          .m_addr(msu_pr_addr),
+          .m_wdata(msu_pr_wd),
+          .m_ack_tgl(msu_pr_ack),
+          .m_rdata(msu_pr_rd),
+
+          .cram_a(cram1_a),
+          .cram_dq(cram1_dq),
+          .cram_wait(cram1_wait),
+          .cram_clk(cram1_clk),
+          .cram_adv_n(cram1_adv_n),
+          .cram_cre(cram1_cre),
+          .cram_ce0_n(cram1_ce0_n),
+          .cram_ce1_n(cram1_ce1_n),
+          .cram_oe_n(cram1_oe_n),
+          .cram_we_n(cram1_we_n),
+          .cram_ub_n(cram1_ub_n),
+          .cram_lb_n(cram1_lb_n)
+      );
+
+      wire [15:0] savestate_rom_q;
+
+      boot1_rom savestate_rom (
+          .clk (clk_mem_85_9),
+          .addr(ROM_ADDR[11:0]),
+          .word(ROM_WORD),
+          .q(savestate_rom_q)
+      );
+
+      assign inject_savestate_rom = ss_busy & (ROM_ADDR[23:16] == 8'hFF) & ~cart_download;
+      assign ROM_Q = inject_savestate_rom ? savestate_rom_q : rom_sdram_q;
+    end else begin : g_r1_mem
+      // R1 layout: ARAM on the cram1 PSRAM die, MSU-1 head cache on its second port
+      wire [15:0] aram_16_out;
+
+      wire [15:0] psram_aram_addr = clearing_ram ? mem_fill_addr[15:0] : ARAM_ADDR;
+
+      assign ARAM_Q = psram_aram_addr[0] ? aram_16_out[15:8] : aram_16_out[7:0];
+
+      wire [ 7:0] aram_data = clearing_ram ? aram_fill_data : ARAM_D;
+      wire [15:0] aram_16_data = psram_aram_addr[0] ? {aram_data, 8'h0} : {8'h0, aram_data};
+
+      psram #(
+          .CLOCK_SPEED(85.9),
+          .MSU_FORCE_EN(0)
+      ) aram (
+          .clk(clk_mem_85_9),
+
+          .bank_sel(0),
+          // Remove bottom most bit, since this is a 8bit address and the RAM wants a 16bit address
+          .addr(psram_aram_addr[15:1]),
+
+          .write_en(clearing_ram ? 1'b1 : ~ARAM_CE_N & ~ARAM_WE_N),
+          .data_in(aram_16_data),
+          .write_high_byte(psram_aram_addr[0]),
+          .write_low_byte(~psram_aram_addr[0]),
+
+          .read_en (~ARAM_CE_N & ~ARAM_OE_N),
+          .data_out(aram_16_out),
+
+          .m_req_tgl(msu_pr_req),
+          .m_we(msu_pr_we),
+          .m_bank(msu_pr_bank),
+          .m_addr(msu_pr_addr),
+          .m_wdata(msu_pr_wd),
+          .m_ack_tgl(msu_pr_ack),
+          .m_rdata(msu_pr_rd),
+
+          // Actual PSRAM interface
+          .cram_a(cram1_a),
+          .cram_dq(cram1_dq),
+          .cram_wait(cram1_wait),
+          .cram_clk(cram1_clk),
+          .cram_adv_n(cram1_adv_n),
+          .cram_cre(cram1_cre),
+          .cram_ce0_n(cram1_ce0_n),
+          .cram_ce1_n(cram1_ce1_n),
+          .cram_oe_n(cram1_oe_n),
+          .cram_we_n(cram1_we_n),
+          .cram_ub_n(cram1_ub_n),
+          .cram_lb_n(cram1_lb_n)
+      );
+
+      assign ss_ddr_di = 64'd0;
+      assign ss_ddr_ack = 1'b0;
+      assign ss_blob_q = 16'd0;
+      assign ss_stage_lost = 1'b0;
+      assign inject_savestate_rom = 1'b0;
+      assign ROM_Q = rom_sdram_q;
+    end
+  endgenerate
+
+  // 1Mbit cart RAM in R1; the savestate build keeps 32KB (no-chip carts) so ARAM fits in BRAM
+  localparam BSRAM_BITS = (USE_SS == 1'b1) ? 15 : 17;
   wire [19:0] BSRAM_ADDR;
   wire        BSRAM_CE_N;
   wire        BSRAM_OE_N;

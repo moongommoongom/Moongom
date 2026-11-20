@@ -49,3 +49,7 @@ set_max_delay 23 -from [get_registers { ic|snes|main|SNES|DSP|* }] \
 					  -to   [get_registers { ic|sound_i2s|* }] 
 
 set_false_path -to [get_registers { ic|snes|sdram|ds ic|snes|sdram|data[*]}]
+
+# Savestate ROM injection (boot1 program in BRAM on clk_mem, read by the CPU like the SDRAM ROM)
+set_max_delay 23 -from [get_registers { ic|snes|main|* }] -to [get_registers { ic|snes|*savestate_rom* }]
+set_max_delay 23 -from [get_registers { ic|snes|*savestate_rom* }] -to [get_registers { ic|snes|main|* }]

@@ -323,8 +323,7 @@ set_global_assignment -name GENERATE_RBF_FILE ON
 
 # Signal Tap Assignments
 # ======================
-set_global_assignment -name ENABLE_SIGNALTAP ON
-set_global_assignment -name USE_SIGNALTAP_FILE core/stp1.stp
+set_global_assignment -name ENABLE_SIGNALTAP OFF
 
 # Power Estimation Assignments
 # ============================
@@ -773,12 +772,20 @@ set_global_assignment -name VHDL_FILE core/rtl/CPU.vhd
 set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/cheatcodes.sv
 set_global_assignment -name VHDL_FILE core/rtl/CEGen.vhd
 set_global_assignment -name VHDL_FILE core/rtl/bram.vhd
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/savestates.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/savestates_regs.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/savestates_map.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/savestates_sa1.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/mister_top/savestate.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/mister_top/psram_blob.sv
+set_global_assignment -name SYSTEMVERILOG_FILE core/rtl/mister_top/boot1_rom.sv
+set_global_assignment -name MIF_FILE core/rtl/mister_top/boot1.mif
+set_global_assignment -name SYSTEMVERILOG_FILE core/savestate_controller.sv
 set_global_assignment -name QIP_FILE core/rtl/chip/chip.qip
 set_global_assignment -name QIP_FILE apf/apf.qip
 set_global_assignment -name VERILOG_FILE core/core_bridge_cmd.v
 set_global_assignment -name VERILOG_FILE core/msu_bridge.v
 set_global_assignment -name SDC_FILE core/core_constraints.sdc
-set_global_assignment -name SIGNALTAP_FILE core/stp1.stp
 set_global_assignment -name QIP_FILE core/mf_pllbase.qip
 set_global_assignment -name SIP_FILE core/mf_pllbase.sip
 set_parameter -name USE_CX4 '0 -entity MAIN_SNES
@@ -792,5 +799,4 @@ set_parameter -name USE_MSU '0 -entity MAIN_SNES
 set_global_assignment -name QIP_FILE core/mf_pllbase_pal.qip
 set_global_assignment -name SIP_FILE core/mf_pllbase_pal.sip
 set_parameter -name PAL_PLL '0 -entity core_top
-set_global_assignment -name SLD_FILE db/stp1_auto_stripped.stp
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

@@ -26,6 +26,7 @@ module msu_bridge #(
 ) (
 	input  wire        clk,                // clk_74a
 	input  wire        clk_sys,
+	input  wire        ss_pause,           // savestate save/load in progress (clk_74a): no new target commands
 	input  wire        reset_n,            // Pocket released the core from reset
 
 	// target command channel (core_bridge_cmd)
@@ -421,7 +422,7 @@ always @(posedge clk) begin
 						ret_cmd <= ST_I_NAME;
 						state   <= ST_CMD_GO;
 					end
-					else if (req_s && !req_seen) begin
+					else if (!ss_pause && req_s && !req_seen) begin
 						req_seen   <= 1;
 						mounting_r <= 1;
 						missing_r  <= 0;
@@ -454,7 +455,7 @@ always @(posedge clk) begin
 							state     <= ST_WR_START;
 						end
 					end
-					else if (vreq_s && !vreq_seen && voice_ok) begin
+					else if (!ss_pause && vreq_s && !vreq_seen && voice_ok) begin
 						vreq_seen <= 1;
 						vmount_r  <= 1;
 						vmiss_r   <= 0;
@@ -476,7 +477,7 @@ always @(posedge clk) begin
 							state   <= ST_CMD_GO;
 						end
 					end
-					else if (a_s != a_ack) begin
+					else if (!ss_pause && a_s != a_ack) begin
 						a_ack   <= a_s;
 						tc_code <= 16'h0180;
 						tc_p0   <= (pack_ok && pk_part != 2'd0) ? (SLOT_VOICE + {14'b0, pk_part}) : {16'b0, SLOT_PCM};
@@ -486,7 +487,7 @@ always @(posedge clk) begin
 						ret_cmd <= ST_A_FIN;
 						state   <= ST_CMD_GO;
 					end
-					else if (vf_s != vf_ack && voice_ok) begin
+					else if (!ss_pause && vf_s != vf_ack && voice_ok) begin
 						vf_ack  <= vf_s;
 						tc_code <= 16'h0180;
 						tc_p0   <= (vpart != 2'd0) ? (SLOT_VOICE + {14'b0, vpart}) : {16'b0, SLOT_VOICE};
@@ -496,7 +497,7 @@ always @(posedge clk) begin
 						ret_cmd <= ST_VF_FIN;
 						state   <= ST_CMD_GO;
 					end
-					else if (d_s != d_ack) begin
+					else if (!ss_pause && d_s != d_ack) begin
 						d_ack   <= d_s;
 						tc_code <= 16'h0180;
 						tc_p0   <= {16'b0, SLOT_MSU};

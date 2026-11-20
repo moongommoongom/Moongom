@@ -43,6 +43,9 @@ entity SCPU is
 
 		TURBO				: in std_logic_vector(1 downto 0);
 		
+		SS_BUSY			: in std_logic := '0';
+		SS_NMI_FORCE	: in std_logic := '0';
+		
 		DBG_CPU_EN		: in std_logic
 	);
 end SCPU;
@@ -111,6 +114,9 @@ architecture rtl of SCPU is
 	signal VTIME : std_logic_vector(8 downto 0);
 	signal MDMAEN : std_logic_vector(7 downto 0);
 	signal HDMAEN : std_logic_vector(7 downto 0);
+	signal HDMAEN_PEND : std_logic_vector(7 downto 0);
+	signal SS_VBLANK_FF : std_logic_vector(1 downto 0);
+	signal FALLING_VBLANK : std_logic;
 	signal MEMSEL : std_logic;
 	signal RDDIV, RDMPY : std_logic_vector(15 downto 0);
 
@@ -554,7 +560,18 @@ begin
 		end if;
 	end process;
 	
-	P65_NMI_N <= not (NMI_FLAG and NMI_EN);
+	P65_NMI_N <= not ((NMI_FLAG and NMI_EN) or SS_NMI_FORCE);
+
+	-- savestate: falling edge of VBLANK (one CLK pulse) for the deferred HDMAEN restore
+	process( RST_N, CLK )
+	begin
+		if RST_N = '0' then
+			SS_VBLANK_FF <= (others => '0');
+		elsif rising_edge(CLK) then
+			SS_VBLANK_FF <= SS_VBLANK_FF(0) & VBLANK;
+		end if;
+	end process;
+	FALLING_VBLANK <= '1' when SS_VBLANK_FF = "10" else '0';
 	
 	process( RST_N, CLK )
 	variable TIMEUP_READ, HVIRQ_DISABLE : std_logic;
@@ -903,6 +920,7 @@ begin
 		if RST_N = '0' then
 			MDMAEN <= (others => '0');
 			HDMAEN <= (others => '0');
+			HDMAEN_PEND <= (others => '0');
 			
 			DMAP <= (others => (others => '1'));
 			BBAD <= (others => (others => '1'));
@@ -930,13 +948,24 @@ begin
 			HDMA_INIT_EXEC <= '1';
 			HDMA_RUN_EXEC <= '0';
 		elsif rising_edge(CLK) then
+			--before the write decode so a CPU write to $420C wins
+			if FALLING_VBLANK = '1' and HDMAEN_PEND /= x"00" and SS_BUSY = '0' then
+				HDMAEN <= HDMAEN_PEND;
+				HDMAEN_PEND <= (others => '0');
+			end if;
 			if P65_R_WN = '0' and IO_SEL = '1' and INT_CLKF_CE = '1' then
 				if P65_A(15 downto 8) = x"42" then
 					case P65_A(7 downto 0) is
 						when x"0B" =>
 							MDMAEN <= P65_DO;
 						when x"0C" =>
-							HDMAEN <= P65_DO;
+							--savestate restore waits for HDMA init to reload the tables
+							if SS_BUSY = '1' and P65_DO /= x"00" then
+								HDMAEN_PEND <= P65_DO;
+							else
+								HDMAEN <= P65_DO;
+								HDMAEN_PEND <= (others => '0');
+							end if;
 						when others => null;
 					end case;
 				elsif P65_A(15 downto 7) = x"43"&"0" then

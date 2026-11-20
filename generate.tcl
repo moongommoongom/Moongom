@@ -13,6 +13,10 @@ if { $argc != 1 } {
 
 project_open src/fpga/ap_core.qpf
 
+# Savestates are off unless a *_ss variant turns them on (set_parameter is stored in the project)
+set_parameter -name USE_SS -entity MAIN_SNES '0
+set_parameter -name USE_SS -entity core_top '0
+
 if { [lindex $argv 0] == "ntsc" } {
   puts "NTSC"
   set_parameter -name PAL_PLL -entity core_top '0
@@ -133,6 +137,20 @@ if { [lindex $argv 0] == "ntsc" } {
   set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
   set_parameter -name USE_BSX -entity MAIN_SNES '0
   set_parameter -name USE_MSU -entity MAIN_SNES '0
+} elseif { [lindex $argv 0] == "ntsc_ss" } {
+  puts "NTSC + savestates (R1 MSU-1, no coprocessors)"
+  set_parameter -name PAL_PLL -entity core_top '0
+  set_parameter -name USE_SS -entity core_top '1
+
+  set_parameter -name USE_CX4 -entity MAIN_SNES '0
+  set_parameter -name USE_SDD1 -entity MAIN_SNES '0
+  set_parameter -name USE_GSU -entity MAIN_SNES '0
+  set_parameter -name USE_SA1 -entity MAIN_SNES '0
+  set_parameter -name USE_DSPn -entity MAIN_SNES '0
+  set_parameter -name USE_SPC7110 -entity MAIN_SNES '0
+  set_parameter -name USE_BSX -entity MAIN_SNES '0
+  set_parameter -name USE_MSU -entity MAIN_SNES '1
+  set_parameter -name USE_SS -entity MAIN_SNES '1
 } else {
   puts "Unknown bitstream type [lindex $argv 0]"
   project_close
