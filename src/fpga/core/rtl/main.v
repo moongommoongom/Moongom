@@ -6,7 +6,9 @@ module main #(
     parameter reg USE_DSPn = 1'b0,
     parameter reg USE_SPC7110 = 1'b0,
     parameter reg USE_BSX = 1'b0,
-    parameter reg USE_MSU = 1'b0
+    parameter reg USE_MSU = 1'b0,
+    parameter reg USE_SS = 1'b0,
+    parameter reg USE_SRTC = 1'b1
 ) (
     input RESET_N,
 
@@ -16,6 +18,7 @@ module main #(
     input [ 7:0] ROM_TYPE,
     input [23:0] ROM_MASK,
     input [23:0] RAM_MASK,
+    input [ 3:0] RAM_SIZE,
 
     output reg [23:0] ROM_ADDR,
     output reg [15:0] ROM_D,
@@ -49,12 +52,12 @@ module main #(
     output        VRAM2_WE_N,
     output        VRAM_OE_N,
 
-    output [15:0] ARAM_ADDR,
-    output [ 7:0] ARAM_D,
-    input  [ 7:0] ARAM_Q,
-    output        ARAM_CE_N,
-    output        ARAM_OE_N,
-    output        ARAM_WE_N,
+    output reg [15:0] ARAM_ADDR,
+    output reg [ 7:0] ARAM_D,
+    input      [ 7:0] ARAM_Q,
+    output reg        ARAM_CE_N,
+    output reg        ARAM_OE_N,
+    output reg        ARAM_WE_N,
 
     output GSU_ACTIVE,
     input  GSU_TURBO,
@@ -120,6 +123,7 @@ module main #(
     input         MSU_V_MISSING,
     output        MSU_V_PLAY,
     input         MSU_V_STOP,
+    output [ 7:0] MSU_V_VOLUME,
     input  [21:0] MSU_AUDIO_SECTOR,
     output [21:0] MSU_RESUME_SECTOR,
     output [31:0] MSU_DATA_ADDR,
@@ -128,6 +132,25 @@ module main #(
     output        MSU_DATA_SEEK,
     output        MSU_DATA_REQ,
     input         MSU_ENABLE,
+
+    // Savestates (MiSTer savestates engine, blob port to the Pocket PSRAM)
+    input         SS_SAVE,
+    input         SS_TOSD,
+    input         SS_LOAD,
+    input  [ 1:0] SS_SLOT,
+    input  [31:0] SS_GAME_ID,
+    output        SS_AVAIL,
+
+    input  [63:0] SS_DDR_DI,
+    input         SS_DDR_ACK,
+    output [63:0] SS_DDR_DO,
+    output [21:3] SS_DDR_ADDR,
+    output        SS_DDR_WE,
+    output [ 7:0] SS_DDR_BE,
+    output        SS_DDR_REQ,
+
+    output        SS_BUSY,
+    output        SS_LOAD_REJECT,
 
     output [15:0] AUDIO_L,
     output [15:0] AUDIO_R
@@ -151,6 +174,40 @@ module main #(
   wire        REFRESH;
 
   wire [ 5:0] MAP_ACTIVE;
+
+  wire [15:0] SNES_ARAM_ADDR;
+  wire [ 7:0] SNES_ARAM_D;
+  wire        SNES_ARAM_CE_N;
+  wire        SNES_ARAM_OE_N;
+  wire        SNES_ARAM_WE_N;
+
+  wire [ 7:0] SS_DO;
+  wire        SS_NMI_FORCE;
+  wire [23:0] SS_ROM_ADDR;
+  wire [19:0] SS_EXT_ADDR;
+  wire [ 7:0] SS_SPC_DI;
+  wire [ 7:0] SS_PPU_DI;
+  wire        SS_DO_OVR;
+  wire        SS_ROM_OVR;
+  wire        SS_ARAM_SEL, SS_DSP_REGS_SEL, SS_SMP_SEL;
+  wire        SS_BSRAM_SEL;
+  wire        SS_DSPN_REGS_SEL, SS_DSPN_RAM_SEL;
+  wire        SS_GSU_SEL;
+  wire        SS_CX4_SEL, SS_CX4_CACHE_SEL;
+
+  // coprocessor save state ports (MiSTer savestates engine)
+  wire  [7:0] SS_DSPN_DI;
+  wire  [7:0] SS_GSU_DI;
+  wire  [7:0] SS_CX4_DO_REG;
+  wire  [7:0] SS_CX4_DO_CACHE;
+  wire        SS_CX4_IDLE;
+  wire  [7:0] SS_CX4_DI = SS_CX4_CACHE_SEL ? SS_CX4_DO_CACHE : SS_CX4_DO_REG;
+  wire [23:0] SA1_P65_A;
+  wire  [7:0] SA1_P65_DO;
+  wire        SA1_P65_RD_N;
+  wire        SA1_P65_WR_N;
+  wire        SS_SA1_ROMSEL;
+  wire        SS_SNS_ROMSEL;
 
   SNES SNES (
       .mclk  (MCLK),
@@ -196,12 +253,12 @@ module main #(
       .vram_wra_n(VRAM1_WE_N),
       .vram_wrb_n(VRAM2_WE_N),
 
-      .aram_addr(ARAM_ADDR),
-      .aram_d(ARAM_D),
+      .aram_addr(SNES_ARAM_ADDR),
+      .aram_d(SNES_ARAM_D),
       .aram_q(ARAM_Q),
-      .aram_ce_n(ARAM_CE_N),
-      .aram_oe_n(ARAM_OE_N),
-      .aram_we_n(ARAM_WE_N),
+      .aram_ce_n(SNES_ARAM_CE_N),
+      .aram_oe_n(SNES_ARAM_OE_N),
+      .aram_we_n(SNES_ARAM_WE_N),
 
       .joy1_di(JOY1_DI),
       .joy2_di(JOY2_DI),
@@ -235,6 +292,16 @@ module main #(
       .io_addr(IO_ADDR),
       .io_dat (IO_DAT),
       .io_wr  (IO_WR),
+
+      .ss_addr(SS_EXT_ADDR[8:0]),
+      .ss_regs_sel(SS_DSP_REGS_SEL),
+      .ss_smp_sel(SS_SMP_SEL),
+      .ss_busy(SS_BUSY),
+      .ss_wr(~PAWR_N),
+      .ss_di(SS_DO),
+      .ss_spc_do(SS_SPC_DI),
+      .ss_ppu_do(SS_PPU_DI),
+      .ss_nmi_force(SS_NMI_FORCE),
 
       .DBG_BG_EN (DBG_BG_EN),
       .DBG_CPU_EN(DBG_CPU_EN),
@@ -289,6 +356,7 @@ module main #(
           .v_missing(MSU_V_MISSING),
           .v_play(MSU_V_PLAY),
           .v_audio_stop(MSU_V_STOP),
+          .v_volume(MSU_V_VOLUME),
           .audio_sector(MSU_AUDIO_SECTOR),
           .resume_sector(MSU_RESUME_SECTOR),
 
@@ -306,6 +374,7 @@ module main #(
       assign MSU_V_NUM = 0;
       assign MSU_V_REQUEST = 0;
       assign MSU_V_PLAY = 0;
+      assign MSU_V_VOLUME = 0;
       assign MSU_RESUME_SECTOR = 0;
       assign MSU_DATA_ADDR = 0;
       assign MSU_DATA_SEEK = 0;
@@ -329,7 +398,8 @@ module main #(
     if (USE_DLH == 1'b1) begin
 
       DSP_LHRomMap #(
-          .USE_DSPn(USE_DSPn)
+          .USE_DSPn(USE_DSPn),
+          .USE_SRTC(USE_SRTC)
       ) DSP_LHRomMap (
           .mclk (MCLK),
           .rst_n(RESET_N),
@@ -370,9 +440,17 @@ module main #(
           .rom_mask  (ROM_MASK),
           .bsram_mask(RAM_MASK),
 
-          .ext_rtc(EXT_RTC)
+          .ext_rtc(EXT_RTC),
+
+          .ss_busy(SS_BUSY),
+          .ss_ram_a(SS_EXT_ADDR[11:0]),
+          .ss_dspn_regs_sel(SS_DSPN_REGS_SEL),
+          .ss_dspn_ram_sel(SS_DSPN_RAM_SEL),
+          .ss_di(SS_DO),
+          .ss_do(SS_DSPN_DI)
       );
     end else begin
+      assign SS_DSPN_DI = 0;
       assign DLH_DO = 0;
       assign DLH_IRQ_N = 1;
       assign DLH_ROM_ADDR = 0;
@@ -441,10 +519,29 @@ module main #(
           .map_active(MAP_ACTIVE[0]),
           .map_ctrl  (ROM_TYPE),
           .rom_mask  (ROM_MASK),
-          .bsram_mask(RAM_MASK)
+          .bsram_mask(RAM_MASK),
+
+          .ss_busy(SS_BUSY),
+          .ss_wr  (SS_BUSY & SS_CX4_SEL & ~CPUWR_N),
+          .ss_do  (SS_CX4_DO_REG),
+
+          .ss_cache_a  (SS_EXT_ADDR[9:0]),
+          .ss_cache_sel(SS_CX4_CACHE_SEL),
+          .ss_cache_di (SS_DO),
+          .ss_cache_do (SS_CX4_DO_CACHE),
+
+          .ss_idle(SS_CX4_IDLE)
       );
-    end else assign MAP_ACTIVE[0] = 0;
+    end else begin
+      assign MAP_ACTIVE[0] = 0;
+      assign SS_CX4_DO_REG = 8'h00;
+      assign SS_CX4_DO_CACHE = 8'h00;
+      assign SS_CX4_IDLE = 1'b1;  // no CX4: never holds the snapshot
+    end
   endgenerate
+
+  // Hold the snapshot until the CX4 is idle (only when a CX4 cart is active)
+  wire CX4_SS_OK = ~MAP_ACTIVE[0] | SS_CX4_IDLE;
 
   wire [ 7:0] SDD_DO;
   wire        SDD_IRQ_N;
@@ -561,9 +658,16 @@ module main #(
           .rom_mask  (ROM_MASK),
           .bsram_mask(RAM_MASK),
 
-          .turbo(GSU_TURBO)
+          .turbo(GSU_TURBO),
+
+          .ss_busy(SS_BUSY),
+          .ss_wr  (SS_BUSY & SS_GSU_SEL & ~CPUWR_N),
+          .ss_do  (SS_GSU_DI)
       );
-    end else assign MAP_ACTIVE[2] = 0;
+    end else begin
+      assign MAP_ACTIVE[2] = 0;
+      assign SS_GSU_DI = 8'h00;
+    end
   endgenerate
 
   assign GSU_ACTIVE = MAP_ACTIVE[2];
@@ -624,9 +728,27 @@ module main #(
           .map_active(MAP_ACTIVE[3]),
           .map_ctrl  (ROM_TYPE),
           .rom_mask  (ROM_MASK),
-          .bsram_mask(RAM_MASK)
+          .bsram_mask(RAM_MASK),
+
+          .sa1_p65_a(SA1_P65_A),
+          .sa1_p65_do(SA1_P65_DO),
+          .sa1_p65_rd_n(SA1_P65_RD_N),
+          .sa1_p65_wr_n(SA1_P65_WR_N),
+
+          .ss_busy(SS_BUSY),
+
+          .ss_sa1_romsel(SS_SA1_ROMSEL),
+          .ss_sns_romsel(SS_SNS_ROMSEL)
       );
-    end else assign MAP_ACTIVE[3] = 0;
+    end else begin
+      assign MAP_ACTIVE[3] = 0;
+      assign SA1_P65_A = 24'd0;
+      assign SA1_P65_DO = 8'h00;
+      assign SA1_P65_RD_N = 1'b1;
+      assign SA1_P65_WR_N = 1'b1;
+      assign SS_SA1_ROMSEL = 1'b0;
+      assign SS_SNS_ROMSEL = 1'b0;
+    end
   endgenerate
 
   wire [ 7:0] SPC7110_DO;
@@ -684,7 +806,9 @@ module main #(
           .rom_mask  (ROM_MASK),
           .bsram_mask(RAM_MASK),
 
-          .ext_rtc(EXT_RTC)
+          .ext_rtc(EXT_RTC),
+
+          .ss_busy(SS_BUSY)
       );
     end else assign MAP_ACTIVE[4] = 0;
   endgenerate
@@ -754,7 +878,121 @@ module main #(
     end else assign MAP_ACTIVE[5] = 0;
   endgenerate
 
-  assign TURBO_ALLOW = ~(MAP_ACTIVE[3] | MAP_ACTIVE[1]);
+  // ---------------- Savestates (MiSTer engine; basic carts only in this R1 port) ----------------
+  generate
+    if (USE_SS == 1'b1) begin : g_ss
+      savestates ss (
+          .reset_n(RESET_N),
+          .clk(MCLK),
+
+          .save(SS_SAVE),
+          .save_sd(SS_TOSD),
+          .load(SS_LOAD),
+          .slot(SS_SLOT),
+          .ss_game_id(SS_GAME_ID),
+
+          .ram_size(RAM_SIZE),
+          .rom_type(ROM_TYPE),
+
+          .sysclkf_ce(SYSCLKF_CE),
+          .sysclkr_ce(SYSCLKR_CE),
+
+          .romsel_n(ROMSEL_N),
+          .rom_q(ROM_Q),
+
+          .ca(CA),
+          .cpurd_n(CPURD_N),
+          .cpuwr_n(CPUWR_N),
+
+          .pa(PA),
+          .pard_n(PARD_N),
+          .pawr_n(PAWR_N),
+
+          .di(DO),
+          .ss_do(SS_DO),
+
+          .rom_addr(SS_ROM_ADDR),
+
+          .ddr_di(SS_DDR_DI),
+          .ddr_ack(SS_DDR_ACK),
+          .ddr_do(SS_DDR_DO),
+          .ddr_addr(SS_DDR_ADDR),
+          .ddr_we(SS_DDR_WE),
+          .ddr_be(SS_DDR_BE),
+          .ddr_req(SS_DDR_REQ),
+
+          .ext_addr(SS_EXT_ADDR),
+
+          .spc_di(SS_SPC_DI),
+          .aram_sel(SS_ARAM_SEL),
+          .dsp_regs_sel(SS_DSP_REGS_SEL),
+          .smp_regs_sel(SS_SMP_SEL),
+
+          .ppu_di(SS_PPU_DI),
+
+          .bsram_sel(SS_BSRAM_SEL),
+          .bsram_di(BSRAM_Q),
+
+          .dspn_regs_sel(SS_DSPN_REGS_SEL),
+          .dspn_ram_sel(SS_DSPN_RAM_SEL),
+          .dspn_di(SS_DSPN_DI),
+
+          .gsu_regs_sel(SS_GSU_SEL),
+          .gsu_di(SS_GSU_DI),
+
+          .cx4_regs_sel(SS_CX4_SEL),
+          .cx4_di(SS_CX4_DI),
+          .cx4_cache_sel(SS_CX4_CACHE_SEL),
+          .cx4_ss_ok(CX4_SS_OK),
+
+          .sa1_active(MAP_ACTIVE[3]),
+          .sa1_a(SA1_P65_A),
+          .sa1_di(SA1_P65_DO),
+          .sa1_rd_n(SA1_P65_RD_N),
+          .sa1_wr_n(SA1_P65_WR_N),
+          .sa1_sa1_romsel(SS_SA1_ROMSEL),
+          .sa1_sns_romsel(SS_SNS_ROMSEL),
+
+          .ss_do_ovr(SS_DO_OVR),
+          .ss_rom_ovr(SS_ROM_OVR),
+          .ss_busy(SS_BUSY),
+          .ss_nmi_force(SS_NMI_FORCE),
+          .ss_load_reject(SS_LOAD_REJECT)
+      );
+    end else begin : g_noss
+      assign SS_DO = 0;
+      assign SS_ROM_ADDR = 0;
+      assign SS_EXT_ADDR = 0;
+      assign SS_DDR_DO = 0;
+      assign SS_DDR_ADDR = 0;
+      assign SS_DDR_WE = 0;
+      assign SS_DDR_BE = 0;
+      assign SS_DDR_REQ = 0;
+      assign SS_ARAM_SEL = 0;
+      assign SS_DSP_REGS_SEL = 0;
+      assign SS_SMP_SEL = 0;
+      assign SS_BSRAM_SEL = 0;
+      assign SS_DSPN_REGS_SEL = 0;
+      assign SS_DSPN_RAM_SEL = 0;
+      assign SS_GSU_SEL = 0;
+      assign SS_CX4_SEL = 0;
+      assign SS_CX4_CACHE_SEL = 0;
+      assign SS_DO_OVR = 0;
+      assign SS_ROM_OVR = 0;
+      assign SS_BUSY = 0;
+      assign SS_LOAD_REJECT = 0;
+      assign SS_NMI_FORCE = 0;
+    end
+  endgenerate
+
+  // Savestates: basic carts, DSP-n (ROM_TYPE 8x-Bx), CX4, S-DD1, GSU and SA-1 (as on MiSTer / the 0.8 SS core),
+  // SPC7110 (experimental, registers only). BS-X and OBC1 carts have no save states.
+  assign SS_AVAIL = (USE_SS == 1'b1) && (
+      (~|ROM_TYPE[7:4] && ~|MAP_ACTIVE) |
+      ((ROM_TYPE[7:6] == 2'b10) && ~|MAP_ACTIVE) |
+      MAP_ACTIVE[0] | MAP_ACTIVE[1] | MAP_ACTIVE[2] | MAP_ACTIVE[3] | MAP_ACTIVE[4]);
+
+  assign TURBO_ALLOW = ~(MAP_ACTIVE[3] | MAP_ACTIVE[1] | SS_BUSY);
 
   always @(*) begin
     case (MAP_ACTIVE)
@@ -872,6 +1110,32 @@ module main #(
     endcase
 
     if (MSU_SEL) DI = MSU_DO;
+
+    if (SS_ARAM_SEL) begin
+      ARAM_ADDR = SS_EXT_ADDR[15:0];
+      ARAM_D    = SS_DO;
+      ARAM_CE_N = 0;
+      ARAM_OE_N = PARD_N;
+      ARAM_WE_N = PAWR_N;
+    end else begin
+      ARAM_ADDR = SNES_ARAM_ADDR;
+      ARAM_D    = SNES_ARAM_D;
+      ARAM_CE_N = SNES_ARAM_CE_N;
+      ARAM_OE_N = SNES_ARAM_OE_N;
+      ARAM_WE_N = SNES_ARAM_WE_N;
+    end
+
+    if (SS_BSRAM_SEL) begin
+      BSRAM_ADDR = SS_EXT_ADDR[19:0];
+      BSRAM_D    = SS_DO;
+      BSRAM_CE_N = 0;
+      BSRAM_OE_N = PARD_N;
+      BSRAM_WE_N = PAWR_N;
+    end
+
+    if (SS_DO_OVR) DI = SS_DO;
+
+    if (SS_ROM_OVR) ROM_ADDR = SS_ROM_ADDR;
   end
 
 endmodule

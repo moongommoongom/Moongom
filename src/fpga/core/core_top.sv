@@ -293,18 +293,42 @@ module core_top (
   //   assign dram_cas_n              = 'h1;
   //   assign dram_we_n               = 'h1;
 
-  // external SRAM: MSU-1 track-head cache
+  // external async SRAM: ARAM in the builds without save states (driven from MAIN_SNES)
   wire [15:0] msu_sram_do;
   wire        msu_sram_oe;
   assign sram_dq                 = msu_sram_oe ? msu_sram_do : {16{1'bZ}};
-  assign sram_ub_n               = 0;
-  assign sram_lb_n               = 0;
 
   assign dbg_tx                  = 1'bZ;
   assign user1                   = 1'bZ;
   assign aux_scl                 = 1'bZ;
   assign vpll_feed               = 1'bZ;
 
+
+  // Savestates (set per variant by generate.tcl)
+  parameter USE_SS = 1'b0;
+  // Bridge region carrying the savestate blob
+  localparam [3:0] SS_REGION = 4'h7;
+
+  wire [31:0] ss_read_data;
+
+  wire ss_save;
+  wire ss_load;
+  wire ss_busy;
+  wire ss_load_reject;
+  wire ss_avail;
+  wire ss_ctrl_idle;
+  wire ss_stage_lost;
+  wire ss_active_74;
+
+  wire ss_stage_wr;
+  wire [20:0] ss_stage_addr_w;
+  wire [19:0] ss_stage_addr = ss_stage_addr_w[19:0];
+  wire [15:0] ss_stage_data;
+
+  wire ss_blob_rd;
+  wire [19:0] ss_blob_addr_w;
+  wire [19:0] ss_blob_addr = ss_blob_addr_w;
+  wire [15:0] ss_blob_q;
 
   // for bridge write data, we just broadcast it to all bus devices
   // for bridge read data, we have to mux it
@@ -329,6 +353,10 @@ module core_top (
 
     if (bridge_addr[31:28] == 4'h5) begin
       bridge_rd_data <= pb_a_q;
+    end
+
+    if (bridge_addr[31:28] == SS_REGION) begin
+      bridge_rd_data <= ss_read_data;
     end
   end
 
@@ -415,10 +443,17 @@ module core_top (
 
   wire dataslot_allcomplete;
 
-  wire savestate_supported = 0;
-  wire [31:0] savestate_addr;
-  wire [31:0] savestate_size;
-  wire [31:0] savestate_maxloadsize;
+  // Savestates (MiSTer engine + Pocket blob bridge, same scheme as the savestate core)
+  // Bridge region 0x7xxxxxxx carries the savestate blob (0x4 is the MSU-1 data window in R1)
+  localparam [31:0] SS_BLOB_FIXED = 32'h44000;
+  localparam [3:0] SS_RAMSZ_MAX = 4'd8;
+  wire [3:0] ss_ramsz = ram_size > SS_RAMSZ_MAX ? SS_RAMSZ_MAX : ram_size;
+  wire [31:0] ss_blob_size = SS_BLOB_FIXED + (ss_ramsz != 0 ? (32'd1024 << ss_ramsz) : 32'd0);
+
+  wire savestate_supported = USE_SS & ss_avail;
+  wire [31:0] savestate_addr = {SS_REGION, 28'h0};
+  wire [31:0] savestate_size = ss_blob_size;
+  wire [31:0] savestate_maxloadsize = ss_blob_size;
 
   wire savestate_start;
   wire savestate_start_ack;
@@ -540,7 +575,7 @@ module core_top (
 
   reg [7:0] rom_type;
   reg [3:0] rom_size;
-  reg [3:0] ram_size;
+  reg [3:0] ram_size = 0;
   reg PAL;
 
   wire save_download_s;
@@ -621,6 +656,116 @@ module core_top (
       .read_addr(sd_buff_addr_out),
       .read_data(sd_buff_din)
   );
+
+  //
+  // savestates
+  //
+
+  generate
+    if (USE_SS == 1'b1) begin : g_ss
+      data_loader #(
+          .ADDRESS_MASK_UPPER_4(SS_REGION),
+          .ADDRESS_SIZE(20),
+          .WRITE_MEM_CLOCK_DELAY(16),
+          .OUTPUT_WORD_SIZE(2)
+      ) ss_data_loader (
+          .clk_74a(clk_74a),
+          .clk_memory(clk_mem_85_9),
+
+          .bridge_wr(bridge_wr),
+          .bridge_endian_little(bridge_endian_little),
+          .bridge_addr(bridge_addr),
+          .bridge_wr_data(bridge_wr_data),
+
+          .write_en  (ss_stage_wr),
+          .write_addr(ss_stage_addr_w),
+          .write_data(ss_stage_data)
+      );
+
+      data_unloader #(
+          .ADDRESS_MASK_UPPER_4(SS_REGION),
+          .ADDRESS_SIZE(20),
+          .READ_MEM_CLOCK_DELAY(24),
+          .INPUT_WORD_SIZE(2)
+      ) ss_data_unloader (
+          .clk_74a(clk_74a),
+          .clk_memory(clk_mem_85_9),
+
+          .bridge_rd(bridge_rd),
+          .bridge_endian_little(bridge_endian_little),
+          .bridge_addr(bridge_addr),
+          .bridge_rd_data(ss_read_data),
+
+          .read_en  (ss_blob_rd),
+          .read_addr(ss_blob_addr_w),
+          .read_data(ss_blob_q)
+      );
+
+      wire ss_ready_s;
+
+      synch_3 ss_ready_sync (
+          pll_core_locked && ~ioctl_download,
+          ss_ready_s,
+          clk_sys_21_48
+      );
+
+      wire ss_allow = ss_avail && ss_ready_s && ~reset_button_s;
+
+      savestate_controller #(
+          .SS_REGION(SS_REGION)
+      ) savestate_controller (
+          .clk_74a(clk_74a),
+          .clk_sys_21_48(clk_sys_21_48),
+
+          .bridge_rd  (bridge_rd),
+          .bridge_wr  (bridge_wr),
+          .bridge_addr(bridge_addr),
+          .ss_size    (ss_blob_size),
+          .dataslot_allcomplete(dataslot_allcomplete),
+
+          .savestate_load(savestate_load),
+          .savestate_load_ack_s(savestate_load_ack),
+          .savestate_load_busy_s(savestate_load_busy),
+          .savestate_load_ok_s(savestate_load_ok),
+          .savestate_load_err_s(savestate_load_err),
+
+          .savestate_start(savestate_start),
+          .savestate_start_ack_s(savestate_start_ack),
+          .savestate_start_busy_s(savestate_start_busy),
+          .savestate_start_ok_s(savestate_start_ok),
+          .savestate_start_err_s(savestate_start_err),
+
+          .ss_allow(ss_allow),
+          .ss_busy (ss_busy),
+          .ss_load_reject(ss_load_reject),
+          .stage_lost(ss_stage_lost),
+          .ss_active_74(ss_active_74),
+
+          .ss_save (ss_save),
+          .ss_load (ss_load),
+          .ss_idle (ss_ctrl_idle)
+      );
+    end else begin : g_noss
+      assign ss_read_data = 32'd0;
+      assign ss_save = 1'b0;
+      assign ss_load = 1'b0;
+      assign ss_ctrl_idle = 1'b1;
+      assign ss_active_74 = 1'b0;
+      assign ss_stage_wr = 1'b0;
+      assign ss_stage_addr_w = 21'd0;
+      assign ss_stage_data = 16'd0;
+      assign ss_blob_rd = 1'b0;
+      assign ss_blob_addr_w = 20'd0;
+      assign savestate_start_ack = 1'b0;
+      assign savestate_start_busy = 1'b0;
+      assign savestate_start_ok = 1'b0;
+      assign savestate_start_err = 1'b0;
+      assign savestate_load_ack = 1'b0;
+      assign savestate_load_busy = 1'b0;
+      assign savestate_load_ok = 1'b0;
+      assign savestate_load_err = 1'b0;
+    end
+  endgenerate
 
   ///////////////////////////////////////////////
   // MSU-1
@@ -768,7 +913,7 @@ module core_top (
 
   wire        a_fetch_tgl;
   wire [31:0] a_fetch_off;
-  wire [15:0] a_fetch_len;
+  wire [31:0] a_fetch_len;
   wire        a_done_tgl;
   wire        a_err;
 
@@ -776,7 +921,7 @@ module core_top (
   wire [31:0] v_size;
   wire        v_fetch_tgl;
   wire [31:0] v_fetch_off;
-  wire [15:0] v_fetch_len;
+  wire [31:0] v_fetch_len;
   wire        v_done_tgl, v_err;
   wire        v_track_request;
   wire [15:0] v_track_num;
@@ -798,6 +943,7 @@ module core_top (
   ) msu_bridge (
       .clk(clk_74a),
       .clk_sys(clk_sys_21_48),
+      .ss_pause(ss_active_74),
       .reset_n(reset_n),
 
       .tc_req(tc_req),
@@ -1146,6 +1292,24 @@ module core_top (
 
       .sram_size(sram_size),
 
+      // Savestates
+      .ss_save (ss_save),
+      .ss_hold_msu(ss_active_74),
+      .ss_load (ss_load),
+      .ss_ctrl_idle(ss_ctrl_idle),
+      .ss_busy (ss_busy),
+      .ss_load_reject(ss_load_reject),
+      .ss_avail(ss_avail),
+      .ss_stage_lost(ss_stage_lost),
+
+      .ss_stage_wr(ss_stage_wr),
+      .ss_stage_addr(ss_stage_addr),
+      .ss_stage_data(ss_stage_data),
+
+      .ss_blob_rd(ss_blob_rd),
+      .ss_blob_addr(ss_blob_addr),
+      .ss_blob_q(ss_blob_q),
+
       // SDRAM
       .dram_a(dram_a),
       .dram_ba(dram_ba),
@@ -1214,6 +1378,8 @@ module core_top (
       .sram_di(sram_dq),
       .sram_we_n(sram_we_n),
       .sram_oe_n(sram_oe_n),
+      .sram_ub_n(sram_ub_n),
+      .sram_lb_n(sram_lb_n),
 
       .pcm_wr(pcm_wr),
       .pcm_data(pcm_data),

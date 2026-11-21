@@ -31,6 +31,7 @@ endfunction
 
 module psram #(
     parameter CLOCK_SPEED = 133.12,  // Clock speed in megahertz
+    parameter MSU_FORCE_EN = 1,      // 1: bounded MSU-1 latency (MSU may preempt the first port after a wait)
 
     // -- Shared async --
     parameter MIN_ADV_N_PULSE = 5, // Minimum time (ns) for adv_n to be held low to latch address (t_vp)
@@ -64,6 +65,7 @@ module psram #(
     output reg [15:0] data_out,
 
     output reg busy,
+    output reg snes_acc = 0,   // one-cycle pulse: the first-port request was accepted (busy alone can also come from the second port)
 
     // Second (low priority) port used by the MSU-1 head cache; clk_mem side of a toggle handshake.
     // The other port's repeated re-reads/re-writes of an unchanged request are the only thing it displaces.
@@ -264,9 +266,20 @@ module psram #(
   reg [42:0] snes_sig_q = 0;
   reg sig_same_q = 0;   // registered (1 cycle late) 'request unchanged' flag: keeps the wide compare off the state logic
   reg first_done = 0;  // the current (unchanged) request has already been served once; repeats may yield
-  wire do_snes = snes_req && !(first_done && m_pend);
+  // MSU-1 priority guarantee: if an MSU access has been pending for MSU_FORCE_CLKS clocks while the SNES kept
+  // winning, the next free slot goes to the MSU (bounded MSU latency, the SNES waits at most one access)
+  localparam MSU_FORCE_CLKS = 28;
+  // MSU_FORCE_EN=0 (savestate blob port variants): the blob drain has almost no timing margin, never let the MSU preempt it
+  reg [4:0] m_wait = 0;
+  wire m_force = MSU_FORCE_EN && m_pend && (m_wait >= MSU_FORCE_CLKS);
+  always @(posedge clk) begin
+    if (!m_pend || m_active) m_wait <= 0;
+    else if (m_wait != 5'd31) m_wait <= m_wait + 1'd1;
+  end
+  wire do_snes = snes_req && !(first_done && m_pend) && !m_force;
 
   always @(posedge clk) begin
+    snes_acc <= 0;
     snes_sig_q <= snes_sig;
     sig_same_q <= (snes_sig == snes_sig_q);
     if (!snes_req || !sig_same_q) first_done <= 0;
@@ -298,6 +311,7 @@ module psram #(
         cram_lb_n  <= 1;
 
         if (do_snes && write_en) begin
+          snes_acc <= 1;
           // Enter write_init
           m_active <= 0;
           state <= WRITE_INITIAL_COUNT;
@@ -324,6 +338,7 @@ module psram #(
           // Set busy now instead of waiting for the state change
           busy <= 1;
         end else if (do_snes && read_en) begin
+          snes_acc <= 1;
           state <= READ_INITIAL_COUNT;
           m_active <= 0;
 

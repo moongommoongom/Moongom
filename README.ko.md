@@ -1,3 +1,30 @@
+# SNES MSU-1 + 세이브스테이트 0.8.5 (`Moongom.SNES_MSU_SS`) — 0.8 개선판
+
+**0.8.5**는 0.8의 개선판이며 0.8을 대체합니다(코어 폴더는 같은 `Moongom.SNES_MSU_SS`). MSU-1 음질이 깨끗한 R1 계열([`src/`](src/))에 MiSTer SNES 세이브스테이트를 옮겨 넣었습니다. 비트스트림은 [Releases](https://github.com/moongommoongom/Moongom/releases)에만 있습니다. 기술 메모: [`docs/0.8.5.md`](docs/0.8.5.md)(영문).
+
+- **세이브스테이트:** 일반 게임과 **SA-1, Super FX, CX4, DSP-n, S-DD1** 게임(NTSC·PAL). **SPC7110**은 실험 기능입니다(그래픽 압축을 푸는 도중에 저장하면 불러온 뒤 그래픽이 깨질 수 있음). BS-X, OBC1 게임은 세이브스테이트가 없습니다. 저장은 Analogue 버튼 + 위, 불러오기는 Memories 메뉴입니다.
+- **MSU 음악 위치 저장:** 트랙, 재생 위치(약 0.4초 단위), 볼륨, 반복 여부가 저장되고, 불러오면 그 위치부터 이어서 재생합니다. 음성 클립은 저장되지 않습니다.
+- **MSU-1 배경음 + 음성 팩**(FF6)이 NTSC 메인 비트스트림에서 함께 재생되고, 재생 중에도 세이브스테이트를 불러올 수 있습니다.
+- 코어 폴더 하나에 **비트스트림 8개**(APF 최대치)가 있고, 로더가 ROM 헤더를 읽어 자동으로 고릅니다.
+
+| 비트스트림 | 게임 |
+|---|---|
+| `snes_main.rev` | NTSC 일반 게임, S-DD1, BS-X (FF6 음성 팩, 라이트건) |
+| `snes_spc.rev` | SPC7110 |
+| `snes_pal.rev` | PAL 일반 게임, PAL CX4 / DSP-n |
+| `snes_cx4dsp.rev` | NTSC CX4 / DSP-n (록맨 X2/X3, 슈퍼 마리오 카트, 파일럿윙스 등) |
+| `snes_sa1.rev` / `snes_sa1p.rev` | SA-1 NTSC / PAL |
+| `snes_gsu.rev` / `snes_gsup.rev` | Super FX NTSC / PAL |
+
+- 칩 비트스트림에는 음성 스트림, MSU-1 데이터 트랙, 라이트건이 없습니다(세이브스테이트 회로 자리). PAL 비트스트림도 칩 빌드라 PAL 슈퍼스코프 게임은 라이트건이 안 됩니다.
+- **테스트 현황:** FF6 배경음 + 음성과 세이브스테이트는 개발 중 실기에서 확인했습니다(R1SS 테스트 빌드). 칩 게임과 SPC7110 세이브스테이트는 0.8.5에서 새로 들어가 아직 테스트가 적습니다. 문제는 이슈로 알려주세요.
+- MSU-1 음원은 MSUPackMaker로 `.msp` / `.ms1` 팩으로 묶어 쓰세요(`tools/MSUPackMaker.exe`, [`docs/MSUPackMaker.ko.md`](docs/MSUPackMaker.ko.md)).
+- 비공식 빌드이며 원작자들과 관계없습니다. AI(Claude, Anthropic)의 도움을 받아 제작했고 저장소 주인이 방향을 정하고 테스트했습니다.
+- **ROM, BIOS, DSP 펌웨어 덤프, MSU-1 음원은 포함되어 있지 않습니다.** 게임 파일은 직접 준비하세요.
+- GPLv3(`LICENSE`, `CREDITS.md`). 빌드: Quartus Prime 25.1 Lite, 저장소 루트에서 `quartus_sh -t generate.tcl <variant>`(변형 목록은 [`docs/0.8.5.md`](docs/0.8.5.md)), `.rbf`를 비트 반전해 `.rev`로 만듭니다. 패키지 파일: `pkg/pocket/Cores/Moongom.SNES_MSU_SS/`.
+
+---
+
 # Analogue Pocket용 SNES (MSU-1) — 비공식 수정 빌드
 
 agg23의 openFPGA SNES 코어(openfpga-snes 0.4.4)에 **MSU-1**(CD 음질 음악 트랙과 데이터 스트리밍), CPU 터보(Off/On),

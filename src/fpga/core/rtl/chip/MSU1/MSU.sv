@@ -37,6 +37,7 @@ module MSU
 	input             v_missing,
 	output reg        v_play,
 	input             v_audio_stop,       // the voice clip has ended
+	output reg  [7:0] v_volume,           // voice stream volume ($2016); the music volume ($2006) stays untouched
 	input      [21:0] audio_sector,
 	output reg [21:0] resume_sector,
 
@@ -55,6 +56,7 @@ reg [25:0] await_to;
 reg        hit_latch;
 reg  [5:0] hit_wait;
 reg        v_ctx;            // the last track select was a voice clip: status/play writes belong to the voice stream
+reg        v_win;            // the current voice clip was selected through the $2010 window: a music stop does not end it
 reg  [5:0] v_wait;
 reg [29:0] v_wd;
 reg        v_mounting_old;
@@ -79,8 +81,22 @@ wire [7:0] MSU_STATUS = {
 reg [23:0] MSU_SEEK;   // $2000 - $2003
 reg [ 7:0] MSU_TRACK;  // $2004 - $2005
 
-// banks 00-3F and 80-BF, address 2000-2007
-assign MSU_SEL = ENABLE && !ADDR[22] && (ADDR[15:4] == 'h200) && !ADDR[3];
+// banks 00-3F and 80-BF, address 2000-2007 (music) and 2010-2017 (voice window)
+// The voice window lets a voice routine run without touching the music registers, so a music
+// command from the NMI sound queue can no longer interleave with a voice select (FF6 nospc5 ROM).
+// Voice clips selected through $2004/5 (track >= 1000, v_ctx) keep working as before.
+wire   SEL   = ENABLE && !ADDR[22] && (ADDR[15:5] == 11'h100) && !ADDR[3];
+// $2008-$200F: save state shadow window (save state firmware block $19, as in the 0.8 SS core)
+//   read : $2008/9 play position (64 KB steps), $200C/D track, $200E volume, $200F flags {repeat, playing}
+//   write: $2008/9 resume position, $200C track lo, $200D track hi (selects the track and resumes it at the
+//          saved position), $200E volume, $200F flags (set directly, no busy check)
+wire   SHSEL = ENABLE && !ADDR[22] && (ADDR[15:3] == 13'h401);
+assign MSU_SEL = SEL | SHSEL;
+wire   MSU_VSEL = ADDR[4];
+reg  [7:0] V_TRACK;    // $2014
+wire       v_missing_eff = v_en ? v_missing : 1'b1;   // no voice pack: every voice clip reads as missing at once
+// voice status ($2010): same layout as $2000, own flags
+wire [7:0] V_STATUS = {1'b0, v_busy_eff, 1'b0, v_play, v_missing_eff, status_revision};
 
 // Keep audio_busy asserted after a track select until the first PCM data has
 // been prefetched (or a timeout), so the game's play command starts sound at once.
@@ -93,7 +109,7 @@ reg data_ack_old;
 reg track_mounting_old;
 
 reg  data_rd_old;
-wire data_rd = MSU_SEL && !RD_N && ADDR[2:0] == 1 && !status_data_busy;
+wire data_rd = SEL && !MSU_VSEL && !RD_N && ADDR[2:0] == 1 && !status_data_busy;
 
 always @(posedge CLK) begin
 	if (~RST_N) begin
@@ -116,12 +132,14 @@ always @(posedge CLK) begin
 		hit_latch <= 0;
 		hit_wait <= 0;
 		v_ctx <= 0;
+		v_win <= 0;
 		v_wait <= 0;
 		v_wd <= 0;
 		v_mounting_old <= 0;
 		v_track_request <= 0;
 		v_track_num <= 0;
 		v_play <= 0;
+		v_volume <= 8'hFF;
 	end
 	else begin
 
@@ -160,8 +178,60 @@ always @(posedge CLK) begin
 		track_mounting_old <= track_mounting;
 		if (track_mounting_old && !track_mounting) track_request <= 0;
 
-		// Register writes
-		if (MSU_SEL & SYSCLKF_CE & ~WR_N) begin
+		// Register writes: voice window ($2014/5 select, $2017 play; volume is shared with the music, a stop write is
+		// ignored: a clip plays to its end or until the next select)
+		if (SEL & MSU_VSEL & SYSCLKF_CE & ~WR_N) begin
+			case (ADDR[2:0])
+				4: V_TRACK <= DIN;
+				5: if (v_en) begin
+					v_track_num     <= {DIN, V_TRACK};
+					v_track_request <= 1'b1;
+					v_wait          <= 6'd48;
+					v_play          <= 1'b0;
+					v_win           <= 1'b1;
+				end
+				6: v_volume <= DIN;
+				7: if (!v_busy_eff && !v_missing_eff && DIN[0]) v_play <= 1'b1;
+				default: ;
+			endcase
+		end
+
+		// Register writes: save state shadow window (load side)
+		if (SHSEL & SYSCLKF_CE & ~WR_N) begin
+			case (ADDR[2:0])
+				0: resume_sector[13:6] <= DIN;
+				1: begin
+					resume_sector[21:14] <= DIN;
+					resume_sector[5:0]   <= 6'd0;
+				end
+				4: MSU_TRACK <= DIN;
+				5: begin
+					// restore the music track and continue it at the saved position; a voice clip of the
+					// running game is stopped (voice clips are not part of the state)
+					v_ctx                <= 1'b0;
+					v_play               <= 1'b0;
+					track_num            <= {DIN, MSU_TRACK};
+					track_request        <= 1;
+					await_audio          <= 1'b1;
+					await_to             <= 0;
+					hit_latch            <= 0;
+					hit_wait             <= 6'd32;
+					status_audio_playing <= 0;
+					status_audio_repeat  <= 0;
+					audio_resume         <= 1;
+					resume_valid         <= 0;
+				end
+				6: volume <= DIN;
+				7: begin
+					status_audio_repeat  <= DIN[1];
+					status_audio_playing <= DIN[0];
+				end
+				default: ;
+			endcase
+		end
+
+		// Register writes: music window
+		if (SEL & ~MSU_VSEL & SYSCLKF_CE & ~WR_N) begin
 			case (ADDR[2:0])
 				0: MSU_SEEK[7:0]   <= DIN;
 				1: MSU_SEEK[15:8]  <= DIN;
@@ -174,6 +244,7 @@ always @(posedge CLK) begin
 				4: MSU_TRACK <= DIN;
 				5: if (v_en && {DIN, MSU_TRACK} >= 16'd1000) begin
 					v_ctx           <= 1'b1;
+					v_win           <= 1'b0;
 					v_track_num     <= {DIN, MSU_TRACK};
 					v_track_request <= 1'b1;
 					v_wait          <= 6'd48;
@@ -200,7 +271,7 @@ always @(posedge CLK) begin
 					v_ctx <= 1'b0;                       // the play command ends the voice context
 				end
 				else begin
-					if (!DIN[0]) v_play <= 1'b0;         // a stop command stops a playing voice clip too (one stream like real MSU-1)
+					if (!DIN[0] && !v_win) v_play <= 1'b0;   // a stop command stops a shared-window voice clip too (one stream like real MSU-1)
 					if (!status_audio_busy && !track_missing_eff) begin
 						status_audio_repeat <= DIN[1];
 						status_audio_playing <= DIN[0];
@@ -221,8 +292,16 @@ always @(posedge CLK) begin
 			data_req <= 1'b1;
 		end
 
-		case (ADDR[2:0])
-			0: DOUT <= MSU_STATUS;
+		if (ADDR[3]) case (ADDR[2:0])     // save state shadow window (save side)
+			0: DOUT <= audio_sector[13:6];
+			1: DOUT <= audio_sector[21:14];
+			4: DOUT <= track_num[7:0];
+			5: DOUT <= track_num[15:8];
+			6: DOUT <= volume;
+			default: DOUT <= {6'd0, status_audio_repeat, status_audio_playing};
+		endcase
+		else case (ADDR[2:0])
+			0: DOUT <= MSU_VSEL ? V_STATUS : MSU_STATUS;
 			1: DOUT <= data;
 			2: DOUT <= "S";
 			3: DOUT <= "-";

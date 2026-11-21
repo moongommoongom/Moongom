@@ -49,7 +49,9 @@ entity SPC7110Map is
 		ROM_MASK		: in std_logic_vector(23 downto 0);
 		BSRAM_MASK	: in std_logic_vector(23 downto 0);
 		
-		EXT_RTC		: in std_logic_vector(64 downto 0)
+		EXT_RTC		: in std_logic_vector(64 downto 0);
+
+		SS_BUSY			: in std_logic := '0'
 	);
 end SPC7110Map;
 
@@ -112,7 +114,9 @@ begin
 		RTC_DO			=> RTC_DI,
 		RTC_DI			=> RTC_DO,
 		RTC_CE			=> RTC_CE,
-		RTC_CK			=> RTC_CK
+		RTC_CK			=> RTC_CK,
+
+		SS_BUSY			=> SS_BUSY
 	);
 	
 	RTC : entity work.RTC4513

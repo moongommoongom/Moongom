@@ -11,3 +11,8 @@ This build only adds MSU-1 integration, CPU Turbo modes, chip combinations and r
 the above. All trademarks and game titles belong to their respective owners. No game data is included.
 
 The `snes_msu_ss/` (0.8) tree additionally contains Analogue's openFPGA APF platform files (`platform/pocket`), which keep their original license notices. Core icon and loader come from upstream openfpga-snes. `rtl/analogizer/` (third-party Analogizer support code) is kept only so the project compiles; the feature is disabled in this build.
+
+0.8.5 (`src/`): the R1 line plus the MiSTer SNES save state engine and chip save state hooks (SNES_MiSTer upstream,
+GPL), the 0.8 save state firmware blocks (S-DD1, MSU-1) and a new SPC7110 block (`tools/boot1/mkboot1.py`).
+`src/fpga/core/rtl/mister_top/sram_split.sv` uses the async SRAM controller engine by Adam Gastineau (agg23,
+openfpga-litex, MIT License).
