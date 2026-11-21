@@ -5,7 +5,8 @@
 ([English](MSUPackMaker.md))
 
 > 소스: `tools/msupack/main.go` (Go). 빌드: `GOOS=windows go build -o MSUPackMaker.exe`
-> Windows 실행 파일: `tools/MSUPackMaker.exe`. 본인이 가진 게임 파일에만 사용하세요.
+> Windows 실행 파일: `tools/MSUPackMaker.exe`. macOS 실행 파일: `tools/MSUPackMaker_macOS`(Apple Silicon·Intel 공용,
+> macOS 11 이상, 빌드 방법은 `tools/msupack/make_universal.py`). 본인이 가진 게임 파일에만 사용하세요.
 
 ## 사용법
 1. `MSUPackMaker.exe`를 `game.msu`와 `game-1.pcm`, `game-2.pcm`, … 이 있는 폴더에 복사합니다.
@@ -13,6 +14,15 @@
 3. 진행 상황(퍼센트, 기록한 GB, 현재 트랙, 속도, 남은 시간)이 막대로 표시됩니다. 먼저 폴더 스캔이 있고, 파일이 수천 개인 폴더에서는 시간이 걸릴 수 있습니다. `Done`이 나오면 Enter를 눌러 닫습니다.
 4. 생성된 파일을 SD카드의 ROM과 같은 폴더(같은 기본 이름)에 넣습니다. 코어가 팩을 자동으로 사용합니다.
    이후 `.pcm` 파일은 지워도 되지만 백업은 보관하세요.
+
+## macOS
+1. `MSUPackMaker_macOS`를 `game.msu`와 `game-N.pcm` 파일이 있는 폴더에 복사하고 더블클릭합니다.
+   터미널 창이 열리고 Windows판과 같은 진행 상황이 표시됩니다. `Done`이 나오면 Enter를 누릅니다.
+2. 처음 실행할 때: 서명되지 않은 프로그램이라 macOS가 한 번 막습니다.
+   macOS 15 이상: 시스템 설정 > 개인정보 보호 및 보안 > **그래도 열기**를 누른 뒤 다시 엽니다.
+   macOS 14 이하: Control-클릭 > 열기 > 열기. 또는 터미널에서 `xattr -d com.apple.quarantine MSUPackMaker_macOS`.
+3. Finder에서 `.msu`를 프로그램 위로 끌어다 놓는 방식은 안 됩니다. 게임 폴더에 넣고 실행하거나 터미널에서
+   `./MSUPackMaker_macOS /경로/game.msu`로 실행합니다(폴더를 주면 그 안의 `.msu`를 모두 처리).
 
 ## 생성 파일
 | 파일 | 내용 |

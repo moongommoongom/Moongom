@@ -18,7 +18,7 @@
 
 - 칩 비트스트림에는 음성 스트림, MSU-1 데이터 트랙, 라이트건이 없습니다(세이브스테이트 회로 자리). PAL 비트스트림도 칩 빌드라 PAL 슈퍼스코프 게임은 라이트건이 안 됩니다.
 - **테스트 현황:** FF6 배경음 + 음성과 세이브스테이트는 개발 중 실기에서 확인했습니다(R1SS 테스트 빌드). 칩 게임과 SPC7110 세이브스테이트는 0.8.5에서 새로 들어가 아직 테스트가 적습니다. 문제는 이슈로 알려주세요.
-- MSU-1 음원은 MSUPackMaker로 `.msp` / `.ms1` 팩으로 묶어 쓰세요(`tools/MSUPackMaker.exe`, [`docs/MSUPackMaker.ko.md`](docs/MSUPackMaker.ko.md)).
+- MSU-1 음원은 MSUPackMaker로 `.msp` / `.ms1` 팩으로 묶어 쓰세요(Windows: `tools/MSUPackMaker.exe`, macOS: `tools/MSUPackMaker_macOS`, [`docs/MSUPackMaker.ko.md`](docs/MSUPackMaker.ko.md)).
 - 비공식 빌드이며 원작자들과 관계없습니다. AI(Claude, Anthropic)의 도움을 받아 제작했고 저장소 주인이 방향을 정하고 테스트했습니다.
 - **ROM, BIOS, DSP 펌웨어 덤프, MSU-1 음원은 포함되어 있지 않습니다.** 게임 파일은 직접 준비하세요.
 - GPLv3(`LICENSE`, `CREDITS.md`). 빌드: Quartus Prime 25.1 Lite, 저장소 루트에서 `quartus_sh -t generate.tcl <variant>`(변형 목록은 [`docs/0.8.5.md`](docs/0.8.5.md)), `.rbf`를 비트 반전해 `.rev`로 만듭니다. 패키지 파일: `pkg/pocket/Cores/Moongom.SNES_MSU_SS/`.
