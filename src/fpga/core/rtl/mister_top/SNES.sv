@@ -95,6 +95,24 @@ module MAIN_SNES (
 
     output reg [3:0] sram_size,
 
+    // Savestates (USE_SS)
+    input wire ss_save,
+    input wire ss_hold_msu,   // clk_74a: save state staging / walk running (MSU-1 PSRAM caches stand still)
+    input wire ss_load,
+    input wire ss_ctrl_idle,
+    output wire ss_busy,
+    output wire ss_load_reject,
+    output wire ss_avail,
+    output wire ss_stage_lost,
+
+    input wire ss_stage_wr,
+    input wire [19:0] ss_stage_addr,
+    input wire [15:0] ss_stage_data,
+
+    input wire ss_blob_rd,
+    input wire [19:0] ss_blob_addr,
+    output wire [15:0] ss_blob_q,
+
     // SDRAM
     output wire [12:0] dram_a,
     output wire [ 1:0] dram_ba,
@@ -160,19 +178,21 @@ module MAIN_SNES (
     input  wire        msu_pre_active,
     output wire        msu_pre_done,
 
-    // external SRAM (MSU-1 track-head cache)
+    // external async SRAM: ARAM in the builds without save states (0.8.5), idle otherwise
     output wire [16:0] sram_a,
     output wire [15:0] sram_do,
     output wire        sram_oe,
     input  wire [15:0] sram_di,
     output wire        sram_we_n,
     output wire        sram_oe_n,
+    output wire        sram_ub_n,
+    output wire        sram_lb_n,
 
     input  wire        pcm_wr,          // PCM words (data_loader, 0x3xxxxxxx)
     input  wire [15:0] pcm_data,
     output wire        a_fetch_tgl,
     output wire [31:0] a_fetch_off,
-    output wire [15:0] a_fetch_len,
+    output wire [31:0] a_fetch_len,
     input  wire        a_done_tgl,
     input  wire        a_err,
 
@@ -185,7 +205,7 @@ module MAIN_SNES (
     input  wire [15:0] v_pcm_data,
     output wire        v_fetch_tgl,
     output wire [31:0] v_fetch_off,
-    output wire [15:0] v_fetch_len,
+    output wire [31:0] v_fetch_len,
     input  wire        v_done_tgl,
     input  wire        v_err,
     output wire        v_track_request,
@@ -213,6 +233,20 @@ module MAIN_SNES (
   parameter USE_SPC7110 = 1'b0;
   parameter USE_BSX = 1'b0;
   parameter USE_MSU = 1'b0;
+  parameter USE_SS = 1'b0;
+  // Save state build for coprocessor carts (0.8.5): ARAM on the async SRAM (BRAM goes to the 128 KB cart RAM and
+  // the chip), 4096-frame MSU-1 FIFO, no voice stream (voice packs are FF6 only) and no light gun
+  parameter SS_CHIP = 1'b0;
+  // Builds without the light gun and the voice stream (also the SPC7110 / BS-X build, which is short of ALMs)
+  parameter NO_EXTRAS = 1'b0;
+  // (set_parameter passes '1 as an integer, so compare instead of inverting)
+  localparam USE_LIGHTGUN = (SS_CHIP == 1'b1 || NO_EXTRAS == 1'b1) ? 1'b0 : 1'b1;
+  localparam USE_VOICE = (SS_CHIP == 1'b1 || NO_EXTRAS == 1'b1) ? 1'b0 : 1'b1;
+  // Coprocessor save state builds: the music stream is fetched straight from the bridge (as in R1, no PSRAM stream
+  // cache: without the voice stream there is nothing to share the SD channel with), no MSU-1 data track, no S-RTC
+  localparam USE_MCACHE = (SS_CHIP == 1'b1) ? 1'b0 : 1'b1;
+  localparam USE_MSU_DATA = (SS_CHIP == 1'b1) ? 1'b0 : 1'b1;
+  localparam USE_SRTC = (SS_CHIP == 1'b1) ? 1'b0 : 1'b1;
 
   initial begin
     $info("Selected chips");
@@ -230,7 +264,7 @@ module MAIN_SNES (
   wire [63:0] status = 0;
   wire [5:0] ioctl_index = 0;  // TODO
   wire GUN_BTN = status[27];
-  wire [1:0] GUN_MODE = lightgun_enabled ? 2'd1 : 0;
+  wire [1:0] GUN_MODE = (USE_LIGHTGUN && lightgun_enabled) ? 2'd1 : 0;
   wire [1:0] mouse_mode = status[6:5];
   wire joy_swap = status[7] | piano;
 
@@ -353,6 +387,20 @@ module MAIN_SNES (
     end
   end
 
+  // Per-ROM signature for savestate cross-load rejection (same hash as the savestate core)
+  reg [31:0] ss_game_id = 0;
+  always @(posedge clk_sys) begin
+    if (cart_download & ioctl_wr) begin
+      if (ioctl_addr == 0)
+        ss_game_id <= 32'h811C9DC5 ^ {16'd0, ioctl_dout};
+      else
+        ss_game_id <= {ss_game_id[30:0], ss_game_id[31]}
+                      ^ {16'd0, ioctl_dout}
+                      ^ {7'd0, ioctl_addr[1], ioctl_addr[8], ioctl_addr[16], 22'd0};
+    end
+  end
+  wire [31:0] ss_game_id_out = (ss_game_id == 0) ? 32'hFFFFFFFF : ss_game_id;
+
   ////////////////////////////  SYSTEM  ///////////////////////////////////
 
   wire turbo_allow;
@@ -362,6 +410,7 @@ module MAIN_SNES (
 
   // MSU-1 wires (declared before use by main)
   wire  [7:0] msu_volume;
+  wire  [7:0] msu_v_volume;
   wire        msu_audio_repeat;
   wire        msu_audio_playing;
   wire        msu_audio_stop;
@@ -405,7 +454,9 @@ module MAIN_SNES (
       .USE_DSPn(USE_DSPn),
       .USE_SPC7110(USE_SPC7110),
       .USE_BSX(USE_BSX),
-      .USE_MSU(USE_MSU)
+      .USE_MSU(USE_MSU),
+      .USE_SS(USE_SS),
+      .USE_SRTC(USE_SRTC)
   ) main (
       .RESET_N(RESET_N),
 
@@ -418,6 +469,7 @@ module MAIN_SNES (
       .ROM_TYPE(rom_type),
       .ROM_MASK(rom_mask),
       .RAM_MASK(ram_mask),
+      .RAM_SIZE(ram_size),
       .PAL(PAL),
       .BLEND(blend_enabled),
 
@@ -514,7 +566,7 @@ module MAIN_SNES (
       .MSU_VOLUME(msu_volume),
       .MSU_AUDIO_REPEAT(msu_audio_repeat),
       .MSU_AUDIO_RESUME(msu_audio_resume),
-      .MSU_V_EN(v_en),
+      .MSU_V_EN(v_en & USE_VOICE),
       .MSU_V_NUM(v_track_num),
       .MSU_V_REQUEST(v_track_request),
       .MSU_V_MOUNTING(v_mounting),
@@ -522,6 +574,7 @@ module MAIN_SNES (
       .MSU_V_MISSING(v_missing),
       .MSU_V_PLAY(msu_v_play),
       .MSU_V_STOP(msu_v_stop),
+      .MSU_V_VOLUME(msu_v_volume),
       .MSU_AUDIO_STOP(msu_audio_stop),
       .MSU_AUDIO_READY(msu_audio_ready),
       .MSU_HEAD_HIT(msu_head_hit),
@@ -534,6 +587,22 @@ module MAIN_SNES (
       .MSU_DATA_SEEK(msu_data_seek),
       .MSU_DATA_REQ(msu_data_req),
       .MSU_ENABLE(msu_enable),
+
+      .SS_SAVE(ss_save),
+      .SS_TOSD(1'b1),
+      .SS_LOAD(ss_load),
+      .SS_SLOT(2'b0),
+      .SS_GAME_ID(ss_game_id_out),
+      .SS_AVAIL(ss_avail),
+      .SS_DDR_DI(ss_ddr_di),
+      .SS_DDR_ACK(ss_ddr_ack),
+      .SS_DDR_DO(ss_ddr_do),
+      .SS_DDR_ADDR(ss_ddr_addr),
+      .SS_DDR_WE(ss_ddr_we),
+      .SS_DDR_BE(ss_ddr_be),
+      .SS_DDR_REQ(ss_ddr_req),
+      .SS_BUSY(ss_busy),
+      .SS_LOAD_REJECT(ss_load_reject),
 
       .AUDIO_L(main_audio_l),
       .AUDIO_R(main_audio_r)
@@ -553,9 +622,9 @@ module MAIN_SNES (
   end
 
   always @(posedge clk_sys) begin
-    video_r <= (LG_TARGET && lightgun_enabled) ? {8{LG_TARGET[0]}} : R;
-    video_g <= (LG_TARGET && lightgun_enabled) ? {8{LG_TARGET[1]}} : G;
-    video_b <= (LG_TARGET && lightgun_enabled) ? {8{LG_TARGET[2]}} : B;
+    video_r <= (LG_TARGET && lightgun_enabled && USE_LIGHTGUN) ? {8{LG_TARGET[0]}} : R;
+    video_g <= (LG_TARGET && lightgun_enabled && USE_LIGHTGUN) ? {8{LG_TARGET[1]}} : G;
+    video_b <= (LG_TARGET && lightgun_enabled && USE_LIGHTGUN) ? {8{LG_TARGET[2]}} : B;
   end
 
   ////////////////////////////  MEMORY  ///////////////////////////////////
@@ -604,6 +673,16 @@ module MAIN_SNES (
   wire ROM_WORD;
   wire [15:0] ROM_D;
   wire [15:0] ROM_Q;
+  wire [15:0] rom_sdram_q;
+
+  // savestate engine <-> blob store
+  wire [63:0] ss_ddr_di;
+  wire        ss_ddr_ack;
+  wire [63:0] ss_ddr_do;
+  wire [21:3] ss_ddr_addr;
+  wire [ 7:0] ss_ddr_be;
+  wire        ss_ddr_we;
+  wire        ss_ddr_req;
 
   sdram sdram (
       .init(0),  //~clock_locked),
@@ -611,7 +690,7 @@ module MAIN_SNES (
 
       .addr(cart_download ? ioctl_addr : ROM_ADDR),
       .din (cart_download ? ioctl_dout : ROM_D),
-      .dout(ROM_Q),
+      .dout(rom_sdram_q),
       .rd  (~cart_download & (RESET_N ? ~ROM_OE_N : RFSH)),
       .wr  (cart_download ? ioctl_wr : ~ROM_WE_N),
       .word(cart_download | ROM_WORD),
@@ -645,7 +724,8 @@ module MAIN_SNES (
   assign WRAM_Q = psram_wram_addr[0] ? wram_data_out[15:8] : wram_data_out[7:0];
 
   psram #(
-      .CLOCK_SPEED(85.9)
+      .CLOCK_SPEED(85.9),
+      .MSU_FORCE_EN(0)
   ) wram (
       .clk(clk_mem_85_9),
 
@@ -720,61 +800,229 @@ module MAIN_SNES (
   wire        ARAM_WE_N;
   wire [7:0] ARAM_Q, ARAM_D;
 
-  wire [15:0] aram_16_out;
-
-  // MSU-1 track-head cache port into the ARAM PSRAM chip (clk_sys -> clk_mem handshake)
+  // MSU-1 track-head cache port (clk_sys -> clk_mem toggle handshake) into a PSRAM die
   wire        msu_pr_req, msu_pr_we, msu_pr_bank, msu_pr_ack;
   wire [21:0] msu_pr_addr;
   wire [15:0] msu_pr_wd, msu_pr_rd;
 
-  assign ARAM_Q = psram_aram_addr[0] ? aram_16_out[15:8] : aram_16_out[7:0];
+  wire inject_savestate_rom;
 
-  wire [15:0] psram_aram_addr = clearing_ram ? mem_fill_addr[15:0] : ARAM_ADDR;
+  // async SRAM pins (driven by the ARAM controller in the builds without save states)
+  wire [16:0] aram_sram_a;
+  wire [15:0] aram_sram_do;
+  wire        aram_sram_doe, aram_sram_oe_n, aram_sram_we_n, aram_sram_ub_n, aram_sram_lb_n;
+  assign sram_a    = aram_sram_a;
+  assign sram_do   = aram_sram_do;
+  assign sram_oe   = aram_sram_doe;
+  assign sram_oe_n = aram_sram_oe_n;
+  assign sram_we_n = aram_sram_we_n;
+  assign sram_ub_n = aram_sram_ub_n;
+  assign sram_lb_n = aram_sram_lb_n;
 
-  wire [ 7:0] aram_data = clearing_ram ? aram_fill_data : ARAM_D;
-  wire [15:0] aram_16_data = psram_aram_addr[0] ? {aram_data, 8'h0} : {8'h0, aram_data};
+  generate
+    if (USE_SS == 1'b1) begin : g_ss_mem
+      if (SS_CHIP == 1'b1) begin : g_ss_aram_sram
+        // Coprocessor save state build: ARAM on the async SRAM (as in the 0.8 SS core and the 0.8.5 chip builds),
+        // so the BRAM holds the 128 KB cart RAM (SA-1 BW-RAM, Super FX RAM) and the coprocessor
+        wire [15:0] aram_16_out;
+        wire [15:0] ss_aram_addr = clearing_ram ? mem_fill_addr[15:0] : ARAM_ADDR;
 
-  psram #(
-      .CLOCK_SPEED(85.9)
-  ) aram (
-      .clk(clk_mem_85_9),
+        assign ARAM_Q = ss_aram_addr[0] ? aram_16_out[15:8] : aram_16_out[7:0];
 
-      .bank_sel(0),
-      // Remove bottom most bit, since this is a 8bit address and the RAM wants a 16bit address
-      .addr(psram_aram_addr[15:1]),
+        wire [ 7:0] ss_aram_data = clearing_ram ? aram_fill_data : ARAM_D;
+        wire [15:0] ss_aram_16_data = ss_aram_addr[0] ? {ss_aram_data, 8'h0} : {8'h0, ss_aram_data};
 
-      .write_en(clearing_ram ? 1'b1 : ~ARAM_CE_N & ~ARAM_WE_N),
-      .data_in(aram_16_data),
-      .write_high_byte(psram_aram_addr[0]),
-      .write_low_byte(~psram_aram_addr[0]),
+        sram_ctrl_split aram (
+            .clk(clk_mem_85_9),
+            .addr(ss_aram_addr[15:1]),
 
-      .read_en (~ARAM_CE_N & ~ARAM_OE_N),
-      .data_out(aram_16_out),
+            .write_en(clearing_ram ? 1'b1 : ~ARAM_CE_N & ~ARAM_WE_N),
+            .data_in(ss_aram_16_data),
+            .write_high_byte(ss_aram_addr[0]),
+            .write_low_byte(~ss_aram_addr[0]),
 
-      .m_req_tgl(msu_pr_req),
-      .m_we(msu_pr_we),
-      .m_bank(msu_pr_bank),
-      .m_addr(msu_pr_addr),
-      .m_wdata(msu_pr_wd),
-      .m_ack_tgl(msu_pr_ack),
-      .m_rdata(msu_pr_rd),
+            .read_en (~ARAM_CE_N & ~ARAM_OE_N),
+            .data_out(aram_16_out),
 
-      // Actual PSRAM interface
-      .cram_a(cram1_a),
-      .cram_dq(cram1_dq),
-      .cram_wait(cram1_wait),
-      .cram_clk(cram1_clk),
-      .cram_adv_n(cram1_adv_n),
-      .cram_cre(cram1_cre),
-      .cram_ce0_n(cram1_ce0_n),
-      .cram_ce1_n(cram1_ce1_n),
-      .cram_oe_n(cram1_oe_n),
-      .cram_we_n(cram1_we_n),
-      .cram_ub_n(cram1_ub_n),
-      .cram_lb_n(cram1_lb_n)
-  );
+            .sram_a(aram_sram_a),
+            .sram_do(aram_sram_do),
+            .sram_doe(aram_sram_doe),
+            .sram_di(sram_di),
+            .sram_oe_n(aram_sram_oe_n),
+            .sram_we_n(aram_sram_we_n),
+            .sram_ub_n(aram_sram_ub_n),
+            .sram_lb_n(aram_sram_lb_n)
+        );
+      end else begin : g_ss_aram_bram
+        assign aram_sram_a    = 17'd0;
+        assign aram_sram_do   = 16'd0;
+        assign aram_sram_doe  = 1'b0;
+        assign aram_sram_oe_n = 1'b1;
+        assign aram_sram_we_n = 1'b1;
+        assign aram_sram_ub_n = 1'b1;
+        assign aram_sram_lb_n = 1'b1;
 
-  localparam BSRAM_BITS = 17;  // 1Mbits
+        // Savestate build: ARAM lives in BRAM (as on MiSTer); the cram1 die holds the savestate blob
+        // and, through its second port, the MSU-1 stream caches
+        dpram #(16) aram (
+            .clock(clk_sys),
+            .address_a(ARAM_ADDR),
+            .data_a(ARAM_D),
+            .wren_a(~ARAM_CE_N & ~ARAM_WE_N),
+            .q_a(ARAM_Q),
+
+            // fill on ROM load
+            .address_b(mem_fill_addr[15:0]),
+            .data_b(aram_fill_data),
+            .wren_b(clearing_ram)
+        );
+      end
+
+      savestate ss_mem (
+          .clk_sys(clk_sys_21_48),
+          .clk_mem(clk_mem_85_9),
+
+          .ss_ddr_do(ss_ddr_do),
+          .ss_ddr_addr(ss_ddr_addr),
+          .ss_ddr_be(ss_ddr_be),
+          .ss_ddr_we(ss_ddr_we),
+          .ss_ddr_req(ss_ddr_req),
+          .ss_ddr_di(ss_ddr_di),
+          .ss_ddr_ack(ss_ddr_ack),
+
+          .ss_busy(ss_busy),
+
+          .blocked(cart_download),
+          .ctrl_idle(ss_ctrl_idle),
+          .stage_lost(ss_stage_lost),
+
+          .stage_wr(ss_stage_wr),
+          .stage_addr(ss_stage_addr),
+          .stage_data(ss_stage_data),
+
+          .blob_rd(ss_blob_rd),
+          .blob_addr(ss_blob_addr),
+          .blob_q(ss_blob_q),
+
+          .m_req_tgl(msu_pr_req),
+          .m_we(msu_pr_we),
+          .m_bank(msu_pr_bank),
+          .m_addr(msu_pr_addr),
+          .m_wdata(msu_pr_wd),
+          .m_ack_tgl(msu_pr_ack),
+          .m_rdata(msu_pr_rd),
+
+          .cram_a(cram1_a),
+          .cram_dq(cram1_dq),
+          .cram_wait(cram1_wait),
+          .cram_clk(cram1_clk),
+          .cram_adv_n(cram1_adv_n),
+          .cram_cre(cram1_cre),
+          .cram_ce0_n(cram1_ce0_n),
+          .cram_ce1_n(cram1_ce1_n),
+          .cram_oe_n(cram1_oe_n),
+          .cram_we_n(cram1_we_n),
+          .cram_ub_n(cram1_ub_n),
+          .cram_lb_n(cram1_lb_n)
+      );
+
+      wire [15:0] savestate_rom_q;
+
+      boot1_rom savestate_rom (
+          .clk (clk_mem_85_9),
+          .addr(ROM_ADDR[11:0]),
+          .word(ROM_WORD),
+          .q(savestate_rom_q)
+      );
+
+      assign inject_savestate_rom = ss_busy & (ROM_ADDR[23:16] == 8'hFF) & ~cart_download;
+      assign ROM_Q = inject_savestate_rom ? savestate_rom_q : rom_sdram_q;
+    end else begin : g_r1_mem
+      // 0.8.5 builds without save states (coprocessor carts): ARAM on the async SRAM (as in the save state core),
+      // so the cram1 PSRAM belongs to the MSU-1 stream caches alone (ARAM traffic on the same die would starve them)
+      wire [15:0] aram_16_out;
+
+      wire [15:0] psram_aram_addr = clearing_ram ? mem_fill_addr[15:0] : ARAM_ADDR;
+
+      assign ARAM_Q = psram_aram_addr[0] ? aram_16_out[15:8] : aram_16_out[7:0];
+
+      wire [ 7:0] aram_data = clearing_ram ? aram_fill_data : ARAM_D;
+      wire [15:0] aram_16_data = psram_aram_addr[0] ? {aram_data, 8'h0} : {8'h0, aram_data};
+
+      sram_ctrl_split aram (
+          .clk(clk_mem_85_9),
+          // byte address to word address; the low bit picks the byte lane
+          .addr(psram_aram_addr[15:1]),
+
+          .write_en(clearing_ram ? 1'b1 : ~ARAM_CE_N & ~ARAM_WE_N),
+          .data_in(aram_16_data),
+          .write_high_byte(psram_aram_addr[0]),
+          .write_low_byte(~psram_aram_addr[0]),
+
+          .read_en (~ARAM_CE_N & ~ARAM_OE_N),
+          .data_out(aram_16_out),
+
+          .sram_a(aram_sram_a),
+          .sram_do(aram_sram_do),
+          .sram_doe(aram_sram_doe),
+          .sram_di(sram_di),
+          .sram_oe_n(aram_sram_oe_n),
+          .sram_we_n(aram_sram_we_n),
+          .sram_ub_n(aram_sram_ub_n),
+          .sram_lb_n(aram_sram_lb_n)
+      );
+
+      // cram1: MSU-1 stream caches only (second port; the first port stays idle)
+      psram #(
+          .CLOCK_SPEED(85.9),
+          .MSU_FORCE_EN(0)
+      ) msu_ring (
+          .clk(clk_mem_85_9),
+
+          .bank_sel(0),
+          .addr(22'd0),
+
+          .write_en(1'b0),
+          .data_in(16'd0),
+          .write_high_byte(1'b0),
+          .write_low_byte(1'b0),
+
+          .read_en (1'b0),
+          .data_out(),
+
+          .m_req_tgl(msu_pr_req),
+          .m_we(msu_pr_we),
+          .m_bank(msu_pr_bank),
+          .m_addr(msu_pr_addr),
+          .m_wdata(msu_pr_wd),
+          .m_ack_tgl(msu_pr_ack),
+          .m_rdata(msu_pr_rd),
+
+          .cram_a(cram1_a),
+          .cram_dq(cram1_dq),
+          .cram_wait(cram1_wait),
+          .cram_clk(cram1_clk),
+          .cram_adv_n(cram1_adv_n),
+          .cram_cre(cram1_cre),
+          .cram_ce0_n(cram1_ce0_n),
+          .cram_ce1_n(cram1_ce1_n),
+          .cram_oe_n(cram1_oe_n),
+          .cram_we_n(cram1_we_n),
+          .cram_ub_n(cram1_ub_n),
+          .cram_lb_n(cram1_lb_n)
+      );
+
+      assign ss_ddr_di = 64'd0;
+      assign ss_ddr_ack = 1'b0;
+      assign ss_blob_q = 16'd0;
+      assign ss_stage_lost = 1'b0;
+      assign inject_savestate_rom = 1'b0;
+      assign ROM_Q = rom_sdram_q;
+    end
+  endgenerate
+
+  // 1Mbit cart RAM in R1 and in the coprocessor save state builds; the no-chip savestate build keeps 32KB so ARAM fits in BRAM
+  localparam BSRAM_BITS = (USE_SS == 1'b1 && SS_CHIP == 1'b0) ? 15 : 17;
   wire [19:0] BSRAM_ADDR;
   wire        BSRAM_CE_N;
   wire        BSRAM_OE_N;
@@ -934,6 +1182,8 @@ module MAIN_SNES (
   wire [1:0] LG_DO;
   wire [2:0] LG_TARGET;
 
+  generate
+  if (USE_LIGHTGUN) begin : g_lightgun
   lightgun lightgun (
       .CLK  (clk_sys),
       .RESET(reset),
@@ -965,6 +1215,12 @@ module MAIN_SNES (
       .PORT_P6(LG_P6_out),
       .PORT_DO(LG_DO)
   );
+  end else begin : g_nolightgun
+    assign LG_P6_out = 1'b1;
+    assign LG_DO = 2'b00;
+    assign LG_TARGET = 3'd0;
+  end
+  endgenerate
 
   // 1 [oooo|ooo) 7 - 1:+5V  2:Clk  3:Strobe   4:D0  5:D1  6: I/O  7:Gnd
 
@@ -1094,7 +1350,21 @@ module MAIN_SNES (
     if (USE_MSU == 1'b1) begin : g_msu
       wire msu_fill_ok;
       assign msu_pre_done = msu_fill_ok | msu_head_hit;
-      msu_audio #(.FIFO_AW(USE_CX4 ? 12 : 14)) msu_audio (
+
+      // Stream caches (same scheme as the save state core): the SD card is read through ONE command channel with a
+      // large fixed latency per request, so music + voice refilling small FIFOs with small reads starve each other.
+      // Each stream gets a PSRAM ring on cram1 that is read ahead in big pieces; msu_audio's small fetches are
+      // answered from the ring in microseconds.
+      wire        mc_fetch_tgl, mc_done_tgl, mc_err, mc_pcm_wr;
+      wire [31:0] mc_fetch_off;
+      wire [15:0] mc_fetch_len, mc_pcm_data;
+      wire        vc_fetch_tgl, vc_done_tgl, vc_err, vc_pcm_wr;
+      wire [31:0] vc_fetch_off;
+      wire [15:0] vc_fetch_len, vc_pcm_data;
+
+      // FIFO 16384 frames in the save state build (tested in R1SS test9); 4096 in the coprocessor builds, where the
+      // M10K blocks are short and the stream cache answers each small read from PSRAM in microseconds
+      msu_audio #(.FIFO_AW((USE_SS == 1'b1 && SS_CHIP == 1'b0) ? 14 : 12)) msu_audio (
           .reset(reset & ~msu_pre_active),
 
           .clk(clk_sys),
@@ -1107,16 +1377,16 @@ module MAIN_SNES (
           .track_req(msu_track_request | msu_pre_req),
           .cache_flush(1'b0),   // head cache / boot preload removed (the .msp pack file replaces it)
           .pre_mode(1'b0),
-          .pr_req_tgl(msu_pr_req), .pr_we(msu_pr_we), .pr_bank(msu_pr_bank), .pr_addr(msu_pr_addr), .pr_wdata(msu_pr_wd),
-          .pr_ack_tgl(msu_pr_ack), .pr_rdata(msu_pr_rd),
+          .pr_req_tgl(), .pr_we(), .pr_bank(), .pr_addr(), .pr_wdata(),   // head cache unused (tn_ok = 0): the PSRAM port now serves the stream caches
+          .pr_ack_tgl(1'b0), .pr_rdata(16'd0),
           .fill_ok(msu_fill_ok),
           .head_hit(msu_head_hit),
-          .sram_a(sram_a),
-          .sram_do(sram_do),
-          .sram_oe(sram_oe),
-          .sram_di(sram_di),
-          .sram_we_n(sram_we_n),
-          .sram_oe_n(sram_oe_n),
+          .sram_a(),
+          .sram_do(),
+          .sram_oe(),
+          .sram_di(16'd0),
+          .sram_we_n(),
+          .sram_oe_n(),
           .ctl_play(msu_audio_playing),
           .ctl_resume(msu_audio_resume),
           .ctl_repeat(msu_audio_repeat),
@@ -1124,14 +1394,14 @@ module MAIN_SNES (
           .track_size(msu_audio_size),
           .track_processing(msu_track_missing | msu_track_mounting | msu_track_request),
 
-          .pcm_wr(pcm_wr),
-          .pcm_data(pcm_data),
+          .pcm_wr(mc_pcm_wr),
+          .pcm_data(mc_pcm_data),
 
-          .fetch_tgl(a_fetch_tgl),
-          .fetch_off(a_fetch_off),
-          .fetch_len(a_fetch_len),
-          .fetch_done_tgl(a_done_tgl),
-          .fetch_err(a_err),
+          .fetch_tgl(mc_fetch_tgl),
+          .fetch_off(mc_fetch_off),
+          .fetch_len(mc_fetch_len),
+          .fetch_done_tgl(mc_done_tgl),
+          .fetch_err(mc_err),
 
           .audio_sector(msu_audio_sector),
           .resume_sector(msu_resume_sector),
@@ -1143,11 +1413,17 @@ module MAIN_SNES (
           .dbg_reqs(msu_dbg_reqs)
       );
 
-      msu_audio #(.FIFO_AW(12)) msu_voice (
+      wire        mp_req, mp_we, mp_done, vp_req, vp_we, vp_done;
+      wire [21:0] mp_addr, vp_addr;
+      wire [15:0] mp_wd, vp_wd, mp_rd, vp_rd;
+
+      if (USE_VOICE) begin : g_voice
+      // voice FIFO 8192 frames (~0.19 s) in the no-CX4 builds; volume from its own register ($2016)
+      msu_audio #(.FIFO_AW((USE_SS == 1'b1) ? 13 : 12)) msu_voice (
           .reset(reset),
           .clk(clk_sys),
           .clk_rate(PAL ? 32'd21281370 : 32'd21477270),
-          .ctl_volume(msu_volume),
+          .ctl_volume(msu_v_volume),
           .ctl_stop(msu_v_stop),
           .audio_ready(msu_v_ready),
           .track_num(v_track_num),
@@ -1169,13 +1445,13 @@ module MAIN_SNES (
           .ctl_repeat(1'b0),
           .track_size(v_size),
           .track_processing(v_missing | v_mounting | v_track_request),
-          .pcm_wr(v_pcm_wr),
-          .pcm_data(v_pcm_data),
-          .fetch_tgl(v_fetch_tgl),
-          .fetch_off(v_fetch_off),
-          .fetch_len(v_fetch_len),
-          .fetch_done_tgl(v_done_tgl),
-          .fetch_err(v_err),
+          .pcm_wr(vc_pcm_wr),
+          .pcm_data(vc_pcm_data),
+          .fetch_tgl(vc_fetch_tgl),
+          .fetch_off(vc_fetch_off),
+          .fetch_len(vc_fetch_len),
+          .fetch_done_tgl(vc_done_tgl),
+          .fetch_err(vc_err),
           .audio_sector(),
           .resume_sector(22'd0),
           .audio_l(msu_vl),
@@ -1185,6 +1461,119 @@ module MAIN_SNES (
           .dbg_reqs()
       );
 
+      // cram1 layout (word addresses): save state blob / R1 ARAM below 0x100000, voice ring 2 MB at 0x100000,
+      // music ring 4 MB at 0x200000. Reads of 64 KB first, then 128 KB for both streams: a 512 KB music read held the
+      // single SD channel so long that the voice ring ran dry (test6: music and voice played together but kept cutting out).
+      // Music reads ahead at most 1 MB (~6 s): after a song change it no longer keeps the SD channel busy for seconds.
+      // voice: the first read is 256 KB (~1.5 s): a clip starts with a cushion big enough that the next read never arrives
+      // late (test8: the first lines of the FF6 opening still hiccuped once after ~0.4 s)
+      msu_scache #(.PS_BASE(22'h100000), .FIXED(1), .OW(22), .RING_LOG2(21), .FIRST_BYTES(32'd262144), .CHUNK_BYTES(32'd262144)) msu_vcache (
+          .clk(clk_sys),
+          .reset(reset),
+          .mounting(v_mounting),
+          .missing(v_missing),
+          .size(v_size),
+          .a_fetch_tgl(vc_fetch_tgl),
+          .a_off(vc_fetch_off),
+          .a_len(vc_fetch_len),
+          .a_done_tgl(vc_done_tgl),
+          .a_err(vc_err),
+          .a_pcm_wr(vc_pcm_wr),
+          .a_pcm_data(vc_pcm_data),
+          .b_fetch_tgl(v_fetch_tgl),
+          .b_off(v_fetch_off),
+          .b_len(v_fetch_len),
+          .b_done_tgl(v_done_tgl),
+          .b_err(v_err),
+          .b_pcm_wr(v_pcm_wr),
+          .b_pcm_data(v_pcm_data),
+          .pr_req(vp_req),
+          .pr_we(vp_we),
+          .pr_addr(vp_addr),
+          .pr_wdata(vp_wd),
+          .pr_done(vp_done),
+          .pr_rdata(vp_rd)
+      );
+      end else begin : g_novoice
+        // no voice stream: voice clips read as missing (MSU_V_EN is 0), the music stream has the PSRAM port alone
+        assign msu_vl = 16'd0;
+        assign msu_vr = 16'd0;
+        assign msu_v_ready = 1'b1;
+        assign msu_v_stop = 1'b0;
+        assign v_fetch_tgl = 1'b0;
+        assign v_fetch_off = 32'd0;
+        assign v_fetch_len = 32'd0;
+        assign vp_req = 1'b0;
+        assign vp_we = 1'b0;
+        assign vp_addr = 22'd0;
+        assign vp_wd = 16'd0;
+      end
+
+      if (USE_MCACHE) begin : g_mcache
+      msu_scache #(.PS_BASE(22'h200000), .RING_LOG2(22), .FIRST_BYTES(32'd65536), .CHUNK_BYTES(32'd131072), .LEAD_BYTES(32'd1048576)) msu_mcache (
+          .clk(clk_sys),
+          .reset(reset),
+          .mounting(msu_track_mounting),
+          .missing(msu_track_missing),
+          .size(msu_audio_size),
+          .a_fetch_tgl(mc_fetch_tgl),
+          .a_off(mc_fetch_off),
+          .a_len(mc_fetch_len),
+          .a_done_tgl(mc_done_tgl),
+          .a_err(mc_err),
+          .a_pcm_wr(mc_pcm_wr),
+          .a_pcm_data(mc_pcm_data),
+          .b_fetch_tgl(a_fetch_tgl),
+          .b_off(a_fetch_off),
+          .b_len(a_fetch_len),
+          .b_done_tgl(a_done_tgl),
+          .b_err(a_err),
+          .b_pcm_wr(pcm_wr),
+          .b_pcm_data(pcm_data),
+          .pr_req(mp_req),
+          .pr_we(mp_we),
+          .pr_addr(mp_addr),
+          .pr_wdata(mp_wd),
+          .pr_done(mp_done),
+          .pr_rdata(mp_rd)
+      );
+
+      // A load stages the blob into cram1 through a 4-word FIFO: MSU-1 cache traffic on the same PSRAM made it drop a
+      // word (stage_lost -> load refused) whenever music/voice were streaming. Hold the caches while a save state runs.
+      reg [2:0] ss_hold_sr = 3'b000;
+      always @(posedge clk_sys) ss_hold_sr <= {ss_hold_sr[1:0], ss_hold_msu};
+
+      msu_pr_arb msu_pr_arb (
+          .clk(clk_sys),
+          .reset(reset),
+          .hold(ss_hold_sr[2]),
+          .c0_req(mp_req), .c0_we(mp_we), .c0_addr(mp_addr), .c0_wd(mp_wd), .c0_done(mp_done), .c0_rd(mp_rd),
+          .c1_req(vp_req), .c1_we(vp_we), .c1_addr(vp_addr), .c1_wd(vp_wd), .c1_done(vp_done), .c1_rd(vp_rd),
+          .pr_req_tgl(msu_pr_req),
+          .pr_we(msu_pr_we),
+          .pr_addr(msu_pr_addr),
+          .pr_wdata(msu_pr_wd),
+          .pr_ack_tgl(msu_pr_ack),
+          .pr_rdata(msu_pr_rd)
+      );
+      assign msu_pr_bank = 1'b0;
+      end else begin : g_nomcache
+        // music fetched straight from the bridge (R1 scheme); cram1 holds only the save state blob
+        assign a_fetch_tgl = mc_fetch_tgl;
+        assign a_fetch_off = mc_fetch_off;
+        assign a_fetch_len = {16'd0, mc_fetch_len};
+        assign mc_done_tgl = a_done_tgl;
+        assign mc_err = a_err;
+        assign mc_pcm_wr = pcm_wr;
+        assign mc_pcm_data = pcm_data;
+        assign msu_pr_req = 1'b0;
+        assign msu_pr_we = 1'b0;
+        assign msu_pr_addr = 22'd0;
+        assign msu_pr_wd = 16'd0;
+        assign msu_pr_bank = 1'b0;
+      end
+
+      if (USE_MSU_DATA) begin : g_msu_data
       msu_data_store msu_data_store (
           .clk_sys(clk_sys),
           .reset(reset),
@@ -1209,6 +1598,17 @@ module MAIN_SNES (
           .fill_done_tgl(d_done_tgl),
           .fill_err(d_err)
       );
+      end else begin : g_nomsu_data
+        // no MSU-1 data track: reads return 0, a seek completes at once
+        reg msu_seek_ack = 1'b0;
+        always @(posedge clk_sys) msu_seek_ack <= msu_data_seek;
+        assign msu_data_ack = msu_seek_ack;
+        assign msu_data = 8'h00;
+        assign d_fill_tgl = 1'b0;
+        assign d_fill_off = 32'd0;
+        assign d_fill_len = 16'd0;
+        assign d_fill_slot = 2'd0;
+      end
     end else begin : g_nomsu
       assign msu_l = 16'd0;
       assign msu_r = 16'd0;
@@ -1217,7 +1617,7 @@ module MAIN_SNES (
       assign msu_v_ready = 1'b1;
       assign v_fetch_tgl = 1'b0;
       assign v_fetch_off = 32'd0;
-      assign v_fetch_len = 16'd0;
+      assign v_fetch_len = 32'd0;
       assign msu_dbg_code = 5'd0;
       assign msu_dbg_lat = 3'd0;
       assign msu_dbg_reqs = 4'd0;
@@ -1231,17 +1631,12 @@ module MAIN_SNES (
       assign msu_pr_bank = 1'b0;
       assign msu_pr_addr = 22'd0;
       assign msu_pr_wd = 16'd0;
-      assign sram_a = 17'd0;
-      assign sram_do = 16'd0;
-      assign sram_oe = 1'b0;
-      assign sram_we_n = 1'b1;
-      assign sram_oe_n = 1'b1;
       assign msu_audio_sector = 22'd0;
       assign msu_data = 8'd0;
       assign msu_data_ack = 1'b1;
       assign a_fetch_tgl = 1'b0;
       assign a_fetch_off = 32'd0;
-      assign a_fetch_len = 16'd0;
+      assign a_fetch_len = 32'd0;
       assign d_fill_tgl = 1'b0;
       assign d_fill_off = 32'd0;
       assign d_fill_len = 16'd0;

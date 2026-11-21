@@ -85,11 +85,11 @@ assign sram_oe = 1'b0;
 assign sram_we_n = 1'b1;
 assign sram_oe_n = 1'b1;
 
-localparam [15:0] CHUNK_BYTES  = (FIFO_AW == 14) ? 16'd32768 : 16'd8192;
-localparam [15:0] FIRST_BYTES  = (FIFO_AW == 14) ? 16'd32768 : 16'd16384;
+localparam [15:0] CHUNK_BYTES  = (FIFO_AW == 14) ? 16'd32768 : (FIFO_AW == 13) ? 16'd16384 : 16'd8192;
+localparam [15:0] FIRST_BYTES  = (FIFO_AW == 14) ? 16'd32768 : 16'd16384;   // AW 13: 16 KB = 4096 frames of 8192
 localparam [31:0] HEADB        = 32'd98304;                          // cached head bytes per track (96 KB, ~0.56 s)
-localparam [13:0] REFILL_LEVEL = (FIFO_AW == 14) ? 14'd7936   : 14'd1984;   // fetch when FIFO holds <= this many frames
-localparam [13:0] COPY_LIMIT   = (FIFO_AW == 14) ? 14'd16300  : 14'd4020;   // head copy pauses above this fill level
+localparam [13:0] REFILL_LEVEL = (FIFO_AW == 14) ? 14'd7936   : (FIFO_AW == 13) ? 14'd3968 : 14'd1984;   // fetch when FIFO holds <= this many frames
+localparam [13:0] COPY_LIMIT   = (FIFO_AW == 14) ? 14'd16300  : (FIFO_AW == 13) ? 14'd8100 : 14'd4020;   // head copy pauses above this fill level
 
 localparam [3:0] S_IDLE   = 4'd0;
 localparam [3:0] S_HDR    = 4'd1;
@@ -612,7 +612,10 @@ CEGen sample_clock
 reg started = 0;
 always @(posedge clk) begin
 	if (reset | ~ctl_play) started <= 1'b0;
-	else if (fifo_usedw >= 14'd3500 || state == S_END || state == S_DRAIN) started <= 1'b1;
+	// S_SPACE with data: the FIFO is as full as the refill rule will make it. Waiting for 3500 frames here
+	// would never end with a small FIFO (AW 12 refills to ~2048 frames after an underrun): the voice went
+	// silent for the rest of the clip.
+	else if (fifo_usedw >= 14'd3500 || fifo_full || state == S_END || state == S_DRAIN || (state == S_SPACE && !fifo_empty)) started <= 1'b1;
 	else if (fifo_empty && state != S_IDLE) started <= 1'b0;
 end
 

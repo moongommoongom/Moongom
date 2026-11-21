@@ -1,6 +1,33 @@
-# SNES MSU-1 + Save States 0.8 (`Moongom.SNES_MSU_SS`)
+# SNES MSU-1 + Save States 0.8.5 (`Moongom.SNES_MSU_SS`) — improved 0.8
 
-**Version 0.8** is a new line based on the experimental save-state SNES core (drizzt/openfpga-snes, `agg23.SNES_experimental`) with MSU-1 BGM and voice packs added. Source: [`snes_msu_ss/`](snes_msu_ss/). Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only. The older 0.5 text below describes the previous line (`src/`).
+**Version 0.8.5** is the improved 0.8 and replaces it (same core folder `Moongom.SNES_MSU_SS`). It is built on the R1 line in [`src/`](src/) (clean MSU-1 audio) with the MiSTer SNES save states ported in. Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only. Technical notes: [`docs/0.8.5.md`](docs/0.8.5.md).
+
+- **Save states** for plain carts and for **SA-1, Super FX, CX4, DSP-n and S-DD1** carts (NTSC and PAL). **SPC7110** save states are experimental (a state saved while the game unpacks graphics can show broken graphics after a load). BS-X and OBC1 carts have no save states. Save with the Analogue button + Up; load from the Memories menu.
+- **MSU-1 position in save states:** the music track, play position (about 0.4 s steps), volume and repeat flag are saved; after a load the track continues where it was. Voice clips are not saved.
+- **MSU-1 music + voice packs** (FF6) play together on the NTSC main bitstream; save state loads work while music and voice stream.
+- **8 bitstreams** (the APF maximum) in one core folder, chosen automatically by the loader from the ROM header:
+
+| Bitstream | Games |
+|---|---|
+| `snes_main.rev` | NTSC plain carts, S-DD1, BS-X (FF6 voice packs, light gun) |
+| `snes_spc.rev` | SPC7110 |
+| `snes_pal.rev` | PAL plain carts, PAL CX4 / DSP-n |
+| `snes_cx4dsp.rev` | NTSC CX4 / DSP-n (Mega Man X2/X3, Super Mario Kart, Pilotwings, …) |
+| `snes_sa1.rev` / `snes_sa1p.rev` | SA-1 NTSC / PAL |
+| `snes_gsu.rev` / `snes_gsup.rev` | Super FX NTSC / PAL |
+
+- The coprocessor bitstreams have no voice stream, no MSU-1 data track and no light gun (room for the save state logic). The PAL bitstream is one of them, so PAL Super Scope games have no light gun.
+- **Testing status:** the FF6 music + voice and save state path was tested on hardware during development (R1SS test builds). The coprocessor and SPC7110 save states are new in 0.8.5 and less tested; please report problems as issues.
+- **Use MSUPackMaker to pack your MSU-1 audio** into `.msp` / `.ms1` files (`tools/MSUPackMaker.exe`, [`docs/MSUPackMaker.md`](docs/MSUPackMaker.md)).
+- Unofficial; not made or supported by the upstream authors. Developed with heavy help from an AI assistant (Claude, Anthropic) and directed/tested by the owner.
+- **No ROMs, BIOS, DSP firmware dumps or MSU-1 audio are included; supply your own game files.**
+- GPLv3, see `LICENSE` and `CREDITS.md`. Build: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>` in the repository root (variants in [`docs/0.8.5.md`](docs/0.8.5.md)), then bit-reverse the `.rbf` to `.rev`. Package files: `pkg/pocket/Cores/Moongom.SNES_MSU_SS/`.
+
+---
+
+# Previous: SNES MSU-1 + Save States 0.8
+
+**Version 0.8** was a line based on the experimental save-state SNES core (drizzt/openfpga-snes, `agg23.SNES_experimental`) with MSU-1 BGM and voice packs added. Source: [`snes_msu_ss/`](snes_msu_ss/). Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only. The older 0.5 text further below describes the R1 line that 0.8.5 is built on (`src/` now holds the 0.8.5 source).
 
 - **Save states:** save with the Analogue button + Up; load from the Memories menu. MSU-1 music state (track, position, volume, repeat) is stored in the save state.
 - **Not included in 0.8:** Super Scope / Justifier (light gun), BSX, SPC7110, Analogizer, beeper.

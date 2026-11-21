@@ -33,7 +33,11 @@ entity SPC7110 is
 		RTC_DO			: out std_logic_vector(3 downto 0);
 		RTC_DI			: in std_logic_vector(3 downto 0);
 		RTC_CE			: out std_logic;
-		RTC_CK			: out std_logic
+		RTC_CK			: out std_logic;
+
+		-- save states (experimental): while SS_BUSY the register writes of the save state firmware restore state
+		-- without side effects (no decompression start, no pointer adjust, no ALU run, no data ROM fetch)
+		SS_BUSY			: in std_logic := '0'
 	);
 end SPC7110;
 
@@ -120,10 +124,11 @@ architecture rtl of SPC7110 is
 	--MUL/DIV
 	signal UMUL_RES 			: std_logic_vector(31 downto 0);
 	signal SMUL_RES 			: std_logic_vector(31 downto 0);
-	signal UDIV_QUOT 			: std_logic_vector(31 downto 0);
-	signal UDIV_REM 			: std_logic_vector(15 downto 0);
-	signal SDIV_QUOT 			: std_logic_vector(31 downto 0);
-	signal SDIV_REM 			: std_logic_vector(15 downto 0);
+	signal DIV_QUOT 			: std_logic_vector(31 downto 0);
+	signal DIV_REM 			: std_logic_vector(15 downto 0);
+	signal DIV_START 			: std_logic;
+	signal SS_BUSY_OLD		: std_logic;
+	signal SS_DEC_ABORT		: std_logic;
 	signal MULDIV_RES 		: std_logic_vector(31 downto 0);
 	signal REM_RES 			: std_logic_vector(15 downto 0);
 	signal MUL_RUN 			: std_logic;
@@ -166,6 +171,8 @@ begin
 			ALU_CNT <= (others => '0');
 			RTC_CK <= '0';
 			DEC_RUN_OLD <= '0';
+			SS_BUSY_OLD <= '0';
+			SS_DEC_ABORT <= '0';
 		elsif rising_edge(CLK) then
 			if ENABLE = '1' then
 				if LOAD_RUN = '1' and WS = WS_LOAD_ADDR1 then
@@ -186,6 +193,13 @@ begin
 				end if;
 				
 				RTC_CK <= '0';
+
+				-- after a save state load: refetch the data ROM port byte (ROM reads are redirected while SS_BUSY)
+				SS_BUSY_OLD <= SS_BUSY;
+				SS_DEC_ABORT <= '0';
+				if SS_BUSY_OLD = '1' and SS_BUSY = '0' then
+					DP_READ <= '1';
+				end if;
 				
 				if CA(22) = '0' and CA(15 downto 8) = x"48" and CA(7) = '0' then 
 					if CPUWR_N = '0' and SYSCLKF_CE = '1' then	--IO write
@@ -199,25 +213,38 @@ begin
 								DECREGS.POINTER(23 downto 16) <= DI;
 							when "0000100" =>						--4804
 								DECREGS.INDEX <= DI;
-								LOAD_RUN <= '1';
+								if SS_BUSY = '0' then
+									LOAD_RUN <= '1';
+								end if;
 							when "0000101" =>						--4805
 								DECREGS.OFFSET(7 downto 0) <= DI;
 							when "0000110" =>						--4806
 								DECREGS.OFFSET(15 downto 8) <= DI;
-								DEC_BUF_RD_ADDR <= (others => '0');
-								DEC_START <= '1';
-								DEC_DONE <= '0';
+								if SS_BUSY = '0' then
+									DEC_BUF_RD_ADDR <= (others => '0');
+									DEC_START <= '1';
+									DEC_DONE <= '0';
+								else
+									SS_DEC_ABORT <= '1';		-- load: stop the decompression of the running game
+								end if;
 							when "0000111" =>						--4807
 							when "0001000" =>						--4808
 							when "0001001" =>						--4809
 								DECREGS.COUNTER(7 downto 0) <= DI;
-								DEC_DONE <= '0';
+								if SS_BUSY = '0' then
+									DEC_DONE <= '0';
+								end if;
 							when "0001010" =>						--480A
 								DECREGS.COUNTER(15 downto 8) <= DI;
-								DEC_DONE <= '0';
+								if SS_BUSY = '0' then
+									DEC_DONE <= '0';
+								end if;
 							when "0001011" =>						--480B
 								DECREGS.MODE <= DI(1 downto 0);
-							when "0001100" =>						--480C (read only)
+							when "0001100" =>						--480C (read only; save state restore)
+								if SS_BUSY = '1' then
+									DEC_DONE <= DI(7);
+								end if;
 							
 							when "0010001" =>						--4811
 								DATREGS.POINTER(7 downto 0) <= DI;
@@ -225,19 +252,21 @@ begin
 								DATREGS.POINTER(15 downto 8) <= DI;
 							when "0010011" =>						--4813
 								DATREGS.POINTER(23 downto 16) <= DI;
-								DP_READ <= '1';
+								if SS_BUSY = '0' then
+									DP_READ <= '1';
+								end if;
 							when "0010100" =>						--4814
 								DATREGS.ADJUST(7 downto 0) <= DI;
-								if DATREGS.MODE(6 downto 5) = "01" then
+								if DATREGS.MODE(6 downto 5) = "01" and SS_BUSY = '0' then
 									DATREGS.POINTER <= std_logic_vector( unsigned(DATREGS.POINTER) + ((7 downto 0 => DATREGS.ADJUST(15) and DATREGS.MODE(3)) & unsigned(DATREGS.ADJUST(15 downto 8)) & unsigned(DI)) );
 									DP_READ <= '1';
 								end if;
 							when "0010101" =>						--4815
 								DATREGS.ADJUST(15 downto 8) <= DI;
-								if DATREGS.MODE(1) = '1' then
+								if DATREGS.MODE(1) = '1' and SS_BUSY = '0' then
 									DP_READ <= '1';
 								end if;
-								if DATREGS.MODE(6 downto 5) = "10" then
+								if DATREGS.MODE(6 downto 5) = "10" and SS_BUSY = '0' then
 									DATREGS.POINTER <= std_logic_vector( unsigned(DATREGS.POINTER) + ((7 downto 0 => DI(7) and DATREGS.MODE(3)) & unsigned(DI) & unsigned(DATREGS.ADJUST(7 downto 0))) );
 									DP_READ <= '1';
 								end if;
@@ -247,7 +276,9 @@ begin
 								DATREGS.INCREMENT(15 downto 8) <= DI;
 							when "0011000" =>						--4818
 								DATREGS.MODE <= DI(6 downto 0);
-								DP_READ <= '1';
+								if SS_BUSY = '0' then
+									DP_READ <= '1';
+								end if;
 							when "0100000" =>						--4820
 								MULTIPLICAND(7 downto 0) <= DI;
 								DIVIDEND(7 downto 0) <= DI;
@@ -262,12 +293,28 @@ begin
 								MULTIPLIER(7 downto 0) <= DI;
 							when "0100101" =>						--4825
 								MULTIPLIER(15 downto 8) <= DI;
-								MUL_RUN <= '1';
+								if SS_BUSY = '0' then
+									MUL_RUN <= '1';
+								end if;
 							when "0100110" =>						--4826
 								DIVISOR(7 downto 0) <= DI;
 							when "0100111" =>						--4827
 								DIVISOR(15 downto 8) <= DI;
-								DIV_RUN <= '1';
+								if SS_BUSY = '0' then
+									DIV_RUN <= '1';
+								end if;
+							when "0101000" =>						--4828-482D (read only; save state restore)
+								if SS_BUSY = '1' then MULDIV_RES(7 downto 0) <= DI; end if;
+							when "0101001" =>
+								if SS_BUSY = '1' then MULDIV_RES(15 downto 8) <= DI; end if;
+							when "0101010" =>
+								if SS_BUSY = '1' then MULDIV_RES(23 downto 16) <= DI; end if;
+							when "0101011" =>
+								if SS_BUSY = '1' then MULDIV_RES(31 downto 24) <= DI; end if;
+							when "0101100" =>
+								if SS_BUSY = '1' then REM_RES(7 downto 0) <= DI; end if;
+							when "0101101" =>
+								if SS_BUSY = '1' then REM_RES(15 downto 8) <= DI; end if;
 							when "0101110" =>						--482E
 								SIGN <= DI(0);
 								
@@ -348,13 +395,8 @@ begin
 					if ALU_CNT = 39 then
 						ALU_CNT <= (others => '0');
 						DIV_RUN <= '0';
-						if SIGN = '0' then
-							MULDIV_RES <= UDIV_QUOT;
-							REM_RES <= UDIV_REM;
-						else
-							MULDIV_RES <= SDIV_QUOT;
-							REM_RES <= SDIV_REM;
-						end if;
+						MULDIV_RES <= DIV_QUOT;
+						REM_RES <= DIV_REM;
 					else
 						ALU_CNT <= ALU_CNT + 1;
 					end if;
@@ -422,6 +464,22 @@ begin
 						DO <= x"00";	
 					when "0011010" =>						--481A
 						DO <= DP_DATA_OUT;
+					when "0100000" =>						--4820-4827: ALU inputs (save state read only)
+						if SS_BUSY = '1' then DO <= DIVIDEND(7 downto 0); end if;
+					when "0100001" =>
+						if SS_BUSY = '1' then DO <= DIVIDEND(15 downto 8); end if;
+					when "0100010" =>
+						if SS_BUSY = '1' then DO <= DIVIDEND(23 downto 16); end if;
+					when "0100011" =>
+						if SS_BUSY = '1' then DO <= DIVIDEND(31 downto 24); end if;
+					when "0100100" =>
+						if SS_BUSY = '1' then DO <= MULTIPLIER(7 downto 0); end if;
+					when "0100101" =>
+						if SS_BUSY = '1' then DO <= MULTIPLIER(15 downto 8); end if;
+					when "0100110" =>
+						if SS_BUSY = '1' then DO <= DIVISOR(7 downto 0); end if;
+					when "0100111" =>
+						if SS_BUSY = '1' then DO <= DIVISOR(15 downto 8); end if;
 					when "0101000" =>						--4828
 						DO <= MULDIV_RES(7 downto 0);
 					when "0101001" =>						--4829
@@ -479,7 +537,9 @@ begin
 				FIFO_WR <= '0';
 				case WS is
 					when WS_IDLE =>
-						if LOAD_RUN = '1' then
+						if SS_BUSY = '1' then
+							null;
+						elsif LOAD_RUN = '1' then
 							WS <= WS_LOAD_ADDR1;
 						elsif DP_READ = '1' then
 							WS <= WS_DP_READ1;
@@ -624,6 +684,10 @@ begin
 						
 					when others => null;
 				end case;
+				if SS_DEC_ABORT = '1' then
+					DS <= DS_IDLE;
+					DEC_RUN <= '0';
+				end if;
 			end if;
 		end if;
 	end process; 
@@ -696,22 +760,17 @@ begin
 		result 	=> SMUL_RES
 	);
 	
-	UDIV : entity work.SPC7110_UDIV
+	DIV_START <= '1' when DIV_RUN = '1' and ALU_CNT = 0 else '0';
+
+	SERDIV : entity work.SPC7110_SERDIV
 	PORT MAP (
 		clock 	=> CLK,
+		start 	=> DIV_START,
+		sign 	=> SIGN,
 		numer 	=> DIVIDEND,
 		denom 	=> DIVISOR,
-		quotient => UDIV_QUOT,
-		remain 	=> UDIV_REM
-	);
-	
-	SDIV : entity work.SPC7110_SDIV
-	PORT MAP (
-		clock 	=> CLK,
-		numer 	=> DIVIDEND,
-		denom 	=> DIVISOR,
-		quotient => SDIV_QUOT,
-		remain 	=> SDIV_REM
+		quotient => DIV_QUOT,
+		remain 	=> DIV_REM
 	);
 
 	

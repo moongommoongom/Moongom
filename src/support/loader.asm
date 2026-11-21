@@ -140,7 +140,14 @@ ld r4,r1 // Copy chip type to r4
 and r4,#0xF0 // Get only the high nibble
 
 ld r8,#0
-core r8 // Default to the main core
+core r8 // Default to the main core (NTSC main: plain carts, S-DD1, BS-X)
+
+// 0.8.5 bitstreams: 0 main NTSC, 1 SPC7110, 2 PAL (plain + CX4 + DSP-n), 3 CX4/DSP-n NTSC,
+// 4 SA-1 NTSC, 5 SA-1 PAL, 6 Super FX NTSC, 7 Super FX PAL
+cmp r4,#0x60 // Check if SA-1
+jp z, sa1_core
+cmp r4,#0x70 // Check if Super FX (GSU)
+jp z, gsu_core
 
 cmp r4,#0x40 // Check if CX4
 jp z, cx4dsp_core
@@ -156,32 +163,41 @@ jp z, cx4dsp_core
 cmp r4,#0xD0 // Check if SPC7110
 jp nz, bit_sdd1
 log_string("Using SPC7110")
-jp expansion_core // It's SPC7110
+ld r8,#1
+core r8 // Boot SPC7110 core
+jp send_chip
 
 bit_sdd1:
-cmp r4,#0x50 // Check if SDD1
-jp nz, bit_bsx
-log_string("Using SDD1")
-jp expansion_core // It's SDD1
-
-bit_bsx:
-cmp r4,#0x30 // Check if BSX
-jp nz, check_pal
-log_string("Using BSX")
-// It's BSX
-
-expansion_core:
-ld r8,#1
-core r8 // Boot SPC7110/SDD1/BSX core
-jp send_chip
+cmp r4,#0x50 // S-DD1 runs on the NTSC main core (also PAL S-DD1 carts)
+jp z, send_chip
+// BS-X carts (0x30) take the default path: main core (they are NTSC only)
+jp check_pal
 
 cx4dsp_core:
 log_string("Using CX4/DSP core")
 ld r8,#3 // NTSC CX4/DSP-n core
 cmp r3,#1 // Check if PAL
 jp nz, cx4dsp_boot
-ld r8,#4 // PAL CX4/DSP-n core
+ld r8,#2 // PAL core (plain + CX4 + DSP-n)
 cx4dsp_boot:
+core r8
+jp send_chip
+
+sa1_core:
+log_string("Using SA-1 core")
+ld r8,#4 // NTSC SA-1 core
+cmp r3,#1 // Check if PAL
+jp nz, chip_boot
+ld r8,#5 // PAL SA-1 core
+jp chip_boot
+
+gsu_core:
+log_string("Using Super FX core")
+ld r8,#6 // NTSC Super FX core
+cmp r3,#1 // Check if PAL
+jp nz, chip_boot
+ld r8,#7 // PAL Super FX core
+chip_boot:
 core r8
 jp send_chip
 

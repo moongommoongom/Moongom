@@ -26,6 +26,7 @@ module msu_bridge #(
 ) (
 	input  wire        clk,                // clk_74a
 	input  wire        clk_sys,
+	input  wire        ss_pause,           // savestate save/load in progress (clk_74a): no new target commands
 	input  wire        reset_n,            // Pocket released the core from reset
 
 	// target command channel (core_bridge_cmd)
@@ -63,7 +64,7 @@ module msu_bridge #(
 
 	input  wire        a_fetch_tgl,
 	input  wire [31:0] a_fetch_off,
-	input  wire [15:0] a_fetch_len,
+	input  wire [31:0] a_fetch_len,
 	output wire        a_done_tgl,
 	output wire        a_err,
 
@@ -76,7 +77,7 @@ module msu_bridge #(
 	output wire [31:0] v_size,
 	input  wire        v_fetch_tgl,
 	input  wire [31:0] v_fetch_off,
-	input  wire [15:0] v_fetch_len,
+	input  wire [31:0] v_fetch_len,
 	output wire        v_done_tgl,
 	output wire        v_err,
 
@@ -263,6 +264,8 @@ reg        init_done = 0;
 reg        path_ok = 0;
 reg [30:0] init_to = 0;          // init watchdog (clk_74a cycles)
 reg        req_seen = 0;
+reg        rr_v = 0;              // the last data read served the voice stream (round robin with the music)
+reg  [1:0] vstart = 0;            // the first reads of a new voice clip go before the music (its ring has no lead yet)
 reg        a_ack = 0, d_ack = 0;
 
 reg  [7:0] scan_i = 0;
@@ -421,7 +424,7 @@ always @(posedge clk) begin
 						ret_cmd <= ST_I_NAME;
 						state   <= ST_CMD_GO;
 					end
-					else if (req_s && !req_seen) begin
+					else if (!ss_pause && req_s && !req_seen) begin
 						req_seen   <= 1;
 						mounting_r <= 1;
 						missing_r  <= 0;
@@ -454,8 +457,9 @@ always @(posedge clk) begin
 							state     <= ST_WR_START;
 						end
 					end
-					else if (vreq_s && !vreq_seen && voice_ok) begin
+					else if (!ss_pause && vreq_s && !vreq_seen && voice_ok) begin
 						vreq_seen <= 1;
+						vstart    <= 2'd1;   // the first (256 KB) read of a new clip goes before the music
 						vmount_r  <= 1;
 						vmiss_r   <= 0;
 						vsize_r   <= 0;
@@ -476,27 +480,32 @@ always @(posedge clk) begin
 							state   <= ST_CMD_GO;
 						end
 					end
-					else if (a_s != a_ack) begin
-						a_ack   <= a_s;
-						tc_code <= 16'h0180;
-						tc_p0   <= (pack_ok && pk_part != 2'd0) ? (SLOT_VOICE + {14'b0, pk_part}) : {16'b0, SLOT_PCM};
-						tc_p1   <= pack_ok ? (a_fetch_off + pk_base) : a_fetch_off;
-						tc_p2   <= PCM_BASE;
-						tc_p3   <= {16'b0, a_fetch_len};
-						ret_cmd <= ST_A_FIN;
-						state   <= ST_CMD_GO;
-					end
-					else if (vf_s != vf_ack && voice_ok) begin
+					// music / voice reads take turns when both are waiting (both go through PSRAM read-ahead caches that
+					// ask for 64-128 KB at a time): neither stream can hold the single SD command channel for long
+					else if (!ss_pause && vf_s != vf_ack && voice_ok && (a_s == a_ack || !rr_v || vstart != 2'd0)) begin
+						rr_v    <= 1'b1;
+						if (vstart != 2'd0) vstart <= vstart - 2'd1;
 						vf_ack  <= vf_s;
 						tc_code <= 16'h0180;
 						tc_p0   <= (vpart != 2'd0) ? (SLOT_VOICE + {14'b0, vpart}) : {16'b0, SLOT_VOICE};
 						tc_p1   <= v_fetch_off + vbase;
 						tc_p2   <= VOI_BASE;
-						tc_p3   <= {16'b0, v_fetch_len};
+						tc_p3   <= v_fetch_len;
 						ret_cmd <= ST_VF_FIN;
 						state   <= ST_CMD_GO;
 					end
-					else if (d_s != d_ack) begin
+					else if (!ss_pause && a_s != a_ack) begin
+						rr_v    <= 1'b0;
+						a_ack   <= a_s;
+						tc_code <= 16'h0180;
+						tc_p0   <= (pack_ok && pk_part != 2'd0) ? (SLOT_VOICE + {14'b0, pk_part}) : {16'b0, SLOT_PCM};
+						tc_p1   <= pack_ok ? (a_fetch_off + pk_base) : a_fetch_off;
+						tc_p2   <= PCM_BASE;
+						tc_p3   <= a_fetch_len;
+						ret_cmd <= ST_A_FIN;
+						state   <= ST_CMD_GO;
+					end
+					else if (!ss_pause && d_s != d_ack) begin
 						d_ack   <= d_s;
 						tc_code <= 16'h0180;
 						tc_p0   <= {16'b0, SLOT_MSU};

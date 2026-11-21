@@ -338,6 +338,12 @@ always @(posedge clk) begin
                 hstate <= ST_DONE_CODE;
             end
         end
+        16'h008A: begin
+            // Data slot update (sent on deferload marked slots only, e.g. after a 0192 open).
+            // Older template answered "unknown command" (FFFF); with sleep_supported the
+            // firmware then dropped the MSU-1 slot opens. Acknowledge it like the newer template.
+            hstate <= ST_DONE_OK;
+        end
         16'h008F: begin
             // Data slot access all complete
             dataslot_allcomplete <= 1;
