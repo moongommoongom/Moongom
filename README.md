@@ -18,7 +18,7 @@
 
 - The coprocessor bitstreams have no voice stream, no MSU-1 data track and no light gun (room for the save state logic). The PAL bitstream is one of them, so PAL Super Scope games have no light gun.
 - **Testing status:** the FF6 music + voice and save state path was tested on hardware during development (R1SS test builds). The coprocessor and SPC7110 save states are new in 0.8.5 and less tested; please report problems as issues.
-- **Use MSUPackMaker to pack your MSU-1 audio** into `.msp` / `.ms1` files (`tools/MSUPackMaker.exe`, [`docs/MSUPackMaker.md`](docs/MSUPackMaker.md)).
+- **Use MSUPackMaker to pack your MSU-1 audio** into `.msp` / `.ms1` files (Windows: `tools/MSUPackMaker.exe`, macOS: `tools/MSUPackMaker_macOS`, [`docs/MSUPackMaker.md`](docs/MSUPackMaker.md)).
 - Unofficial; not made or supported by the upstream authors. Developed with heavy help from an AI assistant (Claude, Anthropic) and directed/tested by the owner.
 - **No ROMs, BIOS, DSP firmware dumps or MSU-1 audio are included; supply your own game files.**
 - GPLv3, see `LICENSE` and `CREDITS.md`. Build: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>` in the repository root (variants in [`docs/0.8.5.md`](docs/0.8.5.md)), then bit-reverse the `.rbf` to `.rev`. Package files: `pkg/pocket/Cores/Moongom.SNES_MSU_SS/`.
@@ -111,7 +111,7 @@ This work is a modification of GPLv3 software and is distributed under the **GNU
 The complete corresponding source is this repository:
 - `src/` — modified Quartus project (HDL, chip32 loader `src/support/loader.asm`)
 - `patches/msu1-vs-openfpga-snes-0.4.4.patch` — all changes against upstream openfpga-snes 0.4.4
-- `tools/` — `rbf_to_rev.py` (bitstream converter), `MSUPackMaker.exe` + source `tools/msupack/` (usage: `docs/MSUPackMaker.md`)
+- `tools/` — `rbf_to_rev.py` (bitstream converter), `MSUPackMaker.exe` (Windows) / `MSUPackMaker_macOS` (macOS) + source `tools/msupack/` (usage: `docs/MSUPackMaker.md`)
 - `docs/` — notes and dev log (`DEVLOG.md`, Korean)
 
 Build: Quartus Prime 25.1 Lite, `quartus_sh -t generate.tcl <variant>` (variants: `ntsc`, `pal` = CX4/DSP-n; `ntsc_sa1gsu`, `pal_sa1gsu` = SA-1/GSU/S-DD1; `ntsc_spc` = SPC7110/BSX), then `python3 tools/rbf_to_rev.py ap_core.rbf out.rev`.

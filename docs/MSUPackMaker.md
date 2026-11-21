@@ -5,7 +5,8 @@ one file instead of searching a huge folder. The pack is optional: plain `.pcm` 
 (수천 개의 `game-N.pcm`을 소수의 큰 파일로 묶는 도구입니다. 팩은 선택 사항이며 `.pcm` 그대로도 동작합니다.)
 
 > Tool source: `tools/msupack/main.go` (Go). Build: `GOOS=windows go build -o MSUPackMaker.exe`.
-> Windows binary: `tools/MSUPackMaker.exe`. Use only with game files you own.
+> Windows binary: `tools/MSUPackMaker.exe`. macOS binary: `tools/MSUPackMaker_macOS` (Apple Silicon + Intel,
+> macOS 11+; build steps in `tools/msupack/make_universal.py`). Use only with game files you own.
 
 ## How to use / 사용법
 1. Copy `MSUPackMaker.exe` into the folder that holds your `game.msu` and `game-1.pcm`, `game-2.pcm`, …
@@ -14,6 +15,15 @@ one file instead of searching a huge folder. The pack is optional: plain `.pcm` 
 3. Wait for `Done`, press Enter. A progress bar shows percent, GB written, current track, speed and ETA (first a scan of the folder, which can be slow in a folder with thousands of files).
 4. Put the generated files next to the ROM on the SD card (same folder, same base name).
    The core uses the pack automatically; you may delete the `.pcm` files afterwards (keep a backup).
+
+## macOS
+1. Copy `MSUPackMaker_macOS` into the folder with `game.msu` and the `game-N.pcm` files and double-click it.
+   A Terminal window opens with the same progress output; press Enter at `Done`.
+2. First start: the program is not signed by an identified developer, so macOS blocks it once.
+   macOS 15+: System Settings > Privacy & Security > **Open Anyway**, then open it again.
+   macOS 14 and older: Control-click > Open > Open. Or in Terminal: `xattr -d com.apple.quarantine MSUPackMaker_macOS`.
+3. Dropping a `.msu` onto the program does not work in Finder; run it in the game folder, or in Terminal:
+   `./MSUPackMaker_macOS /path/to/game.msu` (a folder packs every `.msu` in it).
 
 ## Output files / 생성 파일
 | File | Content |
