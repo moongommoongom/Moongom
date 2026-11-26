@@ -1,3 +1,9 @@
+# Genesis MD+ 0.8 (`Moongom.GenesisMDplus`) — new
+
+Sega Genesis / Mega Drive core with **MD+ CD audio** (cue + wav, no conversion tool) and **save states (Memories)**, based on the Analogizer Genesis core. Source and documentation: [`genesis_mdplus/`](genesis_mdplus/) ([English](genesis_mdplus/README.md), [한국어](genesis_mdplus/README.ko.md), [changes](genesis_mdplus/CHANGELOG.md), [technical notes](genesis_mdplus/docs/TECHNICAL.md)). Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only.
+
+---
+
 # SNES MSU-1 + Save States 0.8.5 (`Moongom.SNES_MSU_SS`) — improved 0.8
 
 **Version 0.8.5** is the improved 0.8 and replaces it (same core folder `Moongom.SNES_MSU_SS`). It is built on the R1 line in [`src/`](src/) (clean MSU-1 audio) with the MiSTer SNES save states ported in. Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only. Technical notes: [`docs/0.8.5.md`](docs/0.8.5.md).
