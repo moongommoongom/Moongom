@@ -1,6 +1,8 @@
-# SNES MSU-1 + 세이브스테이트 0.8.5 (`Moongom.SNES_MSU_SS`) — 0.8 개선판
+# SNES MSU-1 + 세이브스테이트 0.8.6 (`Moongom.SNES_MSU_SS`) — 0.8 개선판
 
 **0.8.5**는 0.8의 개선판이며 0.8을 대체합니다(코어 폴더는 같은 `Moongom.SNES_MSU_SS`). MSU-1 음질이 깨끗한 R1 계열([`src/`](src/))에 MiSTer SNES 세이브스테이트를 옮겨 넣었습니다. 비트스트림은 [Releases](https://github.com/moongommoongom/Moongom/releases)에만 있습니다. 기술 메모: [`docs/0.8.5.md`](docs/0.8.5.md)(영문).
+
+**0.8.6**은 0.8.5의 버그 수정판입니다. `snes_main.rev`(일반 게임, S-DD1, BS-X)에서 게임 내 세이브(`.sav`)가 다시 유지됩니다. 0.8.5에서는 코어를 껐다 다시 켜면 세이브가 사라졌습니다. 바뀐 파일은 `snes_main.rev` 하나입니다.
 
 - **세이브스테이트:** 일반 게임과 **SA-1, Super FX, CX4, DSP-n, S-DD1** 게임(NTSC·PAL). **SPC7110**은 실험 기능입니다(그래픽 압축을 푸는 도중에 저장하면 불러온 뒤 그래픽이 깨질 수 있음). BS-X, OBC1 게임은 세이브스테이트가 없습니다. 저장은 Analogue 버튼 + 위, 불러오기는 Memories 메뉴입니다.
 - **MSU 음악 위치 저장:** 트랙, 재생 위치(약 0.4초 단위), 볼륨, 반복 여부가 저장되고, 불러오면 그 위치부터 이어서 재생합니다. 음성 클립은 저장되지 않습니다.

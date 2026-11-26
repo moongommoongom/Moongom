@@ -1028,13 +1028,26 @@ module MAIN_SNES (
   wire        BSRAM_OE_N;
   wire        BSRAM_WE_N;
   wire [7:0] BSRAM_Q, BSRAM_D;
+
+  // The loader raises ioctl_download a second time for the .sav file (ioctl_index is always 0), so the RAM clear
+  // below also runs while the save is written into BSRAM through port b. The clear sweeps 2^17 addresses; with the
+  // 32 KB BSRAM of the no-chip savestate build that wrapped the cart RAM four times (about 24 ms) and filled a save
+  // that had already arrived with FF (0.8.5: in-game saves lost after quitting the core).
+  // Fill the cart RAM only during the first pass over its own size, and stop as soon as save data arrives.
+  reg bsram_save_seen = 0;
+  always @(posedge clk_sys) begin
+    if (~old_downloading & cart_download) bsram_save_seen <= 1'b0;
+    else if (sd_wr) bsram_save_seen <= 1'b1;
+  end
+  wire bsram_clear = clearing_ram & ~bsram_save_seen & ~sd_wr & ((mem_fill_addr >> BSRAM_BITS) == 0);
+
   dpram_dif #(BSRAM_BITS, 8, BSRAM_BITS - 1, 16) bsram (
       .clock(clk_sys),
 
       //Thrash the BSRAM upon ROM loading
       .address_a(clearing_ram ? mem_fill_addr[BSRAM_BITS-1:0] : BSRAM_ADDR[BSRAM_BITS-1:0]),
       .data_a(clearing_ram ? 8'hFF : BSRAM_D),
-      .wren_a(clearing_ram ? 1'b1 : ~BSRAM_CE_N & ~BSRAM_WE_N),
+      .wren_a(clearing_ram ? bsram_clear : ~BSRAM_CE_N & ~BSRAM_WE_N),
       .q_a(BSRAM_Q),
 
       // .address_b({sd_lba[BSRAM_BITS-10:0],sd_buff_addr}),

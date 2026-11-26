@@ -2,7 +2,7 @@ Port by agg23. Core by srg320.
 
 Super Nintendo Entertainment System (SNES), referred to as the Super Famicom (SFC) in Japan was the second home console produced by Nintendo.
 
-This build (SNES_MSU_SS 0.8.5): R1 SNES core + MSU-1 (BGM and voice packs) + save states.
+This build (SNES_MSU_SS 0.8.6): R1 SNES core + MSU-1 (BGM and voice packs) + save states.
 - Save states: plain carts, SA-1, Super FX (GSU), CX4, DSP-n, S-DD1 (NTSC and PAL),
   SPC7110 (experimental: saving while the game unpacks graphics can leave graphics broken after a load).
   No save states: BS-X, OBC1.
@@ -14,4 +14,5 @@ This build (SNES_MSU_SS 0.8.5): R1 SNES core + MSU-1 (BGM and voice packs) + sav
   FF6 voice packs (NTSC main bitstream): use a ROM patched for the MSU-1 voice window ($2010-$2017).
 Unofficial modified build, not made or supported by agg23, srg320 or the MiSTer project. GPLv3.
 Developed with the help of an AI assistant (Claude). Report issues at https://github.com/moongommoongom/Moongom.
-Version 0.8.5.
+0.8.6: fixes in-game saves (.sav) being lost on the main bitstream (0.8.5).
+Version 0.8.6.
