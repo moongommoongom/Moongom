@@ -1,6 +1,6 @@
-# Genesis MD+ 0.8 (`Moongom.GenesisMDplus`) — new
+# Genesis MD+ 0.8.1 (`Moongom.GenesisMDplus`) — new
 
-Sega Genesis / Mega Drive core with **MD+ CD audio** (cue + wav, no conversion tool) and **save states (Memories)**, based on the Analogizer Genesis core. Source and documentation: [`genesis_mdplus/`](genesis_mdplus/) ([English](genesis_mdplus/README.md), [한국어](genesis_mdplus/README.ko.md), [changes](genesis_mdplus/CHANGELOG.md), [technical notes](genesis_mdplus/docs/TECHNICAL.md)). Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only.
+Sega Genesis / Mega Drive core with **MD+ CD audio** (cue + wav, no conversion tool) and **save states (Memories)**, based on the Analogizer Genesis core. Source and documentation: [`genesis_mdplus/`](genesis_mdplus/) ([English](genesis_mdplus/README.md), [한국어](genesis_mdplus/README.ko.md), [changes](genesis_mdplus/CHANGELOG.md), [technical notes](genesis_mdplus/docs/TECHNICAL.md)). 0.8.1 fixes wrong colours / empty-looking pixels that appeared on some power-ons. Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only.
 
 ---
 

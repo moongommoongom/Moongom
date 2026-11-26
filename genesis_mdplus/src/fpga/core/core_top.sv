@@ -909,11 +909,28 @@ synch_3 #(.WIDTH(2)) sv2(resolution, resolution_s, current_pix_clk);
 synch_3 sv3(interlaced, interlaced_s, current_pix_clk);
 synch_3 sv4(field, field_s, current_pix_clk);
 
+// clk_sys -> pixel clock handoff. The cofi outputs change on ce_pix, whose phase against the
+// pixel clock depends on when reset was released, so sampling them directly could catch the
+// bits mid-change (wrong colours on some boots). Re-latch them in clk_sys a few cycles after
+// each pixel clock edge, so they are stable for most of the period when the next edge samples.
+reg ptog = 0;
+always @(posedge current_pix_clk) ptog <= ~ptog;
+reg [2:0] ptog_s = 0;
+reg [7:0] red_p, green_p, blue_p;
+reg hblank_p, vblank_p, hs_p, vs_p;
+always @(posedge clk_sys) begin
+    ptog_s <= {ptog_s[1:0], ptog};
+    if (ptog_s[2] ^ ptog_s[1]) begin
+        red_p <= red; green_p <= green; blue_p <= blue;
+        hblank_p <= hblank_c; vblank_p <= vblank_c; hs_p <= hs_c; vs_p <= vs_c;
+    end
+end
+
 always @(posedge current_pix_clk) begin
     reg vblank_line = 0;
     video_de_reg <= 0;
 
-	if (vs_c) begin
+	if (vs_p) begin
 		video_rgb_reg[23:3] <= 'd0;
 		video_rgb_reg[3] <= ~field_s;
 		video_rgb_reg[2] <= field_s;
@@ -930,17 +947,17 @@ always @(posedge current_pix_clk) begin
     endcase
 
 
-    if (~(vblank_line || hblank_c)) begin
+    if (~(vblank_line || hblank_p)) begin
         video_de_reg <= 1;
-        video_rgb_reg[23:16] <= (lg_target && lightgun_enabled && show_crosshair) ? {8{lg_target[0]}} : red;
-        video_rgb_reg[15:8]  <= (lg_target && lightgun_enabled && show_crosshair) ? {8{lg_target[1]}} : green;
-        video_rgb_reg[7:0]   <= (lg_target && lightgun_enabled && show_crosshair) ? {8{lg_target[2]}} : blue;
+        video_rgb_reg[23:16] <= (lg_target && lightgun_enabled && show_crosshair) ? {8{lg_target[0]}} : red_p;
+        video_rgb_reg[15:8]  <= (lg_target && lightgun_enabled && show_crosshair) ? {8{lg_target[1]}} : green_p;
+        video_rgb_reg[7:0]   <= (lg_target && lightgun_enabled && show_crosshair) ? {8{lg_target[2]}} : blue_p;
     end
 
-    video_hs_reg <= ~hs_prev && hs_c;
-    video_vs_reg <= ~vs_prev && vs_c;
-    hs_prev <= hs_c;
-    vs_prev <= vs_c;
+    video_hs_reg <= ~hs_prev && hs_p;
+    video_vs_reg <= ~vs_prev && vs_p;
+    hs_prev <= hs_p;
+    vs_prev <= vs_p;
 
     // the vblank signal starts and stops a bit before the end of the visible
     // portion of the line. if used to gate pixel output, this means the last
@@ -948,8 +965,8 @@ always @(posedge current_pix_clk) begin
     // producing garbage on the screen. capture and use vblank's value at hsync
     // to avoid this; hsync starts a line so that's when we care whether or not
     // the line is visible.
-    if (~hs_prev && hs_c) begin
-        vblank_line <= vblank_c;
+    if (~hs_prev && hs_p) begin
+        vblank_line <= vblank_p;
     end
 end
 

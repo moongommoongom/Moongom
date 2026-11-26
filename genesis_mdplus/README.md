@@ -7,7 +7,7 @@ Based on the [Analogizer Genesis core](docs/README_upstream.md) by RndMnkIII,
 which is based on ericlewis' openFPGA Genesis core (a port of the MiSTer Genesis
 core, itself derived from fpgagen). The Analogizer features stay enabled.
 
-Version: **0.8** (test release)
+Version: **0.8.1**
 
 ## Features
 
@@ -75,7 +75,7 @@ Notes
 
 ## Known issues
 
-- Test release: tested mainly with Phantasy Star IV (MD+ patch).
+- Tested mainly with Phantasy Star IV (MD+ patch).
 - The menu option "M30 Controllers" from the upstream core was removed to make
   room for the MD+ menu.
 

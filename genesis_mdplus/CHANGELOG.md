@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.1 (2026-11-26)
+
+Fix
+- Video: on some power-ons the picture had wrong colours / pixels that looked
+  empty. The VDP output (clk_sys, ce_pix) was sampled directly by the pixel
+  clock; their phase depends on when reset is released, so some boots caught
+  the colour bits while they were changing. The colours and sync signals are
+  now re-latched in clk_sys a few cycles after each pixel clock edge, so they
+  are stable when the next edge samples them. This handoff came from the
+  upstream core.
+- Fitter seed 2 (clean timing).
+
 ## 0.8 (2026-11-26) - test release
 
 First public test release of the MD+ / save state fork.

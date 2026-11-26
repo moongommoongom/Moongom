@@ -7,7 +7,7 @@ RndMnkIII의 [Analogizer Genesis 코어](docs/README_upstream.md)를 바탕으�
 그 코어는 ericlewis의 openFPGA Genesis(MiSTer Genesis 포팅, fpgagen 기반)를
 바탕으로 합니다. Analogizer 기능은 그대로 켜져 있습니다.
 
-버전: **0.8** (테스트 릴리스)
+버전: **0.8.1**
 
 ## 기능
 
@@ -61,7 +61,7 @@ RndMnkIII의 [Analogizer Genesis 코어](docs/README_upstream.md)를 바탕으�
 
 ## 알려진 사항
 
-- 테스트 릴리스입니다. 주로 판타지스타 4(MD+ 패치)로 시험했습니다.
+- 주로 판타지스타 4(MD+ 패치)로 시험했습니다.
 - MD+ 메뉴 자리를 만들기 위해 원본의 "M30 Controllers" 메뉴를 뺐습니다.
 
 ## 빌드
