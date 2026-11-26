@@ -1,6 +1,8 @@
-# SNES MSU-1 + Save States 0.8.5 (`Moongom.SNES_MSU_SS`) — improved 0.8
+# SNES MSU-1 + Save States 0.8.6 (`Moongom.SNES_MSU_SS`) — improved 0.8
 
 **Version 0.8.5** is the improved 0.8 and replaces it (same core folder `Moongom.SNES_MSU_SS`). It is built on the R1 line in [`src/`](src/) (clean MSU-1 audio) with the MiSTer SNES save states ported in. Bitstreams are in [Releases](https://github.com/moongommoongom/Moongom/releases) only. Technical notes: [`docs/0.8.5.md`](docs/0.8.5.md).
+
+**0.8.6** is a bug fix for 0.8.5: in-game saves (`.sav`) on `snes_main.rev` (plain carts, S-DD1, BS-X) are kept again. 0.8.5 lost them after the core was closed and started again. Only `snes_main.rev` changed.
 
 - **Save states** for plain carts and for **SA-1, Super FX, CX4, DSP-n and S-DD1** carts (NTSC and PAL). **SPC7110** save states are experimental (a state saved while the game unpacks graphics can show broken graphics after a load). BS-X and OBC1 carts have no save states. Save with the Analogue button + Up; load from the Memories menu.
 - **MSU-1 position in save states:** the music track, play position (about 0.4 s steps), volume and repeat flag are saved; after a load the track continues where it was. Voice clips are not saved.

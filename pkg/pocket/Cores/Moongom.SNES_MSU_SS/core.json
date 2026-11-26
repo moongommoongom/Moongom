@@ -9,8 +9,8 @@
             "description": "SNES + MSU-1 (BGM, voice packs), save states incl. SA-1, Super FX, CX4, DSP, S-DD1, SPC7110",
             "author": "Moongom",
             "url": "https://github.com/moongommoongom/Moongom",
-            "version": "0.8.5",
-            "date_release": "2026-11-21"
+            "version": "0.8.6",
+            "date_release": "2026-11-27"
         },
         "framework": {
             "target_product": "Analogue Pocket",
