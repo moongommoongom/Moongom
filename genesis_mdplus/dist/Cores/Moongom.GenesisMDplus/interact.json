@@ -1,0 +1,412 @@
+{
+  "interact": {
+    "magic": "APF_VER_1",
+    "variables": [
+      {
+        "name": "Reset Core",
+        "id": 2,
+        "type": "action",
+        "enabled": true,
+        "address": "0x00000070",
+        "value": 1
+      },
+      {
+        "name": "SNAC Adapter",
+        "id": 40,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF7000000",
+        "defaultval": "0x00",
+        "mask": "0xFFFFFFE0",
+        "options": [
+          {
+            "value": "0x00",
+            "name": "None"
+          },
+          {
+            "value": "0x01",
+            "name": "DB15 Normal"
+          },
+          {
+            "value": "0x02",
+            "name": "NES"
+          },
+          {
+            "value": "0x03",
+            "name": "SNES"
+          },
+          {
+            "value": "0x04",
+            "name": "PCE 2BTN"
+          },
+          {
+            "value": "0x05",
+            "name": "PCE 6BTN"
+          },
+          {
+            "value": "0x06",
+            "name": "PCE Multitap"
+          },
+          {
+            "value": "0x09",
+            "name": "DB15 Fast"
+          },
+          {
+            "value": "0x0B",
+            "name": "SNES A,B<->X,Y"
+          },
+          {
+            "value": "0x11",
+            "name": "PSX (Digital DPAD)"
+          },
+          {
+            "value": "0x13",
+            "name": "PSX (Analog DPAD)"
+          }
+        ]
+      },
+      {
+        "name": "SNAC Controller Assignment",
+        "id": 50,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF7000000",
+        "defaultval": "0x00",
+        "mask": "0xFFFFFC3F",
+        "options": [
+          {
+            "value": "0x0",
+            "name": "SNAC -> P1"
+          },
+          {
+            "value": "0x40",
+            "name": "SNAC -> P2"
+          },
+          {
+            "value": "0x80",
+            "name": "SNAC P1,P2->P1,P2"
+          },
+          {
+            "value": "0xC0",
+            "name": "SNAC P1,P2->P2,P1"
+          },
+          {
+            "value": "0x200",
+            "name": "SNAC P1,P2->P3,P4"
+          },
+          {
+            "value": "0x100",
+            "name": "SNAC P1-P4->P1-P4"
+          },
+          {
+            "value": "0x140",
+            "name": "SNAC P1-P2->P1-P2"
+          },
+          {
+            "value": "0x180",
+            "name": "SNAC P1-P2->P3-P4"
+          }
+        ]
+      },
+      {
+        "name": "Analogizer Video Out",
+        "id": 60,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0xF7000000",
+        "defaultval": "0x0",
+        "mask": "0xFFFFC3FF",
+        "options": [
+          {
+            "value": "0x0",
+            "name": "RGBS"
+          },
+          {
+            "value": "0x0400",
+            "name": "RGsB"
+          },
+          {
+            "value": "0x0800",
+            "name": "YPbPr"
+          },
+          {
+            "value": "0x0C00",
+            "name": "Y/C NTSC"
+          },
+          {
+            "value": "0x1000",
+            "name": "Y/C PAL"
+          },
+          {
+            "value": "0x1400",
+            "name": "SC 0% RGBHV"
+          },
+          {
+            "value": "0x1800",
+            "name": "SC 50% RGBHV"
+          },
+          {
+            "value": "0x1C00",
+            "name": "SC HQ2x RGBHV"
+          },
+          {
+            "value": "0x2000",
+            "name": "RGBS,Pocket OFF"
+          },
+          {
+            "value": "0x2400",
+            "name": "RGsB,Pocket OFF"
+          },
+          {
+            "value": "0x2800",
+            "name": "YPbPr,Pocket OFF"
+          },
+          {
+            "value": "0x2C00",
+            "name": "Y/C NTSC,Pocket OFF"
+          },
+          {
+            "value": "0x3000",
+            "name": "Y/C PAL,Pocket OFF"
+          },
+          {
+            "value": "0x3400",
+            "name": "SC 0% SC,Pocket OFF"
+          },
+          {
+            "value": "0x3800",
+            "name": "SC 50% RGBHV,Pocket OFF"
+          },
+          {
+            "value": "0x3C00",
+            "name": "SC HQ2x RGBHV,Pocket OFF"
+          }
+        ]
+      },
+      {
+        "name": "Region",
+        "id": 99,
+        "type": "list",
+        "enabled": true,
+        "address": "0x00E00000",
+        "options": [
+          {
+            "value": "0x00000000",
+            "name": "Japan"
+          },
+          {
+            "value": "0x00000001",
+            "name": "United States"
+          },
+          {
+            "value": "0x00000002",
+            "name": "Europe"
+          }
+        ]
+      },
+      {
+        "name": "CPU Turbo",
+        "id": 399,
+        "type": "list",
+        "enabled": true,
+        "writeonly": true,
+        "defaultval": "0x00000000",
+        "address": "0x00C00000",
+        "options": [
+          {
+            "value": "0x00000000",
+            "name": "None"
+          },
+          {
+            "value": "0x00000001",
+            "name": "Medium"
+          },
+          {
+            "value": "0x00000002",
+            "name": "High"
+          }
+        ]
+      },
+      {
+        "name": "Multitap",
+        "id": 9,
+        "type": "check",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00000000",
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Lightgun",
+        "id": 70,
+        "type": "check",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00000100",
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Show Crosshair",
+        "id": 71,
+        "type": "check",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00000104",
+        "writeonly": true,
+        "defaultval": 1,
+        "value": 1
+      },
+      {
+        "name": "D-Pad Aim Speed",
+        "id": 72,
+        "type": "slider_u32",
+        "enabled": true,
+        "address": "0x00000108",
+        "persist": true,
+        "writeonly": true,
+        "defaultval": 3,
+        "graphical": {
+          "signed": false,
+          "min": 1,
+          "max": 10,
+          "adjust_small": 1,
+          "adjust_large": 4
+        }
+      },
+      {
+        "name": "Corrected AR",
+        "id": 10,
+        "type": "check",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00000010",
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Composite Blend",
+        "id": 20,
+        "type": "list",
+        "enabled": true,
+        "writeonly": true,
+        "defaultval": 0,
+        "address": "0x00000020",
+        "persist": true,
+        "options": [
+          {
+            "value": 0,
+            "name": "None"
+          },
+          {
+            "value": 1,
+            "name": "Full"
+          },
+          {
+            "value": 2,
+            "name": "Adaptive"
+          }
+        ]
+      },
+      {
+        "name": "High Sprite Limit",
+        "id": 30,
+        "type": "check",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00000030",
+        "writeonly": true,
+        "defaultval": 0,
+        "value": 1
+      },
+      {
+        "name": "Audio Filter",
+        "id": 199,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00F00000",
+        "writeonly": true,
+        "defaultval": "0x00000000",
+        "options": [
+          {
+            "value": "0x00000000",
+            "name": "Model 1"
+          },
+          {
+            "value": "0x00000001",
+            "name": "Model 2"
+          },
+          {
+            "value": "0x00000002",
+            "name": "Minimal"
+          },
+          {
+            "value": "0x00000003",
+            "name": "None"
+          }
+        ]
+      },
+      {
+        "name": "FM Chip",
+        "id": 299,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00A00000",
+        "writeonly": true,
+        "defaultval": 0,
+        "options": [
+          {
+            "value": 0,
+            "name": "YM2612"
+          },
+          {
+            "value": 1,
+            "name": "YM3438"
+          }
+        ]
+      },
+      {
+        "name": "MD+ Audio",
+        "id": 600,
+        "type": "list",
+        "enabled": true,
+        "persist": true,
+        "address": "0x00000200",
+        "writeonly": true,
+        "defaultval": 0,
+        "options": [
+          {
+            "value": 0,
+            "name": "On 100%"
+          },
+          {
+            "value": 1,
+            "name": "On 75%"
+          },
+          {
+            "value": 2,
+            "name": "On 50%"
+          },
+          {
+            "value": 3,
+            "name": "On 25%"
+          },
+          {
+            "value": 4,
+            "name": "Off"
+          }
+        ]
+      }
+    ],
+    "messages": []
+  }
+}

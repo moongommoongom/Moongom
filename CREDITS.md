@@ -16,3 +16,17 @@ The `snes_msu_ss/` (0.8) tree additionally contains Analogue's openFPGA APF plat
 GPL), the 0.8 save state firmware blocks (S-DD1, MSU-1) and a new SPC7110 block (`tools/boot1/mkboot1.py`).
 `src/fpga/core/rtl/mister_top/sram_split.sv` uses the async SRAM controller engine by Adam Gastineau (agg23,
 openfpga-litex, MIT License).
+
+## Genesis MD+ (`genesis_mdplus/`)
+
+- **ericlewis** — openFPGA Genesis for Analogue Pocket (https://github.com/opengateware/openFPGA-Genesis).
+- **RndMnkIII** — Analogizer version of the Genesis core and Analogizer support code (https://github.com/RndMnkIII/Analogizer).
+- **sorgelig, srg320, Kitrinx and the MiSTer Genesis contributors** — MiSTer Genesis core.
+- **Gregory Estrade (Torlus)** — fpgagen.
+- **Jotego** — jt12 (YM2612) and jt89 (SN76489), GPLv3.
+- **Jorge Cwik** — fx68k (68000). **Daniel Wallner** — T80 (Z80).
+- **agg23** — Analogue Pocket support modules.
+- **Terraonion and the MD+ patch authors** — MD+ / MegaSD CD audio format.
+
+Licenses of each upstream part are listed in [`genesis_mdplus/README.md`](genesis_mdplus/README.md#license);
+every file keeps its original notice. The MD+ and save state additions are GPLv3.
